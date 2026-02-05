@@ -1,0 +1,49 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Player {
+  id            String  @id @default(cuid())
+  guildId       String
+  userId        String
+
+  // Bleach meta (1:1 как в json)
+  survivalBonus Int     @default(0)
+  lastDaily     BigInt  @default(0)
+
+  @@unique([guildId, userId])
+
+  balances Balance[]
+  items    Item[]
+}
+
+model Balance {
+  id       String @id @default(cuid())
+  guildId  String
+  userId   String
+  eventKey String
+  currency String
+  amount   Int    @default(0)
+
+  player Player @relation(fields: [guildId, userId], references: [guildId, userId], onDelete: Cascade)
+
+  @@unique([guildId, userId, eventKey, currency])
+}
+
+model Item {
+  id       String  @id @default(cuid())
+  guildId  String
+  userId   String
+  eventKey String
+  key      String
+  owned    Boolean @default(true)
+
+  player Player @relation(fields: [guildId, userId], references: [guildId, userId], onDelete: Cascade)
+
+  @@unique([guildId, userId, eventKey, key])
+}
