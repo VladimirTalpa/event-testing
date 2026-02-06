@@ -39,13 +39,11 @@ const COLOR = 0x7b2cff;
 
 // Boss
 const BOSS_NAME = "Vasto Lorde";
-const BOSS_JOIN_MS = 2 * 60 * 1000; // ✅ 2 minutes join time
+const BOSS_JOIN_MS = 2 * 60 * 1000; // 2 minutes join time
 const BOSS_ROUNDS = 4;
 const ROUND_COOLDOWN_MS = 10 * 1000;
 const BASE_SURVIVE_CHANCE = 0.30;
 const BOSS_REIATSU_REWARD = 200;
-
-// ✅ bonus Reiatsu for each successful round
 const BOSS_SURVIVE_HIT_REIATSU = 10;
 
 // Hollow mini-event
@@ -107,19 +105,20 @@ const CLASH_START_GIF =
 const CLASH_VICTORY_GIF =
   "https://media.discordapp.net/attachments/1405973335979851877/1467446050116862113/Your_paragraph_text_9.gif?ex=69806922&is=697f17a2&hm=568709eed12dec446ea88e589be0d97e4db67cac24e1a51b1b7ff91e92882e2e&=";
 
-/* ===================== REDIS STORAGE ===================== */
+/* ===================== REDIS ===================== */
 const REDIS_PLAYERS_KEY = "bleach:players";
 let redis;
 
 async function initRedis() {
   if (redis) return redis;
 
-  if (!process.env.REDIS_URL) {
-    console.error("❌ Missing REDIS_URL. Add Railway Redis (it gives REDIS_URL).");
+  const url = process.env.REDIS_URL;
+  if (!url) {
+    console.error("❌ Missing REDIS_URL. Add Railway Redis and set REDIS_URL in bot service variables.");
     process.exit(1);
   }
 
-  redis = createClient({ url: process.env.REDIS_URL });
+  redis = createClient({ url });
   redis.on("error", (err) => console.error("Redis error:", err));
   await redis.connect();
   console.log("✅ Redis connected");
@@ -163,11 +162,11 @@ async function getPlayer(userId) {
   }
 }
 
-async function setPlayer(userId, playerObj) {
+async function setPlayer(userId, obj) {
   await initRedis();
-  const normalized = normalizePlayer(playerObj);
-  await redis.hSet(REDIS_PLAYERS_KEY, userId, JSON.stringify(normalized));
-  return normalized;
+  const p = normalizePlayer(obj);
+  await redis.hSet(REDIS_PLAYERS_KEY, userId, JSON.stringify(p));
+  return p;
 }
 
 async function getTopPlayers(limit = 10) {
@@ -654,21 +653,23 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return interaction.reply({ content: "❌ Use commands in a text channel.", ephemeral: true });
       }
 
+      // ✅ FIXED: /spawn_hollow => Hollow
       if (interaction.commandName === "spawn_hollow") {
-        if (!hasEventRole(interaction.member)) {
-          return interaction.reply({ content: "⛔ You don’t have the required role.", ephemeral: true });
-        }
-        await interaction.reply({ content: `✅ ${E_VASTO} Boss spawned.`, ephemeral: true });
-        await spawnBoss(channel, true);
-        return;
-      }
-
-      if (interaction.commandName === "spawn_hollowling") {
         if (!hasEventRole(interaction.member)) {
           return interaction.reply({ content: "⛔ You don’t have the required role.", ephemeral: true });
         }
         await interaction.reply({ content: "✅ Hollow spawned.", ephemeral: true });
         await spawnHollow(channel, true);
+        return;
+      }
+
+      // ✅ NEW: /spawn_boss => Vasto Lorde
+      if (interaction.commandName === "spawn_boss") {
+        if (!hasEventRole(interaction.member)) {
+          return interaction.reply({ content: "⛔ You don’t have the required role.", ephemeral: true });
+        }
+        await interaction.reply({ content: `✅ ${E_VASTO} Boss spawned.`, ephemeral: true });
+        await spawnBoss(channel, true);
         return;
       }
 
