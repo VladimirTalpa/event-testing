@@ -10,7 +10,6 @@ const {
   ButtonStyle,
   PermissionsBitField,
 } = require("discord.js");
-
 const { createClient } = require("redis");
 
 /* ===================== CONFIG ===================== */
@@ -46,35 +45,35 @@ const ROUND_COOLDOWN_MS = 10 * 1000;
 const BASE_SURVIVE_CHANCE = 0.30;
 const BOSS_REIATSU_REWARD = 200;
 
-// ✅ New: bonus Reiatsu for each successful round (survive = "hit")
+// ✅ bonus Reiatsu for each successful round
 const BOSS_SURVIVE_HIT_REIATSU = 10;
 
 // Hollow mini-event
-const HOLLOW_EVENT_MS = 2 * 60 * 1000; // ✅ 2 minutes to join/attack
+const HOLLOW_EVENT_MS = 2 * 60 * 1000;
 const HOLLOW_HIT_REIATSU = 25;
 const HOLLOW_MISS_REIATSU = 10;
-const BONUS_PER_HOLLOW_KILL = 1; // +1% only for hitters
+const BONUS_PER_HOLLOW_KILL = 1;
 const BONUS_MAX = 30;
 
 // Drops
 const BOSS_DROP_ROLE_ID = "1467426528584405103";
 const DROP_ROLE_CHANCE_BASE = 0.05;
 
-// Robux: real vs display (as requested)
-const DROP_ROBUX_CHANCE_REAL_BASE = 0.005; // 0.5% actual
-const DROP_ROBUX_CHANCE_DISPLAY = 0.025;   // 2.5% shown
+// Robux: real vs display
+const DROP_ROBUX_CHANCE_REAL_BASE = 0.005;
+const DROP_ROBUX_CHANCE_DISPLAY = 0.025;
 const ROBUX_CLAIM_TEXT = "To claim: contact **daez063**.";
 
-// Caps to keep balance
-const DROP_ROLE_CHANCE_CAP = 0.12;   // 12% max
-const DROP_ROBUX_CHANCE_CAP = 0.01;  // 1% max
+// Caps
+const DROP_ROLE_CHANCE_CAP = 0.12;
+const DROP_ROBUX_CHANCE_CAP = 0.01;
 
 // Shop cosmetic role
 const SHOP_COSMETIC_ROLE_ID = "1467438527200497768";
 
 // PvP
 const CLASH_RESPONSE_MS = 20 * 1000;
-const CLASH_COOLDOWN_MS = 5 * 60 * 1000; // ✅ 5 minutes cooldown
+const CLASH_COOLDOWN_MS = 5 * 60 * 1000;
 
 // Daily claim
 const DAILY_COOLDOWN_MS = 24 * 60 * 60 * 1000;
@@ -108,27 +107,20 @@ const CLASH_START_GIF =
 const CLASH_VICTORY_GIF =
   "https://media.discordapp.net/attachments/1405973335979851877/1467446050116862113/Your_paragraph_text_9.gif?ex=69806922&is=697f17a2&hm=568709eed12dec446ea88e589be0d97e4db67cac24e1a51b1b7ff91e92882e2e&=";
 
-/* ===================== REDIS (Railway) ===================== */
-/**
- * Railway Redis обычно даёт переменную REDIS_URL автоматически.
- * Мы храним игроков в hash:
- * key = bleach:players
- * field = userId
- * value = JSON.stringify(player)
- */
+/* ===================== REDIS STORAGE ===================== */
 const REDIS_PLAYERS_KEY = "bleach:players";
-
 let redis;
-async function getRedis() {
+
+async function initRedis() {
   if (redis) return redis;
 
   if (!process.env.REDIS_URL) {
-    throw new Error("Missing REDIS_URL. Add Railway Redis and set REDIS_URL variable.");
+    console.error("❌ Missing REDIS_URL. Add Railway Redis (it gives REDIS_URL).");
+    process.exit(1);
   }
 
   redis = createClient({ url: process.env.REDIS_URL });
   redis.on("error", (err) => console.error("Redis error:", err));
-
   await redis.connect();
   console.log("✅ Redis connected");
   return redis;
@@ -155,45 +147,42 @@ function normalizePlayer(raw = {}) {
 }
 
 async function getPlayer(userId) {
-  const r = await getRedis();
-  const raw = await r.hGet(REDIS_PLAYERS_KEY, userId);
-
+  await initRedis();
+  const raw = await redis.hGet(REDIS_PLAYERS_KEY, userId);
   if (!raw) {
     const fresh = normalizePlayer({});
-    await r.hSet(REDIS_PLAYERS_KEY, userId, JSON.stringify(fresh));
+    await redis.hSet(REDIS_PLAYERS_KEY, userId, JSON.stringify(fresh));
     return fresh;
   }
-
   try {
     return normalizePlayer(JSON.parse(raw));
   } catch {
     const fresh = normalizePlayer({});
-    await r.hSet(REDIS_PLAYERS_KEY, userId, JSON.stringify(fresh));
+    await redis.hSet(REDIS_PLAYERS_KEY, userId, JSON.stringify(fresh));
     return fresh;
   }
 }
 
 async function setPlayer(userId, playerObj) {
-  const r = await getRedis();
+  await initRedis();
   const normalized = normalizePlayer(playerObj);
-  await r.hSet(REDIS_PLAYERS_KEY, userId, JSON.stringify(normalized));
+  await redis.hSet(REDIS_PLAYERS_KEY, userId, JSON.stringify(normalized));
   return normalized;
 }
 
 async function getTopPlayers(limit = 10) {
-  const r = await getRedis();
-  const all = await r.hGetAll(REDIS_PLAYERS_KEY); // { userId: json }
+  await initRedis();
+  const all = await redis.hGetAll(REDIS_PLAYERS_KEY);
   const rows = Object.entries(all).map(([userId, json]) => {
     let p = {};
     try { p = normalizePlayer(JSON.parse(json)); } catch {}
     return { userId, reiatsu: p.reiatsu || 0 };
   });
-
   rows.sort((a, b) => b.reiatsu - a.reiatsu);
   return rows.slice(0, limit);
 }
 
-/* ===================== SHOP (balanced: defense + drop luck) ===================== */
+/* ===================== SHOP ===================== */
 const SHOP_ITEMS = [
   { key: "zanpakuto_basic", name: "Zanpakutō (basic)", price: 350, desc: `+4% survive vs ${BOSS_NAME} • +5% drop luck` },
   { key: "hollow_mask_fragment", name: "Hollow Mask Fragment", price: 900, desc: `+7% survive vs ${BOSS_NAME} • +10% drop luck` },
@@ -218,7 +207,7 @@ function calcDropLuckMultiplier(items) {
   if (items.zanpakuto_basic) mult += 0.05;
   if (items.hollow_mask_fragment) mult += 0.10;
   if (items.soul_reaper_cloak) mult += 0.06;
-  return mult; // max 1.21
+  return mult;
 }
 
 /* ===================== HELPERS ===================== */
@@ -479,6 +468,7 @@ async function runBoss(channel, boss) {
       for (const uid of alive) {
         const state = boss.participants.get(uid);
         const player = await getPlayer(uid);
+
         const survived = Math.random() < computeBossSurviveChance(player);
         const name = safeName(state.displayName);
 
@@ -517,7 +507,6 @@ async function runBoss(channel, boss) {
       return;
     }
 
-    // Rewards + drops
     const lines = [];
 
     for (const uid of alive) {
@@ -638,13 +627,7 @@ const client = new Client({
 
 client.once(Events.ClientReady, async () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
-
-  // Connect redis on boot (fail fast)
-  try {
-    await getRedis();
-  } catch (e) {
-    console.error("❌ Redis not ready:", e?.message || e);
-  }
+  await initRedis();
 
   const autoChannel = await client.channels.fetch(AUTO_EVENT_CHANNEL_ID).catch(() => null);
   if (!autoChannel || !autoChannel.isTextBased()) {
@@ -665,7 +648,6 @@ client.once(Events.ClientReady, async () => {
 /* ===================== INTERACTIONS ===================== */
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
-    /* ---------- SLASH ---------- */
     if (interaction.isChatInputCommand()) {
       const channel = interaction.channel;
       if (!channel || !channel.isTextBased()) {
@@ -708,8 +690,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       if (interaction.commandName === "leaderboard") {
         const rows = await getTopPlayers(10);
-
         const entries = [];
+
         for (const r of rows) {
           let name = r.userId;
           try {
@@ -822,7 +804,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
     }
 
-    /* ---------- BUTTONS (Railway-safe + aliases) ---------- */
     if (interaction.isButton()) {
       try { await interaction.deferUpdate(); } catch {}
 
@@ -831,7 +812,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       const cid = interaction.customId;
 
-      // Boss join aliases
       if (CID.BOSS_JOIN.includes(cid)) {
         const boss = bossByChannel.get(channel.id);
         if (!boss || !boss.joining) {
@@ -855,7 +835,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return;
       }
 
-      // Boss rules aliases
       if (CID.BOSS_RULES.includes(cid)) {
         await interaction.followUp({
           content:
@@ -867,7 +846,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return;
       }
 
-      // Hollow attack aliases
       if (CID.HOLLOW_ATTACK.includes(cid)) {
         const hollow = hollowByChannel.get(channel.id);
         if (!hollow || hollow.resolved) {
@@ -892,7 +870,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return;
       }
 
-      // Shop buys
       if (cid.startsWith("buy_")) {
         const player = await getPlayer(interaction.user.id);
 
@@ -942,7 +919,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return;
       }
 
-      // Clash accept/decline
       if (cid === "clash_accept" || cid === "clash_decline") {
         const clash = clashByChannel.get(channel.id);
         if (!clash || clash.resolved) return;
@@ -960,7 +936,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
           return;
         }
 
-        // accept
         clash.resolved = true;
         await editMessageSafe(channel, clash.messageId, { components: clashButtons(true) });
         await channel.send(`${E_REIATSU} 💥 Reiatsu pressure is rising…`).catch(() => {});
