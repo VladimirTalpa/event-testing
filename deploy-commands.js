@@ -14,7 +14,9 @@ const commands = [
   new SlashCommandBuilder()
     .setName("reatsu")
     .setDescription("Check Reiatsu balance")
-    .addUserOption(opt => opt.setName("user").setDescription("User to check").setRequired(false)),
+    .addUserOption((opt) =>
+      opt.setName("user").setDescription("User to check").setRequired(false)
+    ),
 
   new SlashCommandBuilder()
     .setName("inventory")
@@ -31,28 +33,39 @@ const commands = [
   new SlashCommandBuilder()
     .setName("give_reatsu")
     .setDescription("Transfer Reiatsu to another player")
-    .addUserOption(opt => opt.setName("user").setDescription("Target player").setRequired(true))
-    .addIntegerOption(opt =>
-      opt.setName("amount").setDescription("Amount of Reiatsu (minimum 50)").setRequired(true).setMinValue(50)
+    .addUserOption((opt) =>
+      opt.setName("user").setDescription("Target player").setRequired(true)
+    )
+    .addIntegerOption((opt) =>
+      opt
+        .setName("amount")
+        .setDescription("Amount of Reiatsu (minimum 50)")
+        .setRequired(true)
+        .setMinValue(50)
     ),
 
   new SlashCommandBuilder()
     .setName("reatsu_clash")
     .setDescription("Challenge another player to a Reiatsu clash (50/50)")
-    .addUserOption(opt => opt.setName("user").setDescription("Opponent").setRequired(true))
-    .addIntegerOption(opt =>
-      opt.setName("stake").setDescription("Reiatsu stake").setRequired(true).setMinValue(50)
+    .addUserOption((opt) =>
+      opt.setName("user").setDescription("Opponent").setRequired(true)
+    )
+    .addIntegerOption((opt) =>
+      opt
+        .setName("stake")
+        .setDescription("Reiatsu stake")
+        .setRequired(true)
+        .setMinValue(50)
     ),
 
   new SlashCommandBuilder()
     .setName("dailyclaim")
     .setDescription("Claim your daily Reiatsu reward"),
 
-  // ✅ ONE COMMAND + CHOICE
   new SlashCommandBuilder()
     .setName("spawnboss")
     .setDescription("Spawn a boss event (event staff only)")
-    .addStringOption(opt =>
+    .addStringOption((opt) =>
       opt
         .setName("boss")
         .setDescription("Choose boss")
@@ -63,19 +76,36 @@ const commands = [
         )
     ),
 
-  // keep manual hollow
   new SlashCommandBuilder()
     .setName("spawn_hollow")
-    .setDescription("Manually spawn a mini Hollow event"),
+    .setDescription("Manually spawn a mini Hollow event (event staff only)"),
 
-].map(c => c.toJSON());
+  // ✅ WARDROBE
+  new SlashCommandBuilder()
+    .setName("wardrobe")
+    .setDescription("Open your role wardrobe (equip/unequip saved roles)"),
+
+  // ✅ REIATSU -> DRAKO (NO REVERSE)
+  new SlashCommandBuilder()
+    .setName("exchange_drako")
+    .setDescription("Exchange Reiatsu to Drako Coin (NO reverse exchange)")
+    .addIntegerOption((opt) =>
+      opt
+        .setName("drako")
+        .setDescription("How many Drako Coin you want to buy (1 Drako = 47 Reiatsu)")
+        .setRequired(true)
+        .setMinValue(1)
+    ),
+].map((c) => c.toJSON());
 
 const rest = new REST({ version: "10" }).setToken(TOKEN);
 
 (async () => {
   try {
     console.log("🔄 Deploying slash commands...");
-    await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: commands });
+    await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), {
+      body: commands,
+    });
     console.log("✅ Slash commands successfully deployed!");
   } catch (e) {
     console.error("❌ Failed to deploy commands:", e);
