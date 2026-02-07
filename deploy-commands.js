@@ -11,60 +11,134 @@ if (!TOKEN || !CLIENT_ID || !GUILD_ID) {
 }
 
 const commands = [
+  // balances
   new SlashCommandBuilder()
     .setName("reatsu")
-    .setDescription("Check Reiatsu balance")
+    .setDescription("Check Reiatsu balance (Bleach)")
     .addUserOption((opt) =>
       opt.setName("user").setDescription("User to check").setRequired(false)
     ),
 
   new SlashCommandBuilder()
-    .setName("inventory")
-    .setDescription("View your inventory and bonuses"),
+    .setName("cursedenergy")
+    .setDescription("Check Cursed Energy balance (JJK)")
+    .addUserOption((opt) =>
+      opt.setName("user").setDescription("User to check").setRequired(false)
+    ),
 
+  // inventories
+  new SlashCommandBuilder()
+    .setName("inventory")
+    .setDescription("View your inventory (choose event)")
+    .addStringOption((opt) =>
+      opt
+        .setName("event")
+        .setDescription("Which event inventory?")
+        .setRequired(true)
+        .addChoices(
+          { name: "Bleach", value: "bleach" },
+          { name: "Jujutsu Kaisen", value: "jjk" }
+        )
+    ),
+
+  // shops
   new SlashCommandBuilder()
     .setName("shop")
-    .setDescription("Open the Reiatsu shop"),
+    .setDescription("Open the shop (choose event)")
+    .addStringOption((opt) =>
+      opt
+        .setName("event")
+        .setDescription("Which event shop?")
+        .setRequired(true)
+        .addChoices(
+          { name: "Bleach", value: "bleach" },
+          { name: "Jujutsu Kaisen", value: "jjk" }
+        )
+    ),
+
+  // wardrobe
+  new SlashCommandBuilder()
+    .setName("wardrobe")
+    .setDescription("Open your role wardrobe (choose event)")
+    .addStringOption((opt) =>
+      opt
+        .setName("event")
+        .setDescription("Which event wardrobe?")
+        .setRequired(true)
+        .addChoices(
+          { name: "Bleach", value: "bleach" },
+          { name: "Jujutsu Kaisen", value: "jjk" }
+        )
+    ),
 
   new SlashCommandBuilder()
     .setName("leaderboard")
-    .setDescription("View the Reiatsu leaderboard"),
+    .setDescription("View leaderboard (choose event)")
+    .addStringOption((opt) =>
+      opt
+        .setName("event")
+        .setDescription("Which event leaderboard?")
+        .setRequired(true)
+        .addChoices(
+          { name: "Bleach (Reiatsu)", value: "bleach" },
+          { name: "Jujutsu Kaisen (Cursed Energy)", value: "jjk" }
+        )
+    ),
 
+  // transfers (only inside same event currency)
   new SlashCommandBuilder()
-    .setName("give_reatsu")
-    .setDescription("Transfer Reiatsu to another player")
+    .setName("give_currency")
+    .setDescription("Transfer currency to another player (same event only)")
+    .addStringOption((opt) =>
+      opt
+        .setName("event")
+        .setDescription("Which currency?")
+        .setRequired(true)
+        .addChoices(
+          { name: "Bleach (Reiatsu)", value: "bleach" },
+          { name: "Jujutsu Kaisen (Cursed Energy)", value: "jjk" }
+        )
+    )
     .addUserOption((opt) =>
       opt.setName("user").setDescription("Target player").setRequired(true)
     )
     .addIntegerOption((opt) =>
       opt
         .setName("amount")
-        .setDescription("Amount of Reiatsu (minimum 50)")
+        .setDescription("Amount (minimum 50)")
         .setRequired(true)
         .setMinValue(50)
     ),
 
-  new SlashCommandBuilder()
-    .setName("reatsu_clash")
-    .setDescription("Challenge another player to a Reiatsu clash (50/50)")
-    .addUserOption((opt) =>
-      opt.setName("user").setDescription("Opponent").setRequired(true)
-    )
-    .addIntegerOption((opt) =>
-      opt
-        .setName("stake")
-        .setDescription("Reiatsu stake")
-        .setRequired(true)
-        .setMinValue(50)
-    ),
-
+  // daily
   new SlashCommandBuilder()
     .setName("dailyclaim")
-    .setDescription("Claim your daily Reiatsu reward"),
+    .setDescription("Claim daily reward (choose event)")
+    .addStringOption((opt) =>
+      opt
+        .setName("event")
+        .setDescription("Which event daily?")
+        .setRequired(true)
+        .addChoices(
+          { name: "Bleach", value: "bleach" },
+          { name: "Jujutsu Kaisen", value: "jjk" }
+        )
+    ),
 
+  // spawn boss (event staff)
   new SlashCommandBuilder()
     .setName("spawnboss")
     .setDescription("Spawn a boss event (event staff only)")
+    .addStringOption((opt) =>
+      opt
+        .setName("event")
+        .setDescription("Which event?")
+        .setRequired(true)
+        .addChoices(
+          { name: "Bleach", value: "bleach" },
+          { name: "Jujutsu Kaisen", value: "jjk" }
+        )
+    )
     .addStringOption((opt) =>
       opt
         .setName("boss")
@@ -72,27 +146,44 @@ const commands = [
         .setRequired(true)
         .addChoices(
           { name: "Vasto Lorde", value: "vasto" },
-          { name: "Ulquiorra", value: "ulquiorra" }
+          { name: "Ulquiorra", value: "ulquiorra" },
+          { name: "Special Grade Curse", value: "special_grade" }
         )
     ),
 
+  // spawn mob (event staff)
   new SlashCommandBuilder()
-    .setName("spawn_hollow")
-    .setDescription("Manually spawn a mini Hollow event (event staff only)"),
+    .setName("spawnmob")
+    .setDescription("Spawn a mob event (event staff only)")
+    .addStringOption((opt) =>
+      opt
+        .setName("event")
+        .setDescription("Which event?")
+        .setRequired(true)
+        .addChoices(
+          { name: "Bleach (Hollow)", value: "bleach" },
+          { name: "Jujutsu Kaisen (Cursed Spirit)", value: "jjk" }
+        )
+    ),
 
-  // ✅ WARDROBE
-  new SlashCommandBuilder()
-    .setName("wardrobe")
-    .setDescription("Open your role wardrobe (equip/unequip saved roles)"),
-
-  // ✅ REIATSU -> DRAKO (NO REVERSE)
+  // exchange to drako (NO REVERSE)
   new SlashCommandBuilder()
     .setName("exchange_drako")
-    .setDescription("Exchange Reiatsu to Drako Coin (NO reverse exchange)")
+    .setDescription("Exchange event currency to Drako Coin (NO reverse exchange)")
+    .addStringOption((opt) =>
+      opt
+        .setName("event")
+        .setDescription("Which event currency to exchange?")
+        .setRequired(true)
+        .addChoices(
+          { name: "Bleach (47 Reiatsu = 1 Drako)", value: "bleach" },
+          { name: "Jujutsu Kaisen (18 Cursed Energy = 1 Drako)", value: "jjk" }
+        )
+    )
     .addIntegerOption((opt) =>
       opt
         .setName("drako")
-        .setDescription("How many Drako Coin you want to buy (1 Drako = 47 Reiatsu)")
+        .setDescription("How many Drako you want to buy")
         .setRequired(true)
         .setMinValue(1)
     ),
