@@ -6,7 +6,7 @@ const CLIENT_ID = process.env.CLIENT_ID;
 const GUILD_ID = process.env.GUILD_ID;
 
 if (!TOKEN || !CLIENT_ID || !GUILD_ID) {
-  console.error("❌ Missing env vars: DISCORD_TOKEN, CLIENT_ID, GUILD_ID");
+  console.error("❌ Missing env vars. Need: DISCORD_TOKEN, CLIENT_ID, GUILD_ID");
   process.exit(1);
 }
 
@@ -32,36 +32,42 @@ const commands = [
     .setName("give_reatsu")
     .setDescription("Transfer Reiatsu to another player")
     .addUserOption(opt => opt.setName("user").setDescription("Target player").setRequired(true))
-    .addIntegerOption(opt => opt.setName("amount").setDescription("Amount (min 50)").setRequired(true).setMinValue(50)),
+    .addIntegerOption(opt =>
+      opt.setName("amount").setDescription("Amount of Reiatsu (minimum 50)").setRequired(true).setMinValue(50)
+    ),
 
   new SlashCommandBuilder()
     .setName("reatsu_clash")
     .setDescription("Challenge another player to a Reiatsu clash (50/50)")
     .addUserOption(opt => opt.setName("user").setDescription("Opponent").setRequired(true))
-    .addIntegerOption(opt => opt.setName("stake").setDescription("Reiatsu stake").setRequired(true).setMinValue(50)),
+    .addIntegerOption(opt =>
+      opt.setName("stake").setDescription("Reiatsu stake").setRequired(true).setMinValue(50)
+    ),
 
   new SlashCommandBuilder()
     .setName("dailyclaim")
     .setDescription("Claim your daily Reiatsu reward"),
 
-  // ✅ Hollow
+  // ✅ ONE COMMAND + CHOICE
   new SlashCommandBuilder()
-    .setName("spawn_hollowling")
-    .setDescription("Manually spawn a mini Hollow event"),
-
-  // ✅ 2 bosses
-  new SlashCommandBuilder()
-    .setName("spawn_boss")
-    .setDescription("Manually spawn a boss")
+    .setName("spawnboss")
+    .setDescription("Spawn a boss event (event staff only)")
     .addStringOption(opt =>
-      opt.setName("boss")
-        .setDescription("Which boss")
+      opt
+        .setName("boss")
+        .setDescription("Choose boss")
         .setRequired(true)
         .addChoices(
           { name: "Vasto Lorde", value: "vasto" },
           { name: "Ulquiorra", value: "ulquiorra" }
         )
     ),
+
+  // keep manual hollow
+  new SlashCommandBuilder()
+    .setName("spawn_hollow")
+    .setDescription("Manually spawn a mini Hollow event"),
+
 ].map(c => c.toJSON());
 
 const rest = new REST({ version: "10" }).setToken(TOKEN);
