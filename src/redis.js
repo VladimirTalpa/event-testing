@@ -1,22 +1,14 @@
 const { createClient } = require("redis");
 
-let client;
-
-async function getRedis() {
-  if (client) return client;
-
+async function makeRedis() {
   const url = process.env.REDIS_URL;
-  if (!url) {
-    console.error("❌ Missing REDIS_URL (set it in Railway bot service Variables).");
-    process.exit(1);
-  }
+  if (!url) throw new Error("Missing REDIS_URL in Railway Variables");
 
-  client = createClient({ url });
-  client.on("error", (err) => console.error("Redis error:", err));
+  const client = createClient({ url });
+  client.on("error", (e) => console.error("Redis error:", e));
 
-  await client.connect();
-  console.log("✅ Redis connected");
+  if (!client.isOpen) await client.connect();
   return client;
 }
 
-module.exports = { getRedis };
+module.exports = { makeRedis };
