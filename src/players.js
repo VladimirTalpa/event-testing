@@ -1,14 +1,8 @@
-const { getRedis } = require("./redis");
-
 const PLAYERS_KEY = "bleach:players";
 
 function normalizePlayer(raw = {}) {
-  const reiatsu = Number.isFinite(raw.reiatsu)
-    ? raw.reiatsu
-    : (Number.isFinite(raw.reatsu) ? raw.reatsu : 0);
-
+  const reiatsu = Number.isFinite(raw.reiatsu) ? raw.reiatsu : (Number.isFinite(raw.reatsu) ? raw.reatsu : 0);
   const items = raw.items && typeof raw.items === "object" ? raw.items : {};
-
   return {
     reiatsu,
     survivalBonus: Number.isFinite(raw.survivalBonus) ? raw.survivalBonus : 0,
@@ -23,40 +17,43 @@ function normalizePlayer(raw = {}) {
   };
 }
 
-async function getPlayer(userId) {
-  const r = await getRedis();
-  const raw = await r.hGet(PLAYERS_KEY, userId);
-  if (!raw) {
-    const fresh = normalizePlayer({});
-    await r.hSet(PLAYERS_KEY, userId, JSON.stringify(fresh));
-    return fresh;
-  }
-  try {
-    return normalizePlayer(JSON.parse(raw));
-  } catch {
-    const fresh = normalizePlayer({});
-    await r.hSet(PLAYERS_KEY, userId, JSON.stringify(fresh));
-    return fresh;
-  }
+function playersApi(redis) {
+  return {
+    async get(userId) {
+      const raw = await redis.hGet(PLAYERS_KEY, userId);
+      if (!raw) {
+        const fresh = normalizePlayer({});
+        await redis.hSet(PLAYERS_KEY, userId, JSON.stringify(fresh));
+        return fresh;
+      }
+      try {
+        return normalizePlayer(JSON.parse(raw));
+      } catch {
+        const fresh = normalizePlayer({});
+        await redis.hSet(PLAYERS_KEY, userId, JSON.stringify(fresh));
+        return fresh;
+      }
+    },
+
+    async set(userId, obj) {
+      const p = normalizePlayer(obj);
+      await redis.hSet(PLAYERS_KEY, userId, JSON.stringify(p));
+      return p;
+    },
+
+    async allTop(limit = 10) {
+      const all = await redis.hGetAll(PLAYERS_KEY);
+      const rows = Object.entries(all).map(([userId, json]) => {
+        let p = {};
+        try { p = normalizePlayer(JSON.parse(json)); } catch {}
+        return { userId, reiatsu: p.reiatsu || 0 };
+      });
+      rows.sort((a, b) => b.reiatsu - a.reiatsu);
+      return rows.slice(0, limit);
+    },
+
+    normalizePlayer,
+  };
 }
 
-async function setPlayer(userId, obj) {
-  const r = await getRedis();
-  const p = normalizePlayer(obj);
-  await r.hSet(PLAYERS_KEY, userId, JSON.stringify(p));
-  return p;
-}
-
-async function getTopPlayers(limit = 10) {
-  const r = await getRedis();
-  const all = await r.hGetAll(PLAYERS_KEY);
-  const rows = Object.entries(all).map(([userId, json]) => {
-    let p = {};
-    try { p = normalizePlayer(JSON.parse(json)); } catch {}
-    return { userId, reiatsu: p.reiatsu || 0 };
-  });
-  rows.sort((a, b) => b.reiatsu - a.reiatsu);
-  return rows.slice(0, limit);
-}
-
-module.exports = { normalizePlayer, getPlayer, setPlayer, getTopPlayers };
+module.exports = { playersApi, normalizePlayer };
