@@ -1,19 +1,32 @@
+const {
+  E_REIATSU,
+  HOLLOW_EVENT_MS,
+  HOLLOW_HIT_REIATSU,
+  HOLLOW_MISS_REIATSU,
+  BONUS_PER_HOLLOW_KILL,
+  BONUS_MAX,
+} = require("../config");
 
-const cfg = require("../config");
-const { hollowByChannel } = require("../state");
-const { safeName, editMessageSafe } = require("../utils");
+const { hollowEmbed } = require("../embeds");
 const { hollowButtons } = require("../components");
-const embeds = require("../embeds");
-const { getPlayer, setPlayer } = require("../players");
 
-async function spawnHollow(channel, withPing = true) {
+function safeName(name) { return String(name || "Unknown").replace(/@/g, "").replace(/#/g, "＃"); }
+
+async function editMessageSafe(channel, messageId, payload) {
+  const msg = await channel.messages.fetch(messageId).catch(() => null);
+  if (!msg) return null;
+  await msg.edit(payload).catch(() => {});
+  return msg;
+}
+
+async function spawnHollow(channel, hollowByChannel, players, pingRoleId) {
   if (hollowByChannel.has(channel.id)) return;
 
-  if (withPing) await channel.send(`<@&${cfg.PING_HOLLOW_ROLE_ID}>`).catch(() => {});
+  if (pingRoleId) await channel.send(`<@&${pingRoleId}>`).catch(() => {});
   const hollow = { messageId: null, attackers: new Map(), resolved: false };
 
   const msg = await channel.send({
-    embeds: [embeds.hollowEmbed(0)],
+    embeds: [hollowEmbed(0)],
     components: hollowButtons(false),
   });
 
@@ -30,20 +43,20 @@ async function spawnHollow(channel, withPing = true) {
 
     for (const [uid, info] of still.attackers.entries()) {
       const hit = Math.random() < 0.5;
-      const player = await getPlayer(uid);
+      const player = await players.get(uid);
       const name = safeName(info.displayName);
 
       if (hit) {
         anyHit = true;
-        player.reiatsu += cfg.HOLLOW_HIT_REIATSU;
-        player.survivalBonus = Math.min(cfg.BONUS_MAX, player.survivalBonus + cfg.BONUS_PER_HOLLOW_KILL);
-        lines.push(`⚔️ **${name}** hit! +${cfg.E_REIATSU} ${cfg.HOLLOW_HIT_REIATSU} • bonus +${cfg.BONUS_PER_HOLLOW_KILL}%`);
+        player.reiatsu += HOLLOW_HIT_REIATSU;
+        player.survivalBonus = Math.min(BONUS_MAX, player.survivalBonus + BONUS_PER_HOLLOW_KILL);
+        lines.push(`⚔️ **${name}** hit! +${E_REIATSU} ${HOLLOW_HIT_REIATSU} • bonus +${BONUS_PER_HOLLOW_KILL}%`);
       } else {
-        player.reiatsu += cfg.HOLLOW_MISS_REIATSU;
-        lines.push(`💨 **${name}** missed. +${cfg.E_REIATSU} ${cfg.HOLLOW_MISS_REIATSU}`);
+        player.reiatsu += HOLLOW_MISS_REIATSU;
+        lines.push(`💨 **${name}** missed. +${E_REIATSU} ${HOLLOW_MISS_REIATSU}`);
       }
 
-      await setPlayer(uid, player);
+      await players.set(uid, player);
     }
 
     await editMessageSafe(channel, still.messageId, { components: hollowButtons(true) });
@@ -56,7 +69,7 @@ async function spawnHollow(channel, withPing = true) {
     }
 
     hollowByChannel.delete(channel.id);
-  }, cfg.HOLLOW_EVENT_MS);
+  }, HOLLOW_EVENT_MS);
 }
 
 module.exports = { spawnHollow };
