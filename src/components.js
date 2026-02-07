@@ -1,11 +1,4 @@
-
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
-
-const CID = {
-  BOSS_JOIN: ["boss_join", "vasto_join", "hollow_join"],
-  BOSS_RULES: ["boss_rules", "vasto_rules", "hollow_rules"],
-  HOLLOW_ATTACK: ["hollow_attack", "hollow_join", "hollow_attack_btn"],
-};
 
 function bossButtons(disabled = false) {
   return [
@@ -24,6 +17,20 @@ function hollowButtons(disabled = false) {
   ];
 }
 
+function shopButtons(player) {
+  const inv = player.items;
+  const row1 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId("buy_zanpakuto_basic").setLabel("Buy Zanpakutō").setStyle(ButtonStyle.Secondary).setDisabled(inv.zanpakuto_basic),
+    new ButtonBuilder().setCustomId("buy_hollow_mask_fragment").setLabel("Buy Mask Fragment").setStyle(ButtonStyle.Secondary).setDisabled(inv.hollow_mask_fragment),
+    new ButtonBuilder().setCustomId("buy_soul_reaper_cloak").setLabel("Buy Cloak").setStyle(ButtonStyle.Secondary).setDisabled(inv.soul_reaper_cloak)
+  );
+  const row2 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId("buy_reiatsu_amplifier").setLabel("Buy Amplifier").setStyle(ButtonStyle.Secondary).setDisabled(inv.reiatsu_amplifier),
+    new ButtonBuilder().setCustomId("buy_cosmetic_role").setLabel("Buy Sousuke Aizen role").setStyle(ButtonStyle.Danger).setDisabled(inv.cosmetic_role)
+  );
+  return [row1, row2];
+}
+
 function clashButtons(disabled = false) {
   return [
     new ActionRowBuilder().addComponents(
@@ -33,4 +40,4 @@ function clashButtons(disabled = false) {
   ];
 }
 
-module.exports = { CID, bossButtons, hollowButtons, clashButtons };
+module.exports = { bossButtons, hollowButtons, shopButtons, clashButtons };
