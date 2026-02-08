@@ -7,14 +7,12 @@ const {
 } = require("discord.js");
 
 const { EVENT_ROLE_IDS, BOOSTER_ROLE_ID } = require("../config");
-const { MOBS } = require("../data/mobs");
 
 const CID = {
   BOSS_JOIN: "boss_join",
   BOSS_RULES: "boss_rules",
   BOSS_ACTION: "boss_action", // boss_action:<bossId>:<roundIndex>:<token>:<kind>:<payload?>
   MOB_ATTACK: "mob_attack",   // mob_attack:<eventKey>
-  LB_NAV: "lb_nav",           // lb_nav:<eventKey>:<page>
 };
 
 function hasEventRole(member) {
@@ -55,16 +53,12 @@ function comboDefenseRows(token, bossId, roundIndex) {
 }
 
 function mobButtons(eventKey, disabled = false) {
-  const mob = MOBS[eventKey];
-  const label = mob?.actionLabel || (eventKey === "bleach" ? "Attack Hollow" : "Exorcise Spirit");
-  const emoji = eventKey === "bleach" ? "⚔️" : "🪬";
-
   return [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`${CID.MOB_ATTACK}:${eventKey}`)
-        .setLabel(label)
-        .setEmoji(emoji)
+        .setLabel(eventKey === "bleach" ? "Attack Hollow" : "Exorcise Spirit")
+        .setEmoji(eventKey === "bleach" ? "⚔️" : "🪬")
         .setStyle(ButtonStyle.Primary)
         .setDisabled(disabled)
     ),
@@ -121,27 +115,6 @@ function wardrobeComponents(guild, member, player) {
   return [new ActionRowBuilder().addComponents(menu)];
 }
 
-/* ===================== LEADERBOARD NAV ===================== */
-function leaderboardNav(eventKey, page, totalPages) {
-  const prevDisabled = page <= 0;
-  const nextDisabled = page >= totalPages - 1;
-
-  return [
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`${CID.LB_NAV}:${eventKey}:${page - 1}`)
-        .setLabel("Prev")
-        .setStyle(ButtonStyle.Secondary)
-        .setDisabled(prevDisabled),
-      new ButtonBuilder()
-        .setCustomId(`${CID.LB_NAV}:${eventKey}:${page + 1}`)
-        .setLabel("Next")
-        .setStyle(ButtonStyle.Secondary)
-        .setDisabled(nextDisabled)
-    ),
-  ];
-}
-
 module.exports = {
   CID,
   hasEventRole,
@@ -152,5 +125,4 @@ module.exports = {
   mobButtons,
   shopButtons,
   wardrobeComponents,
-  leaderboardNav,
 };
