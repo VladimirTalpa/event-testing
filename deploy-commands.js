@@ -1,6 +1,6 @@
 require("dotenv").config();
 const { REST, Routes, SlashCommandBuilder } = require("discord.js");
-const cfg = require("./src/config");
+const cfg = require("./config");
 
 const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
@@ -24,7 +24,7 @@ const EVENT_CHOICES = [
 const BOSS_CHOICES = [
   { name: "Vasto Lorde (Bleach)", value: "vasto" },
   { name: "Ulquiorra (Bleach)", value: "ulquiorra" },
-  { name: "Grimmjow (Bleach)", value: "grimmjow" },
+  { name: "Mahoraga (JJK)", value: "mahoraga" },
   { name: "Special Grade Curse (JJK)", value: "specialgrade" },
 ];
 
@@ -55,12 +55,12 @@ const commands = [
     .setDescription("Leaderboard (choose event currency)")
     .addStringOption((opt) => opt.setName("event").setDescription("Which event leaderboard?").setRequired(true).addChoices(...EVENT_CHOICES)),
 
-  // ✅ NEW: /give (replaces give_reatsu)
+  // ✅ new give
   new SlashCommandBuilder()
     .setName("give")
     .setDescription("Transfer currency to another player")
     .addStringOption((opt) => opt.setName("currency").setDescription("Which currency?").setRequired(true).addChoices(...CURRENCY_CHOICES))
-    .addIntegerOption((opt) => opt.setName("amount").setDescription("Amount to transfer").setRequired(true).setMinValue(1))
+    .addIntegerOption((opt) => opt.setName("amount").setDescription("Amount to send").setRequired(true).setMinValue(1))
     .addUserOption((opt) => opt.setName("user").setDescription("Target player").setRequired(true)),
 
   new SlashCommandBuilder()
@@ -87,6 +87,14 @@ const commands = [
     .setName("wardrobe")
     .setDescription("Open your role wardrobe (equip/unequip saved roles)"),
 
+  // ✅ pvpclash
+  new SlashCommandBuilder()
+    .setName("pvpclash")
+    .setDescription("Challenge a player to a PvP clash (stake currency)")
+    .addStringOption((opt) => opt.setName("currency").setDescription("Which currency?").setRequired(true).addChoices(...CURRENCY_CHOICES))
+    .addIntegerOption((opt) => opt.setName("amount").setDescription("Stake amount").setRequired(true).setMinValue(1))
+    .addUserOption((opt) => opt.setName("user").setDescription("Opponent").setRequired(true)),
+
   new SlashCommandBuilder()
     .setName("adminadd")
     .setDescription("Admin: add currency to a user (role-restricted)")
@@ -102,7 +110,6 @@ const rest = new REST({ version: "10" }).setToken(TOKEN);
     console.log("🔄 Deploying slash commands...");
     await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: commands });
     console.log("✅ Slash commands successfully deployed!");
-    process.exit(0);
   } catch (e) {
     console.error("❌ Failed to deploy commands:", e);
     process.exit(1);
