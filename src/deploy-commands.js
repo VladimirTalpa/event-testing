@@ -11,23 +11,21 @@ if (!TOKEN || !CLIENT_ID || !GUILD_ID) {
   process.exit(1);
 }
 
-// Event logo emojis you gave:
-const BLEACH_LOGO = "<:bleach:1470018874408964119>";
-const JJK_LOGO = "<:jjk:1470018845245968434>";
-
 const EVENT_CHOICES_EXCHANGE = [
-  { name: `${BLEACH_LOGO} Bleach — ${cfg.DRAKO_RATE_BLEACH} Reiatsu = 1 Drako`, value: "bleach" },
-  { name: `${JJK_LOGO} Jujutsu Kaisen — ${cfg.DRAKO_RATE_JJK} CE = 1 Drako`, value: "jjk" },
+  // ✅ show rate clearly in menu (your request)
+  { name: `Bleach — Rate: ${cfg.DRAKO_RATE_BLEACH} Reiatsu = 1 Drako`, value: "bleach" },
+  { name: `Jujutsu Kaisen — Rate: ${cfg.DRAKO_RATE_JJK} CE = 1 Drako`, value: "jjk" },
 ];
 
 const EVENT_CHOICES = [
-  { name: `${BLEACH_LOGO} Bleach`, value: "bleach" },
-  { name: `${JJK_LOGO} Jujutsu Kaisen`, value: "jjk" },
+  { name: "Bleach", value: "bleach" },
+  { name: "Jujutsu Kaisen", value: "jjk" },
 ];
 
 const BOSS_CHOICES = [
   { name: "Vasto Lorde (Bleach)", value: "vasto" },
   { name: "Ulquiorra (Bleach)", value: "ulquiorra" },
+  // ✅ NEW
   { name: "Grimmjow (Bleach)", value: "grimmjow" },
   { name: "Special Grade Curse (JJK)", value: "specialgrade" },
 ];
@@ -47,38 +45,137 @@ const commands = [
   new SlashCommandBuilder()
     .setName("inventory")
     .setDescription("View your inventory and bonuses (choose event)")
-    .addStringOption((opt) =>
-      opt.setName("event").setDescription("Which event inventory?").setRequired(true).addChoices(...EVENT_CHOICES)
-    ),
+    .addStringOption((opt) => opt.setName("event").setDescription("Which event inventory?").setRequired(true).addChoices(...EVENT_CHOICES)),
 
   new SlashCommandBuilder()
     .setName("shop")
     .setDescription("Open shop (choose event)")
-    .addStringOption((opt) =>
-      opt.setName("event").setDescription("Which shop?").setRequired(true).addChoices(...EVENT_CHOICES)
-    ),
+    .addStringOption((opt) => opt.setName("event").setDescription("Which shop?").setRequired(true).addChoices(...EVENT_CHOICES)),
 
   new SlashCommandBuilder()
     .setName("leaderboard")
     .setDescription("Leaderboard (choose event currency)")
-    .addStringOption((opt) =>
-      opt.setName("event").setDescription("Which event leaderboard?").setRequired(true).addChoices(...EVENT_CHOICES)
-    ),
+    .addStringOption((opt) => opt.setName("event").setDescription("Which event leaderboard?").setRequired(true).addChoices(...EVENT_CHOICES)),
 
   new SlashCommandBuilder()
     .setName("give_reatsu")
     .setDescription("Transfer Reiatsu (Bleach) to another player")
     .addUserOption((opt) => opt.setName("user").setDescription("Target player").setRequired(true))
-    .addIntegerOption((opt) =>
-      opt.setName("amount").setDescription("Amount of Reiatsu (minimum 50)").setRequired(true).setMinValue(50)
-    ),
+    .addIntegerOption((opt) => opt.setName("amount").setDescription("Amount of Reiatsu (minimum 50)").setRequired(true).setMinValue(50)),
 
   new SlashCommandBuilder()
     .setName("exchange_drako")
     .setDescription("Buy Drako Coin using event currency (NO reverse exchange)")
-    .addStringOption((opt) =>
-      opt.setName("event").setDescription("Pay with which event currency?").setRequired(true).addChoices(...EVENT_CHOICES_EXCHANGE)
-    )
+    .addStringOption((opt) => opt.setName("event").setDescription("Pay with which event currency?").setRequired(true).addChoices(...EVENT_CHOICES_EXCHANGE))
+    .addIntegerOption((opt) => opt.setName("drako").setDescription("How many Drako you want to buy").setRequired(true).setMinValue(1)),
+
+  new SlashCommandBuilder()
+    .setName("dailyclaim")
+    .setDescription("Claim your daily Reiatsu reward (Bleach)"),
+
+  new SlashCommandBuilder()
+    .setName("spawnboss")
+    .setDescription("Spawn a boss (event staff only)")
+    .addStringOption((opt) => opt.setName("boss").setDescription("Choose boss").setRequired(true).addChoices(...BOSS_CHOICES)),
+
+  new SlashCommandBuilder()
+    .setName("spawnmob")
+    .setDescription("Spawn a mob (event staff only)")
+    .addStringOption((opt) => opt.setName("event").setDescription("Which event mob?").setRequired(true).addChoices(...EVENT_CHOICES)),
+
+  new SlashCommandBuilder()
+    .setName("wardrobe")
+    .setDescription("Open your role wardrobe (equip/unequip saved roles)"),
+
+  new SlashCommandBuilder()
+    .setName("adminadd")
+    .setDescription("Admin: add currency to a user (role-restricted)")
+    .addStringOption((opt) => opt.setName("currency").setDescription("Which currency?").setRequired(true).addChoices(...CURRENCY_CHOICES))
+    .addIntegerOption((opt) => opt.setName("amount").setDescription("Amount to add").setRequired(true).setMinValue(1))
+    .addUserOption((opt) => opt.setName("user").setDescription("Target user (optional)").setRequired(false)),
+].map((c) => c.toJSON());
+
+const rest = new REST({ version: "10" }).setToken(TOKEN);
+
+(async () => {
+  try {
+    console.log("🔄 Deploying slash commands...");
+    await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: commands });
+    console.log("✅ Slash commands successfully deployed!");
+  } catch (e) {
+    console.error("❌ Failed to deploy commands:", e);
+    process.exit(1);
+  }
+})();
+require("dotenv").config();
+const { REST, Routes, SlashCommandBuilder } = require("discord.js");
+const cfg = require("./config");
+
+const TOKEN = process.env.DISCORD_TOKEN;
+const CLIENT_ID = process.env.CLIENT_ID;
+const GUILD_ID = process.env.GUILD_ID;
+
+if (!TOKEN || !CLIENT_ID || !GUILD_ID) {
+  console.error("❌ Missing env vars. Need: DISCORD_TOKEN, CLIENT_ID, GUILD_ID");
+  process.exit(1);
+}
+
+const EVENT_CHOICES_EXCHANGE = [
+  // ✅ show rate clearly in menu (your request)
+  { name: `Bleach — Rate: ${cfg.DRAKO_RATE_BLEACH} Reiatsu = 1 Drako`, value: "bleach" },
+  { name: `Jujutsu Kaisen — Rate: ${cfg.DRAKO_RATE_JJK} CE = 1 Drako`, value: "jjk" },
+];
+
+const EVENT_CHOICES = [
+  { name: "Bleach", value: "bleach" },
+  { name: "Jujutsu Kaisen", value: "jjk" },
+];
+
+const BOSS_CHOICES = [
+  { name: "Vasto Lorde (Bleach)", value: "vasto" },
+  { name: "Ulquiorra (Bleach)", value: "ulquiorra" },
+  // ✅ NEW
+  { name: "Grimmjow (Bleach)", value: "grimmjow" },
+  { name: "Special Grade Curse (JJK)", value: "specialgrade" },
+];
+
+const CURRENCY_CHOICES = [
+  { name: "Reiatsu (Bleach)", value: "reiatsu" },
+  { name: "Cursed Energy (JJK)", value: "cursed_energy" },
+  { name: "Drako Coin (Global)", value: "drako" },
+];
+
+const commands = [
+  new SlashCommandBuilder()
+    .setName("balance")
+    .setDescription("Check your balance (Reiatsu / Cursed Energy / Drako)")
+    .addUserOption((opt) => opt.setName("user").setDescription("User to check").setRequired(false)),
+
+  new SlashCommandBuilder()
+    .setName("inventory")
+    .setDescription("View your inventory and bonuses (choose event)")
+    .addStringOption((opt) => opt.setName("event").setDescription("Which event inventory?").setRequired(true).addChoices(...EVENT_CHOICES)),
+
+  new SlashCommandBuilder()
+    .setName("shop")
+    .setDescription("Open shop (choose event)")
+    .addStringOption((opt) => opt.setName("event").setDescription("Which shop?").setRequired(true).addChoices(...EVENT_CHOICES)),
+
+  new SlashCommandBuilder()
+    .setName("leaderboard")
+    .setDescription("Leaderboard (choose event currency)")
+    .addStringOption((opt) => opt.setName("event").setDescription("Which event leaderboard?").setRequired(true).addChoices(...EVENT_CHOICES)),
+
+  new SlashCommandBuilder()
+    .setName("give_reatsu")
+    .setDescription("Transfer Reiatsu (Bleach) to another player")
+    .addUserOption((opt) => opt.setName("user").setDescription("Target player").setRequired(true))
+    .addIntegerOption((opt) => opt.setName("amount").setDescription("Amount of Reiatsu (minimum 50)").setRequired(true).setMinValue(50)),
+
+  new SlashCommandBuilder()
+    .setName("exchange_drako")
+    .setDescription("Buy Drako Coin using event currency (NO reverse exchange)")
+    .addStringOption((opt) => opt.setName("event").setDescription("Pay with which event currency?").setRequired(true).addChoices(...EVENT_CHOICES_EXCHANGE))
     .addIntegerOption((opt) => opt.setName("drako").setDescription("How many Drako you want to buy").setRequired(true).setMinValue(1)),
 
   new SlashCommandBuilder()
