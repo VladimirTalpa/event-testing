@@ -11,8 +11,9 @@ const { EVENT_ROLE_IDS, BOOSTER_ROLE_ID } = require("../config");
 const CID = {
   BOSS_JOIN: "boss_join",
   BOSS_RULES: "boss_rules",
-  BOSS_ACTION: "boss_action", // boss_action:<bossId>:<roundIndex>:<token>:<kind>:<payload?>
-  MOB_ATTACK: "mob_attack",   // mob_attack:<eventKey>
+  BOSS_ACTION: "boss_action",
+  MOB_ATTACK: "mob_attack",
+  LB_PAGE: "lb_page",
 };
 
 function hasEventRole(member) {
@@ -52,13 +53,25 @@ function comboDefenseRows(token, bossId, roundIndex) {
   ];
 }
 
+// NEW: Multi press row (3 block buttons)
+function multiPressRows(token, bossId, roundIndex, label = "Block", emoji = "🛡️") {
+  const mk = (slot) => `boss_action:${bossId}:${roundIndex}:${token}:multi:${slot}`;
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(mk("b1")).setLabel(label).setEmoji(emoji).setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(mk("b2")).setLabel(label).setEmoji(emoji).setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(mk("b3")).setLabel(label).setEmoji(emoji).setStyle(ButtonStyle.Secondary),
+    ),
+  ];
+}
+
 function mobButtons(eventKey, disabled = false) {
   return [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`${CID.MOB_ATTACK}:${eventKey}`)
-        .setLabel(eventKey === "bleach" ? "Attack Hollow" : "Attack Spirit")
-        .setEmoji("⚔️")
+        .setLabel(eventKey === "bleach" ? "Attack Hollow" : "Exorcise Spirit")
+        .setEmoji(eventKey === "bleach" ? "⚔️" : "🪬")
         .setStyle(ButtonStyle.Primary)
         .setDisabled(disabled)
     ),
@@ -115,6 +128,29 @@ function wardrobeComponents(guild, member, player) {
   return [new ActionRowBuilder().addComponents(menu)];
 }
 
+// NEW: leaderboard pagination buttons
+function leaderboardButtons(eventKey, page, totalPages) {
+  if (totalPages <= 1) return [];
+
+  const prev = Math.max(0, page - 1);
+  const next = Math.min(totalPages - 1, page + 1);
+
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`${CID.LB_PAGE}:${eventKey}:${prev}`)
+        .setLabel("Prev")
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(page <= 0),
+      new ButtonBuilder()
+        .setCustomId(`${CID.LB_PAGE}:${eventKey}:${next}`)
+        .setLabel("Next")
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(page >= totalPages - 1),
+    ),
+  ];
+}
+
 module.exports = {
   CID,
   hasEventRole,
@@ -122,7 +158,9 @@ module.exports = {
   bossButtons,
   singleActionRow,
   comboDefenseRows,
+  multiPressRows,
   mobButtons,
   shopButtons,
   wardrobeComponents,
+  leaderboardButtons,
 };
