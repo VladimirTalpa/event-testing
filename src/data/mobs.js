@@ -19,44 +19,35 @@ const {
 const { HOLLOW_MEDIA, CURSED_SPIRIT_MEDIA } = require("./media");
 
 const MOBS = {
-  /* ===================== BLEACH ===================== */
   bleach: {
     name: "Hollow",
     joinMs: BLEACH_MOB_MS,
-
     hitReward: BLEACH_MOB_HIT,
     missReward: BLEACH_MOB_MISS,
-
     bonusPerKill: BLEACH_BONUS_PER_KILL,
     bonusMax: BLEACH_BONUS_MAX,
-
     media: HOLLOW_MEDIA,
-
     icon: "👁️",
     currencyEmoji: E_REIATSU,
-
-    hitText: "slayed the Hollow",
-    missText: "missed the Hollow",
+    // labels for UI/text
+    actionLabel: "Attack Hollow",
+    successVerb: "hit",
+    failVerb: "missed",
   },
-
-  /* ===================== JJK ===================== */
   jjk: {
     name: "Cursed Spirit",
     joinMs: JJK_MOB_MS,
-
     hitReward: JJK_MOB_HIT,
     missReward: JJK_MOB_MISS,
-
     bonusPerKill: JJK_BONUS_PER_KILL,
     bonusMax: JJK_BONUS_MAX,
-
     media: CURSED_SPIRIT_MEDIA,
-
-    icon: "🩸",
+    icon: "🟣",
     currencyEmoji: E_CE,
-
-    hitText: "exorcised the Cursed Spirit",
-    missText: "failed to exorcise it",
+    // labels for UI/text
+    actionLabel: "Exorcise Spirit",
+    successVerb: "exorcised",
+    failVerb: "failed",
   },
 };
 
