@@ -1,343 +1,303 @@
 // src/handlers/slash.js
-
 const { BOSSES } = require("../data/bosses");
 const { MOBS } = require("../data/mobs");
 
 const {
   BLEACH_CHANNEL_ID,
   JJK_CHANNEL_ID,
-
   DAILY_COOLDOWN_MS,
   DAILY_NORMAL,
   DAILY_BOOSTER,
-
   DRAKO_RATE_BLEACH,
   DRAKO_RATE_JJK,
 
   E_REIATSU,
   E_CE,
   E_DRAKO,
+
+  BLEACH_BONUS_MAX,
+  JJK_BONUS_MAX,
 } = require("../config");
 
-const {
-  getPlayer,
-  setPlayer,
-  getTopPlayers,
-} = require("../core/players");
-
+const { getPlayer, setPlayer, getTopPlayers } = require("../core/players");
 const { safeName } = require("../core/utils");
-
-const {
-  hasEventRole,
-  hasBoosterRole,
-  shopButtons,
-  wardrobeComponents,
-} = require("../ui/components");
-
-const {
-  inventoryEmbed,
-  shopEmbed,
-  leaderboardEmbed,
-  wardrobeEmbed,
-} = require("../ui/embeds");
+const { hasEventRole, hasBoosterRole, shopButtons, wardrobeComponents } = require("../ui/components");
+const { inventoryEmbed, shopEmbed, leaderboardEmbed, wardrobeEmbed } = require("../ui/embeds");
 
 const { spawnBoss } = require("../events/boss");
 const { spawnMob } = require("../events/mob");
 
+const { leaderboardCache } = require("../core/state");
 
-function allowed(event, id) {
-  if (event === "bleach") return id === BLEACH_CHANNEL_ID;
-  if (event === "jjk") return id === JJK_CHANNEL_ID;
+/* leaderboard nav buttons */
+function lbComponents(eventKey, page, maxPage) {
+  const prevDisabled = page <= 0;
+  const nextDisabled = page >= maxPage - 1;
+
+  return [
+    {
+      type: 1,
+      components: [
+        { type: 2, style: 2, label: "◀ Prev", custom_id: `lb:${eventKey}:${page}:prev`, disabled: prevDisabled },
+        { type: 2, style: 2, label: "Next ▶", custom_id: `lb:${eventKey}:${page}:next`, disabled: nextDisabled },
+      ],
+    },
+  ];
+}
+
+function isAllowedSpawnChannel(eventKey, channelId) {
+  if (eventKey === "bleach") return channelId === BLEACH_CHANNEL_ID;
+  if (eventKey === "jjk") return channelId === JJK_CHANNEL_ID;
   return false;
 }
 
-
 module.exports = async function handleSlash(interaction) {
-
   const channel = interaction.channel;
-
-  if (!channel || !channel.isTextBased())
-    return;
-
-
-  /* ================= BALANCE ================= */
+  if (!channel || !channel.isTextBased()) {
+    return interaction.reply({ content: "❌ Use commands in a text channel.", ephemeral: true });
+  }
 
   if (interaction.commandName === "balance") {
-
-    const u =
-      interaction.options.getUser("user") ||
-      interaction.user;
-
-    const p = await getPlayer(u.id);
-
-
+    const target = interaction.options.getUser("user") || interaction.user;
+    const p = await getPlayer(target.id);
     return interaction.reply({
-
       content:
-
-        `**${safeName(u.username)}**\n` +
-        `${E_REIATSU} ${p.bleach.reiatsu}\n` +
-        `${E_CE} ${p.jjk.cursedEnergy}\n` +
-        `${E_DRAKO} ${p.drako}`,
-
+        `**${safeName(target.username)}**\n` +
+        `${E_REIATSU} Reiatsu: **${p.bleach.reiatsu}**\n` +
+        `${E_CE} Cursed Energy: **${p.jjk.cursedEnergy}**\n` +
+        `${E_DRAKO} Drako: **${p.drako}**`,
+      ephemeral: false,
     });
   }
-
-
-  /* ================= INVENTORY ================= */
 
   if (interaction.commandName === "inventory") {
-
-    const e =
-      interaction.options.getString("event", true);
-
-    const p =
-      await getPlayer(interaction.user.id);
-
-
-    return interaction.reply({
-
-      embeds: [
-        inventoryEmbed(e, p),
-      ],
-
-      ephemeral: true,
-    });
+    const eventKey = interaction.options.getString("event", true);
+    const p = await getPlayer(interaction.user.id);
+    return interaction.reply({ embeds: [inventoryEmbed(eventKey, p, BLEACH_BONUS_MAX, JJK_BONUS_MAX)], ephemeral: true });
   }
-
-
-  /* ================= SHOP ================= */
 
   if (interaction.commandName === "shop") {
-
-    const e =
-      interaction.options.getString("event", true);
-
-    const p =
-      await getPlayer(interaction.user.id);
-
-
+    const eventKey = interaction.options.getString("event", true);
+    const p = await getPlayer(interaction.user.id);
     return interaction.reply({
-
-      embeds: [
-        shopEmbed(e, p),
-      ],
-
-      components: shopButtons(e, p),
-
+      embeds: [shopEmbed(eventKey, p)],
+      components: shopButtons(eventKey, p),
       ephemeral: true,
     });
   }
-
-
-  /* ================= LEADERBOARD ================= */
 
   if (interaction.commandName === "leaderboard") {
+    const eventKey = interaction.options.getString("event", true);
 
-    const e =
-      interaction.options.getString("event", true);
+    // IMPORTANT: this reads all from redis internally anyway, so set very large limit.
+    const rows = await getTopPlayers(eventKey, 999999);
 
-
-    const rows =
-      await getTopPlayers(e, 9999);
-
-
-    const list = [];
-
-
+    const entries = [];
     for (const r of rows) {
-
       let name = r.userId;
-
       try {
-
-        const m =
-          await interaction.guild.members.fetch(r.userId);
-
-        name =
-          safeName(
-            m.displayName || m.user.username
-          );
-
+        const m = await interaction.guild.members.fetch(r.userId);
+        name = safeName(m?.displayName || m?.user?.username || r.userId);
       } catch {}
-
-
-      list.push({
-        name,
-        score: r.score,
-      });
+      entries.push({ name, score: r.score });
     }
 
+    const pageSize = 10;
+    const page = 0;
+    const maxPage = Math.max(1, Math.ceil(entries.length / pageSize));
 
-    const row = {
-
-      type: 1,
-
-      components: [
-
-        {
-          type: 2,
-          style: 2,
-          label: "◀",
-          custom_id: `lb_${e}_0_prev`,
-        },
-
-        {
-          type: 2,
-          style: 2,
-          label: "▶",
-          custom_id: `lb_${e}_0_next`,
-        },
-      ],
-    };
-
-
-    return interaction.reply({
-
-      embeds: [
-        leaderboardEmbed(e, list, 0),
-      ],
-
-      components: [row],
+    await interaction.reply({
+      embeds: [leaderboardEmbed(eventKey, entries, page, pageSize)],
+      components: lbComponents(eventKey, page, maxPage),
+      ephemeral: false,
     });
+
+    // cache it for button paging
+    const msg = await interaction.fetchReply().catch(() => null);
+    if (msg?.id) {
+      leaderboardCache.set(msg.id, { eventKey, entries, pageSize });
+      // optional: prevent unlimited growth
+      if (leaderboardCache.size > 200) {
+        const firstKey = leaderboardCache.keys().next().value;
+        if (firstKey) leaderboardCache.delete(firstKey);
+      }
+    }
+    return;
   }
-
-
-  /* ================= DAILY ================= */
 
   if (interaction.commandName === "dailyclaim") {
-
-    const p =
-      await getPlayer(interaction.user.id);
-
+    const p = await getPlayer(interaction.user.id);
     const now = Date.now();
 
-
     if (now - p.bleach.lastDaily < DAILY_COOLDOWN_MS) {
-
-      return interaction.reply({
-        content: "⏳ Come later.",
-        ephemeral: true,
-      });
+      const hrs = Math.ceil((DAILY_COOLDOWN_MS - (now - p.bleach.lastDaily)) / 3600000);
+      return interaction.reply({ content: `⏳ Come back in **${hrs}h**.`, ephemeral: true });
     }
 
-
-    const add =
-      hasBoosterRole(interaction.member)
-        ? DAILY_BOOSTER
-        : DAILY_NORMAL;
-
-
-    p.bleach.reiatsu += add;
+    const amount = hasBoosterRole(interaction.member) ? DAILY_BOOSTER : DAILY_NORMAL;
+    p.bleach.reiatsu += amount;
     p.bleach.lastDaily = now;
 
-
     await setPlayer(interaction.user.id, p);
+    return interaction.reply({ content: `🎁 You claimed **${E_REIATSU} ${amount} Reiatsu**!`, ephemeral: false });
+  }
 
+  if (interaction.commandName === "give_reatsu") {
+    const target = interaction.options.getUser("user", true);
+    const amount = interaction.options.getInteger("amount", true);
+
+    if (amount < 50) return interaction.reply({ content: `❌ Minimum transfer is ${E_REIATSU} 50.`, ephemeral: true });
+    if (target.bot) return interaction.reply({ content: "❌ You can't transfer to a bot.", ephemeral: true });
+    if (target.id === interaction.user.id) return interaction.reply({ content: "❌ You can't transfer to yourself.", ephemeral: true });
+
+    const sender = await getPlayer(interaction.user.id);
+    const receiver = await getPlayer(target.id);
+
+    if (sender.bleach.reiatsu < amount) {
+      return interaction.reply({ content: `❌ Not enough Reiatsu. You have ${sender.bleach.reiatsu}.`, ephemeral: true });
+    }
+
+    sender.bleach.reiatsu -= amount;
+    receiver.bleach.reiatsu += amount;
+
+    await setPlayer(interaction.user.id, sender);
+    await setPlayer(target.id, receiver);
 
     return interaction.reply({
-      content: `🎁 +${add} Reiatsu`,
+      content: `${E_REIATSU} **${safeName(interaction.user.username)}** sent **${amount} Reiatsu** to **${safeName(target.username)}**.`,
+      ephemeral: false,
     });
   }
 
+  if (interaction.commandName === "exchange_drako") {
+    const eventKey = interaction.options.getString("event", true);
+    const drakoWanted = interaction.options.getInteger("drako", true);
 
-  /* ================= SPAWN BOSS ================= */
+    const rate = eventKey === "bleach" ? DRAKO_RATE_BLEACH : DRAKO_RATE_JJK;
+    const cost = drakoWanted * rate;
+    const currencyEmoji = eventKey === "bleach" ? E_REIATSU : E_CE;
+
+    const p = await getPlayer(interaction.user.id);
+
+    if (eventKey === "bleach") {
+      if (p.bleach.reiatsu < cost) {
+        return interaction.reply({
+          content:
+            `❌ Need ${currencyEmoji} **${cost}** to buy ${E_DRAKO} **${drakoWanted} Drako**.\n` +
+            `📈 Rate: **${rate} ${currencyEmoji} = 1 ${E_DRAKO}** (one-way)\n` +
+            `You have ${currencyEmoji} **${p.bleach.reiatsu}**.`,
+          ephemeral: true,
+        });
+      }
+      p.bleach.reiatsu -= cost;
+      p.drako += drakoWanted;
+      await setPlayer(interaction.user.id, p);
+
+      return interaction.reply({
+        content:
+          `✅ Exchanged ${currencyEmoji} **${cost}** → ${E_DRAKO} **${drakoWanted} Drako**.\n` +
+          `📈 Rate: **${rate} ${currencyEmoji} = 1 ${E_DRAKO}** (one-way)\n` +
+          `Now: ${currencyEmoji} **${p.bleach.reiatsu}** • ${E_DRAKO} **${p.drako}**\n` +
+          `⚠️ Drako cannot be exchanged back.`,
+        ephemeral: false,
+      });
+    } else {
+      if (p.jjk.cursedEnergy < cost) {
+        return interaction.reply({
+          content:
+            `❌ Need ${currencyEmoji} **${cost}** to buy ${E_DRAKO} **${drakoWanted} Drako**.\n` +
+            `📈 Rate: **${rate} ${currencyEmoji} = 1 ${E_DRAKO}** (one-way)\n` +
+            `You have ${currencyEmoji} **${p.jjk.cursedEnergy}**.`,
+          ephemeral: true,
+        });
+      }
+      p.jjk.cursedEnergy -= cost;
+      p.drako += drakoWanted;
+      await setPlayer(interaction.user.id, p);
+
+      return interaction.reply({
+        content:
+          `✅ Exchanged ${currencyEmoji} **${cost}** → ${E_DRAKO} **${drakoWanted} Drako**.\n` +
+          `📈 Rate: **${rate} ${currencyEmoji} = 1 ${E_DRAKO}** (one-way)\n` +
+          `Now: ${currencyEmoji} **${p.jjk.cursedEnergy}** • ${E_DRAKO} **${p.drako}**\n` +
+          `⚠️ Drako cannot be exchanged back.`,
+        ephemeral: false,
+      });
+    }
+  }
 
   if (interaction.commandName === "spawnboss") {
+    if (!hasEventRole(interaction.member)) {
+      return interaction.reply({ content: "⛔ You don’t have the required role.", ephemeral: true });
+    }
 
-    if (!hasEventRole(interaction.member))
-      return interaction.reply({
-        content: "No permission",
-        ephemeral: true,
-      });
+    const bossId = interaction.options.getString("boss", true);
+    const def = BOSSES[bossId];
+    if (!def) return interaction.reply({ content: "❌ Unknown boss.", ephemeral: true });
 
+    // NOTE: later we will make staff spawn work in all channels (will change boss.js)
+    if (!isAllowedSpawnChannel(def.event, channel.id)) {
+      const needed = def.event === "bleach" ? `<#${BLEACH_CHANNEL_ID}>` : `<#${JJK_CHANNEL_ID}>`;
+      return interaction.reply({ content: `❌ This boss can only be spawned in ${needed}.`, ephemeral: true });
+    }
 
-    const id =
-      interaction.options.getString("boss", true);
-
-    const def = BOSSES[id];
-
-    if (!def) return;
-
-
-    await interaction.reply({
-      content: "✅ Boss spawned",
-      ephemeral: true,
-    });
-
-
-    await spawnBoss(channel, id, true);
-
+    await interaction.reply({ content: `✅ Spawned **${def.name}**.`, ephemeral: true });
+    await spawnBoss(channel, bossId, true);
     return;
   }
-
-
-  /* ================= SPAWN MOB ================= */
 
   if (interaction.commandName === "spawnmob") {
+    if (!hasEventRole(interaction.member)) {
+      return interaction.reply({ content: "⛔ You don’t have the required role.", ephemeral: true });
+    }
 
-    if (!hasEventRole(interaction.member))
-      return interaction.reply({
-        content: "No permission",
-        ephemeral: true,
-      });
+    const eventKey = interaction.options.getString("event", true);
+    if (!MOBS[eventKey]) return interaction.reply({ content: "❌ Unknown event.", ephemeral: true });
 
+    // NOTE: later we will make staff spawn work in all channels (will change mob.js)
+    if (!isAllowedSpawnChannel(eventKey, channel.id)) {
+      const needed = eventKey === "bleach" ? `<#${BLEACH_CHANNEL_ID}>` : `<#${JJK_CHANNEL_ID}>`;
+      return interaction.reply({ content: `❌ This mob can only be spawned in ${needed}.`, ephemeral: true });
+    }
 
-    const e =
-      interaction.options.getString("event", true);
-
-
-    if (!MOBS[e]) return;
-
-
-    await interaction.reply({
-      content: "✅ Mob spawned",
-      ephemeral: true,
-    });
-
-
-    await spawnMob(channel, e, {
-      bleachChannelId: BLEACH_CHANNEL_ID,
-      jjkChannelId: JJK_CHANNEL_ID,
-      withPing: true,
-    });
-
+    await interaction.reply({ content: `✅ Mob spawned (${eventKey}).`, ephemeral: true });
+    await spawnMob(channel, eventKey, { bleachChannelId: BLEACH_CHANNEL_ID, jjkChannelId: JJK_CHANNEL_ID, withPing: true });
     return;
   }
 
-
-  /* ================= WARDROBE ================= */
-
   if (interaction.commandName === "wardrobe") {
-
-    const p =
-      await getPlayer(interaction.user.id);
-
-
-    const m =
-      await interaction.guild.members.fetch(
-        interaction.user.id
-      ).catch(() => null);
-
-
-    if (!m) return;
-
+    const p = await getPlayer(interaction.user.id);
+    const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+    if (!member) return interaction.reply({ content: "❌ Can't read your member data.", ephemeral: true });
 
     return interaction.reply({
-
-      embeds: [
-        wardrobeEmbed(interaction.guild, p),
-      ],
-
-      components:
-        wardrobeComponents(
-          interaction.guild,
-          m,
-          p
-        ),
-
+      embeds: [wardrobeEmbed(interaction.guild, p)],
+      components: wardrobeComponents(interaction.guild, member, p),
       ephemeral: true,
     });
   }
 
+  if (interaction.commandName === "adminadd") {
+    const allowed = interaction.member?.roles?.cache?.has("1259865441405501571");
+    if (!allowed) return interaction.reply({ content: "⛔ No permission.", ephemeral: true });
+
+    const currency = interaction.options.getString("currency", true);
+    const amount = interaction.options.getInteger("amount", true);
+    const target = interaction.options.getUser("user") || interaction.user;
+
+    const p = await getPlayer(target.id);
+
+    if (currency === "drako") p.drako += amount;
+    if (currency === "reiatsu") p.bleach.reiatsu += amount;
+    if (currency === "cursed_energy") p.jjk.cursedEnergy += amount;
+
+    await setPlayer(target.id, p);
+
+    return interaction.reply({
+      content:
+        `✅ Added **${amount}** to <@${target.id}>.\n` +
+        `${E_REIATSU} Reiatsu: **${p.bleach.reiatsu}** • ${E_CE} CE: **${p.jjk.cursedEnergy}** • ${E_DRAKO} Drako: **${p.drako}**`,
+      ephemeral: false,
+    });
+  }
 };
