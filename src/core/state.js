@@ -9,4 +9,4 @@ const pvpById = new Map(); // key = `${channelId}:${challengerId}:${targetId}`
  */
 const leaderboardCache = new Map();
 
-module.exports = { bossByChannel, mobByChannel, leaderboardCache };
+module.exports = { bossByChannel, mobByChannel, leaderboardCache, pvpById };
