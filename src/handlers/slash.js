@@ -21,11 +21,12 @@ const {
 
 const { getPlayer, setPlayer, getTopPlayers } = require("../core/players");
 const { safeName } = require("../core/utils");
-const { hasEventRole, hasBoosterRole, shopButtons, wardrobeComponents } = require("../ui/components");
+const { hasEventRole, hasBoosterRole, shopButtons, wardrobeComponents, pvpButtons } = require("../ui/components");
 const { inventoryEmbed, shopEmbed, leaderboardEmbed, wardrobeEmbed } = require("../ui/embeds");
 
 const { spawnBoss } = require("../events/boss");
 const { spawnMob } = require("../events/mob");
+const { pvpById } = require("../core/state");
 
 function isAllowedSpawnChannel(eventKey, channelId) {
   if (eventKey === "bleach") return channelId === BLEACH_CHANNEL_ID;
@@ -71,8 +72,8 @@ module.exports = async function handleSlash(interaction) {
   if (interaction.commandName === "leaderboard") {
     const eventKey = interaction.options.getString("event", true);
     const rows = await getTopPlayers(eventKey, 10);
-
     const entries = [];
+
     for (const r of rows) {
       let name = r.userId;
       try {
@@ -82,7 +83,6 @@ module.exports = async function handleSlash(interaction) {
       entries.push({ name, score: r.score });
     }
 
-    // ✅ без pagination, без leaderboardNav — значит не упадёт
     return interaction.reply({ embeds: [leaderboardEmbed(eventKey, entries)], ephemeral: false });
   }
 
@@ -103,46 +103,41 @@ module.exports = async function handleSlash(interaction) {
     return interaction.reply({ content: `🎁 You claimed **${E_REIATSU} ${amount} Reiatsu**!`, ephemeral: false });
   }
 
-  // ✅ NEW: /give
+  /* ===================== /give (new) ===================== */
   if (interaction.commandName === "give") {
+    const currency = interaction.options.getString("currency", true);
     const target = interaction.options.getUser("user", true);
     const amount = interaction.options.getInteger("amount", true);
-    const currency = interaction.options.getString("currency", true);
 
+    if (amount < 1) return interaction.reply({ content: "❌ Amount must be >= 1.", ephemeral: true });
     if (target.bot) return interaction.reply({ content: "❌ You can't transfer to a bot.", ephemeral: true });
     if (target.id === interaction.user.id) return interaction.reply({ content: "❌ You can't transfer to yourself.", ephemeral: true });
-
-    // если хочешь минимум 50 только для reiatsu — оставил как раньше
-    if (currency === "reiatsu" && amount < 50) {
-      return interaction.reply({ content: `❌ Minimum transfer is ${E_REIATSU} 50.`, ephemeral: true });
-    }
 
     const sender = await getPlayer(interaction.user.id);
     const receiver = await getPlayer(target.id);
 
-    const emoji = currency === "reiatsu" ? E_REIATSU : currency === "cursed_energy" ? E_CE : E_DRAKO;
-
-    const getBal = (p) => {
+    function getBal(p) {
       if (currency === "reiatsu") return p.bleach.reiatsu;
       if (currency === "cursed_energy") return p.jjk.cursedEnergy;
-      return p.drako;
-    };
-    const setBal = (p, v) => {
+      if (currency === "drako") return p.drako;
+      return 0;
+    }
+    function setBal(p, v) {
       if (currency === "reiatsu") p.bleach.reiatsu = v;
-      else if (currency === "cursed_energy") p.jjk.cursedEnergy = v;
-      else p.drako = v;
-    };
-
-    const sBal = getBal(sender);
-    if (sBal < amount) {
-      return interaction.reply({ content: `❌ Not enough balance. You have ${emoji} **${sBal}**.`, ephemeral: true });
+      if (currency === "cursed_energy") p.jjk.cursedEnergy = v;
+      if (currency === "drako") p.drako = v;
     }
 
-    setBal(sender, sBal - amount);
+    const s = getBal(sender);
+    if (s < amount) return interaction.reply({ content: `❌ Not enough funds. You have ${s}.`, ephemeral: true });
+
+    setBal(sender, s - amount);
     setBal(receiver, getBal(receiver) + amount);
 
     await setPlayer(interaction.user.id, sender);
     await setPlayer(target.id, receiver);
+
+    const emoji = currency === "reiatsu" ? E_REIATSU : currency === "cursed_energy" ? E_CE : E_DRAKO;
 
     return interaction.reply({
       content: `${emoji} **${safeName(interaction.user.username)}** sent **${amount}** to **${safeName(target.username)}**.`,
@@ -253,6 +248,28 @@ module.exports = async function handleSlash(interaction) {
       embeds: [wardrobeEmbed(interaction.guild, p)],
       components: wardrobeComponents(interaction.guild, member, p),
       ephemeral: true,
+    });
+  }
+
+  /* ===================== /pvpclash ===================== */
+  if (interaction.commandName === "pvpclash") {
+    const currency = interaction.options.getString("currency", true);
+    const amount = interaction.options.getInteger("amount", true);
+    const target = interaction.options.getUser("user", true);
+
+    if (target.bot) return interaction.reply({ content: "❌ You can't duel a bot.", ephemeral: true });
+    if (target.id === interaction.user.id) return interaction.reply({ content: "❌ You can't duel yourself.", ephemeral: true });
+    if (amount < 1) return interaction.reply({ content: "❌ Amount must be >= 1.", ephemeral: true });
+
+    const key = `${channel.id}:${interaction.user.id}:${target.id}`;
+    pvpById.set(key, { createdAt: Date.now(), done: false });
+
+    return interaction.reply({
+      content:
+        `⚔️ <@${target.id}> you were challenged by <@${interaction.user.id}>!\n` +
+        `Stake: **${amount} ${currency}**`,
+      components: pvpButtons(currency, amount, interaction.user.id, target.id, false),
+      ephemeral: false,
     });
   }
 
