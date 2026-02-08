@@ -1,46 +1,31 @@
-// src/data/mobs.js
-const {
-  BLEACH_MOB_MS,
-  BLEACH_MOB_HIT,
-  BLEACH_MOB_MISS,
-  BLEACH_BONUS_PER_KILL,
-  BLEACH_BONUS_MAX,
-
-  JJK_MOB_MS,
-  JJK_MOB_HIT,
-  JJK_MOB_MISS,
-  JJK_BONUS_PER_KILL,
-  JJK_BONUS_MAX,
-
-  E_REIATSU,
-  E_CE,
-} = require("../config");
-
-const { HOLLOW_MEDIA, CURSED_SPIRIT_MEDIA } = require("./media");
-
-const MOBS = {
+module.exports = {
   bleach: {
     name: "Hollow",
-    joinMs: BLEACH_MOB_MS,
-    hitReward: BLEACH_MOB_HIT,
-    missReward: BLEACH_MOB_MISS,
-    bonusPerKill: BLEACH_BONUS_PER_KILL,
-    bonusMax: BLEACH_BONUS_MAX,
-    media: HOLLOW_MEDIA,
+    joinMs: 2 * 60 * 1000,
+    hitChance: 0.5,
+    hitReward: 25,
+    missReward: 10,
+    bonusPerKill: 1,
+    bonusMax: 30,
     icon: "👁️",
-    currencyEmoji: E_REIATSU,
+    buttonLabel: "Attack Hollow",
+    successText: "hit!",
+    failText: "missed.",
+    media: null,
   },
+
   jjk: {
     name: "Cursed Spirit",
-    joinMs: JJK_MOB_MS,
-    hitReward: JJK_MOB_HIT,
-    missReward: JJK_MOB_MISS,
-    bonusPerKill: JJK_BONUS_PER_KILL,
-    bonusMax: JJK_BONUS_MAX,
-    media: CURSED_SPIRIT_MEDIA,
+    joinMs: 2 * 60 * 1000,
+    hitChance: 0.5,
+    hitReward: 22,
+    missReward: 9,
+    bonusPerKill: 1,
+    bonusMax: 30,
     icon: "🕳️",
-    currencyEmoji: E_CE,
+    buttonLabel: "Exorcise Spirit",
+    successText: "exorcised it!",
+    failText: "failed to exorcise it.",
+    media: null,
   },
 };
-
-module.exports = { MOBS };
