@@ -44,7 +44,7 @@ function normalizePlayer(raw = {}) {
       cursedEnergy: Number.isFinite(jjk.cursedEnergy) ? jjk.cursedEnergy : 0,
       survivalBonus: Number.isFinite(jjk.survivalBonus) ? jjk.survivalBonus : 0,
 
-      // ✅ materials for future crafting
+      // crafting materials (future use)
       materials: {
         cursed_shard: Number.isFinite(jjkMaterials.cursed_shard) ? jjkMaterials.cursed_shard : 0,
       },
