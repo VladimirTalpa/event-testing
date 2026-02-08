@@ -17,7 +17,6 @@ const {
 } = require("../config");
 
 const { BLEACH_SHOP_ITEMS, JJK_SHOP_ITEMS } = require("../data/shop");
-
 const { safeName } = require("../core/utils");
 
 /* ===== bonuses / multipliers ===== */
@@ -61,6 +60,7 @@ function calcJjkDropLuckMultiplier(items) {
   return mult;
 }
 
+/* ===================== BOSS/MOB EMBEDS (UNCHANGED) ===================== */
 function bossSpawnEmbed(def, channelName, joinedCount, fightersText) {
   const eventTag = def.event === "bleach" ? `${E_BLEACH} BLEACH` : `${E_JJK} JJK`;
   const currency = def.event === "bleach" ? E_REIATSU : E_CE;
@@ -134,71 +134,98 @@ function mobEmbed(eventKey, joinedCount, mob) {
     .setImage(mob.media);
 }
 
+/* ===================== POLISHED EMBEDS (inventory/shop/wardrobe/leaderboard) ===================== */
+
 function inventoryEmbed(eventKey, player, bonusMaxBleach = 30, bonusMaxJjk = 30) {
   if (eventKey === "bleach") {
     const inv = player.bleach.items;
     const itemBonus = calcBleachSurvivalBonus(inv);
     const mult = calcBleachReiatsuMultiplier(inv);
 
+    const items = [
+      `• Zanpakutō: ${inv.zanpakuto_basic ? "✅" : "❌"}`,
+      `• Mask Fragment: ${inv.hollow_mask_fragment ? "✅" : "❌"}`,
+      `• Cloak: ${inv.soul_reaper_cloak ? "✅" : "❌"}`,
+      `• Amplifier: ${inv.reiatsu_amplifier ? "✅" : "❌"}`,
+      `• Aizen role: ${inv.cosmetic_role ? "✅" : "❌"}`,
+    ].join("\n");
+
     return new EmbedBuilder()
       .setColor(COLOR)
       .setTitle(`${E_BLEACH} Bleach — Inventory`)
-      .setDescription(
-        [
-          `${E_REIATSU} Reiatsu: **${player.bleach.reiatsu}**`,
-          `${E_DRAKO} Drako Coin: **${player.drako}**`,
-          `🔁 Drako rate: **${DRAKO_RATE_BLEACH} ${E_REIATSU} = 1 ${E_DRAKO}** (one-way)`,
-          "",
-          `⭐ Boss bonus (mob kills): **${player.bleach.survivalBonus}% / ${bonusMaxBleach}%**`,
-          `🛡 Item survival bonus: **${itemBonus}%**`,
-          `🍀 Drop luck: **x${calcBleachDropLuckMultiplier(inv).toFixed(2)}**`,
-          `💰 Reward multiplier: **x${mult.toFixed(2)}**`,
-          "",
-          `• Zanpakutō: ${inv.zanpakuto_basic ? "✅" : "❌"}`,
-          `• Mask Fragment: ${inv.hollow_mask_fragment ? "✅" : "❌"}`,
-          `• Cloak: ${inv.soul_reaper_cloak ? "✅" : "❌"}`,
-          `• Amplifier: ${inv.reiatsu_amplifier ? "✅" : "❌"}`,
-          `• Aizen role: ${inv.cosmetic_role ? "✅" : "❌"}`,
-          "",
-          `🧥 Wardrobe saved roles: **${player.ownedRoles.length}**`,
-        ].join("\n")
+      .addFields(
+        {
+          name: "Wallet",
+          value:
+            `${E_REIATSU} Reiatsu: **${player.bleach.reiatsu}**\n` +
+            `${E_DRAKO} Drako: **${player.drako}**\n` +
+            `🔁 Rate: **${DRAKO_RATE_BLEACH} ${E_REIATSU} = 1 ${E_DRAKO}** (one-way)`,
+          inline: false,
+        },
+        {
+          name: "Bonuses",
+          value:
+            `⭐ Mob boss bonus: **${player.bleach.survivalBonus}% / ${bonusMaxBleach}%**\n` +
+            `🛡 Item survive bonus: **${itemBonus}%**\n` +
+            `🍀 Drop luck: **x${calcBleachDropLuckMultiplier(inv).toFixed(2)}**\n` +
+            `💰 Reward multiplier: **x${mult.toFixed(2)}**`,
+          inline: false,
+        },
+        { name: "Items", value: items, inline: false },
+        { name: "Wardrobe", value: `🧥 Saved roles: **${player.ownedRoles.length}**`, inline: false }
       );
   }
 
   const inv = player.jjk.items;
   const itemBonus = calcJjkSurvivalBonus(inv);
   const mult = calcJjkCEMultiplier(inv);
+  const shards = player.jjk.materials?.cursed_shard || 0;
+
+  const items = [
+    `• Black Flash Manual: ${inv.black_flash_manual ? "✅" : "❌"}`,
+    `• Domain Charm: ${inv.domain_charm ? "✅" : "❌"}`,
+    `• Cursed Tool: ${inv.cursed_tool ? "✅" : "❌"}`,
+    `• Reverse Talisman: ${inv.reverse_talisman ? "✅" : "❌"}`,
+    `• Binding Vow Seal: ${inv.binding_vow_seal ? "✅" : "❌"}`,
+  ].join("\n");
 
   return new EmbedBuilder()
     .setColor(COLOR)
     .setTitle(`${E_JJK} Jujutsu Kaisen — Inventory`)
-    .setDescription(
-      [
-        `${E_CE} Cursed Energy: **${player.jjk.cursedEnergy}**`,
-        `${E_DRAKO} Drako Coin: **${player.drako}**`,
-        `🔁 Drako rate: **${DRAKO_RATE_JJK} ${E_CE} = 1 ${E_DRAKO}** (one-way)`,
-        "",
-        `⭐ Boss bonus (mob kills): **${player.jjk.survivalBonus}% / ${bonusMaxJjk}%**`,
-        `🛡 Item survival bonus: **${itemBonus}%**`,
-        `🍀 Drop luck: **x${calcJjkDropLuckMultiplier(inv).toFixed(2)}**`,
-        `💰 Reward multiplier: **x${mult.toFixed(2)}**`,
-        "",
-        `• Black Flash Manual: ${inv.black_flash_manual ? "✅" : "❌"}`,
-        `• Domain Charm: ${inv.domain_charm ? "✅" : "❌"}`,
-        `• Cursed Tool: ${inv.cursed_tool ? "✅" : "❌"}`,
-        `• Reverse Talisman: ${inv.reverse_talisman ? "✅" : "❌"}`,
-        `• Binding Vow Seal: ${inv.binding_vow_seal ? "✅" : "❌"}`,
-        "",
-        `🧥 Wardrobe saved roles: **${player.ownedRoles.length}**`,
-      ].join("\n")
+    .addFields(
+      {
+        name: "Wallet",
+        value:
+          `${E_CE} Cursed Energy: **${player.jjk.cursedEnergy}**\n` +
+          `${E_DRAKO} Drako: **${player.drako}**\n` +
+          `🔁 Rate: **${DRAKO_RATE_JJK} ${E_CE} = 1 ${E_DRAKO}** (one-way)`,
+        inline: false,
+      },
+      {
+        name: "Materials",
+        value: `🧩 Cursed Shards: **${shards}**`,
+        inline: false,
+      },
+      {
+        name: "Bonuses",
+        value:
+          `⭐ Mob boss bonus: **${player.jjk.survivalBonus}% / ${bonusMaxJjk}%**\n` +
+          `🛡 Item survive bonus: **${itemBonus}%**\n` +
+          `🍀 Drop luck: **x${calcJjkDropLuckMultiplier(inv).toFixed(2)}**\n` +
+          `💰 Reward multiplier: **x${mult.toFixed(2)}**`,
+        inline: false,
+      },
+      { name: "Items", value: items, inline: false },
+      { name: "Wardrobe", value: `🧥 Saved roles: **${player.ownedRoles.length}**`, inline: false }
     );
 }
 
 function shopEmbed(eventKey, player) {
   if (eventKey === "bleach") {
     const inv = player.bleach.items;
+
     const lines = BLEACH_SHOP_ITEMS.map((it) => {
-      const owned = inv[it.key] ? "✅ Owned" : `${E_REIATSU} ${it.price} Reiatsu`;
+      const owned = inv[it.key] ? "✅ Owned" : `${E_REIATSU} ${it.price}`;
       return `**${it.name}** — ${owned}\n> ${it.desc}`;
     });
 
@@ -215,7 +242,7 @@ function shopEmbed(eventKey, player) {
 
   const inv = player.jjk.items;
   const lines = JJK_SHOP_ITEMS.map((it) => {
-    const owned = inv[it.key] ? "✅ Owned" : `${E_CE} ${it.price} Cursed Energy`;
+    const owned = inv[it.key] ? "✅ Owned" : `${E_CE} ${it.price}`;
     return `**${it.name}** — ${owned}\n> ${it.desc}`;
   });
 
@@ -230,11 +257,21 @@ function shopEmbed(eventKey, player) {
     );
 }
 
-function leaderboardEmbed(eventKey, entries) {
+function leaderboardEmbed(eventKey, entries, page = 0, totalPages = 1) {
   const tag = eventKey === "bleach" ? `${E_BLEACH} Bleach` : `${E_JJK} JJK`;
   const currency = eventKey === "bleach" ? E_REIATSU : E_CE;
-  const lines = entries.map((e, i) => `**#${i + 1}** — ${safeName(e.name)}: **${currency} ${e.score}**`);
-  return new EmbedBuilder().setColor(COLOR).setTitle(`🏆 ${tag} Leaderboard`).setDescription(lines.join("\n") || "No data yet.");
+
+  const startRank = page * 10 + 1;
+  const lines = entries.map((e, i) => {
+    const rank = startRank + i;
+    return `**#${rank}** — ${safeName(e.name)}: **${currency} ${e.score}**`;
+  });
+
+  return new EmbedBuilder()
+    .setColor(COLOR)
+    .setTitle(`🏆 ${tag} Leaderboard`)
+    .setDescription(lines.join("\n") || "_No data yet._")
+    .setFooter({ text: `Page ${page + 1}/${totalPages}` });
 }
 
 function wardrobeEmbed(guild, player) {
@@ -244,26 +281,22 @@ function wardrobeEmbed(guild, player) {
   return new EmbedBuilder()
     .setColor(COLOR)
     .setTitle("🧥 Wardrobe")
-    .setDescription(
-      "Saved roles never disappear.\n" +
-      "Select a role to **equip/unequip**.\n\n" +
-      lines
-    );
+    .setDescription("Saved roles never disappear.\nSelect a role to **equip/unequip**.")
+    .addFields({ name: "Saved roles", value: lines, inline: false });
 }
 
 module.exports = {
-  // embeds
   bossSpawnEmbed,
   bossRoundEmbed,
   bossVictoryEmbed,
   bossDefeatEmbed,
   mobEmbed,
+
   inventoryEmbed,
   shopEmbed,
   leaderboardEmbed,
   wardrobeEmbed,
 
-  // bonus helpers exported because events need them too:
   calcBleachSurvivalBonus,
   calcBleachReiatsuMultiplier,
   calcBleachDropLuckMultiplier,
