@@ -17,7 +17,6 @@ const {
   E_REIATSU,
   E_CE,
   E_DRAKO,
-
 } = require("../config");
 
 const {
@@ -46,343 +45,299 @@ const { spawnBoss } = require("../events/boss");
 const { spawnMob } = require("../events/mob");
 
 
-/* ===================== HELPERS ===================== */
-
-function isAllowedSpawnChannel(eventKey, channelId) {
-  if (eventKey === "bleach") return channelId === BLEACH_CHANNEL_ID;
-  if (eventKey === "jjk") return channelId === JJK_CHANNEL_ID;
+function allowed(event, id) {
+  if (event === "bleach") return id === BLEACH_CHANNEL_ID;
+  if (event === "jjk") return id === JJK_CHANNEL_ID;
   return false;
 }
 
-function chunk(arr, size) {
-  const out = [];
-  for (let i = 0; i < arr.length; i += size) {
-    out.push(arr.slice(i, i + size));
-  }
-  return out;
-}
-
-
-/* ===================== MAIN ===================== */
 
 module.exports = async function handleSlash(interaction) {
+
   const channel = interaction.channel;
 
-  if (!channel || !channel.isTextBased()) {
-    return interaction.reply({
-      content: "❌ Use commands in text channels.",
-      ephemeral: true,
-    });
-  }
+  if (!channel || !channel.isTextBased())
+    return;
 
 
-  /* ===================== BALANCE ===================== */
+  /* ================= BALANCE ================= */
 
   if (interaction.commandName === "balance") {
-    const target =
-      interaction.options.getUser("user") || interaction.user;
 
-    const p = await getPlayer(target.id);
+    const u =
+      interaction.options.getUser("user") ||
+      interaction.user;
+
+    const p = await getPlayer(u.id);
+
 
     return interaction.reply({
+
       content:
-        `**${safeName(target.username)}**\n` +
+
+        `**${safeName(u.username)}**\n` +
         `${E_REIATSU} ${p.bleach.reiatsu}\n` +
         `${E_CE} ${p.jjk.cursedEnergy}\n` +
         `${E_DRAKO} ${p.drako}`,
+
     });
   }
 
 
-  /* ===================== INVENTORY ===================== */
+  /* ================= INVENTORY ================= */
 
   if (interaction.commandName === "inventory") {
-    const eventKey =
+
+    const e =
       interaction.options.getString("event", true);
 
-    const p = await getPlayer(interaction.user.id);
+    const p =
+      await getPlayer(interaction.user.id);
+
 
     return interaction.reply({
-      embeds: [inventoryEmbed(eventKey, p)],
+
+      embeds: [
+        inventoryEmbed(e, p),
+      ],
+
       ephemeral: true,
     });
   }
 
 
-  /* ===================== SHOP ===================== */
+  /* ================= SHOP ================= */
 
   if (interaction.commandName === "shop") {
-    const eventKey =
+
+    const e =
       interaction.options.getString("event", true);
 
-    const p = await getPlayer(interaction.user.id);
+    const p =
+      await getPlayer(interaction.user.id);
+
 
     return interaction.reply({
-      embeds: [shopEmbed(eventKey, p)],
-      components: shopButtons(eventKey, p),
+
+      embeds: [
+        shopEmbed(e, p),
+      ],
+
+      components: shopButtons(e, p),
+
       ephemeral: true,
     });
   }
 
 
-  /* ===================== LEADERBOARD (PAGES) ===================== */
+  /* ================= LEADERBOARD ================= */
 
   if (interaction.commandName === "leaderboard") {
-    const eventKey =
+
+    const e =
       interaction.options.getString("event", true);
 
-    const rows = await getTopPlayers(eventKey, 1000);
 
-    const entries = [];
+    const rows =
+      await getTopPlayers(e, 9999);
+
+
+    const list = [];
+
 
     for (const r of rows) {
+
       let name = r.userId;
 
       try {
+
         const m =
           await interaction.guild.members.fetch(r.userId);
 
         name =
           safeName(
-            m?.displayName ||
-            m?.user?.username ||
-            r.userId
+            m.displayName || m.user.username
           );
+
       } catch {}
 
-      entries.push({
+
+      list.push({
         name,
         score: r.score,
       });
     }
 
-    const pages = chunk(entries, 10);
 
-    const page = 0;
-    const maxPage = pages.length || 1;
+    const row = {
+
+      type: 1,
+
+      components: [
+
+        {
+          type: 2,
+          style: 2,
+          label: "◀",
+          custom_id: `lb_${e}_0_prev`,
+        },
+
+        {
+          type: 2,
+          style: 2,
+          label: "▶",
+          custom_id: `lb_${e}_0_next`,
+        },
+      ],
+    };
+
 
     return interaction.reply({
+
       embeds: [
-        leaderboardEmbed(
-          eventKey,
-          pages[0] || [],
-          page,
-          maxPage
-        ),
+        leaderboardEmbed(e, list, 0),
       ],
-      ephemeral: false,
+
+      components: [row],
     });
   }
 
 
-  /* ===================== DAILY ===================== */
+  /* ================= DAILY ================= */
 
   if (interaction.commandName === "dailyclaim") {
-    const p = await getPlayer(interaction.user.id);
+
+    const p =
+      await getPlayer(interaction.user.id);
 
     const now = Date.now();
 
+
     if (now - p.bleach.lastDaily < DAILY_COOLDOWN_MS) {
-      const hrs = Math.ceil(
-        (DAILY_COOLDOWN_MS -
-          (now - p.bleach.lastDaily)) /
-          3600000
-      );
 
       return interaction.reply({
-        content: `⏳ Come back in ${hrs}h.`,
+        content: "⏳ Come later.",
         ephemeral: true,
       });
     }
 
-    const amount = hasBoosterRole(interaction.member)
-      ? DAILY_BOOSTER
-      : DAILY_NORMAL;
 
-    p.bleach.reiatsu += amount;
+    const add =
+      hasBoosterRole(interaction.member)
+        ? DAILY_BOOSTER
+        : DAILY_NORMAL;
+
+
+    p.bleach.reiatsu += add;
     p.bleach.lastDaily = now;
 
-    await setPlayer(interaction.user.id, p);
-
-    return interaction.reply({
-      content: `🎁 +${E_REIATSU} ${amount}`,
-    });
-  }
-
-
-  /* ===================== GIVE ===================== */
-
-  if (interaction.commandName === "give_reatsu") {
-    const target =
-      interaction.options.getUser("user", true);
-
-    const amount =
-      interaction.options.getInteger("amount", true);
-
-    if (target.bot || target.id === interaction.user.id) {
-      return interaction.reply({
-        content: "❌ Invalid target.",
-        ephemeral: true,
-      });
-    }
-
-    const sender =
-      await getPlayer(interaction.user.id);
-
-    const receiver =
-      await getPlayer(target.id);
-
-    if (sender.bleach.reiatsu < amount) {
-      return interaction.reply({
-        content: "❌ Not enough Reiatsu.",
-        ephemeral: true,
-      });
-    }
-
-    sender.bleach.reiatsu -= amount;
-    receiver.bleach.reiatsu += amount;
-
-    await setPlayer(interaction.user.id, sender);
-    await setPlayer(target.id, receiver);
-
-    return interaction.reply({
-      content:
-        `${E_REIATSU} ${amount} sent to ${safeName(
-          target.username
-        )}`,
-    });
-  }
-
-
-  /* ===================== EXCHANGE ===================== */
-
-  if (interaction.commandName === "exchange_drako") {
-    const eventKey =
-      interaction.options.getString("event", true);
-
-    const drako =
-      interaction.options.getInteger("drako", true);
-
-    const p = await getPlayer(interaction.user.id);
-
-    const rate =
-      eventKey === "bleach"
-        ? DRAKO_RATE_BLEACH
-        : DRAKO_RATE_JJK;
-
-    const cost = drako * rate;
-
-    const cur =
-      eventKey === "bleach" ? E_REIATSU : E_CE;
-
-    const balance =
-      eventKey === "bleach"
-        ? p.bleach.reiatsu
-        : p.jjk.cursedEnergy;
-
-    if (balance < cost) {
-      return interaction.reply({
-        content:
-          `❌ Need ${cur} ${cost}\n` +
-          `Rate: ${rate} = 1 ${E_DRAKO}`,
-        ephemeral: true,
-      });
-    }
-
-    if (eventKey === "bleach") {
-      p.bleach.reiatsu -= cost;
-    } else {
-      p.jjk.cursedEnergy -= cost;
-    }
-
-    p.drako += drako;
 
     await setPlayer(interaction.user.id, p);
 
+
     return interaction.reply({
-      content:
-        `✅ Exchanged!\n` +
-        `${cur} ${cost} → ${E_DRAKO} ${drako}\n` +
-        `Rate: ${rate} = 1`,
+      content: `🎁 +${add} Reiatsu`,
     });
   }
 
 
-  /* ===================== SPAWN BOSS ===================== */
+  /* ================= SPAWN BOSS ================= */
 
   if (interaction.commandName === "spawnboss") {
-    if (!hasEventRole(interaction.member)) {
+
+    if (!hasEventRole(interaction.member))
       return interaction.reply({
-        content: "⛔ No permission.",
+        content: "No permission",
         ephemeral: true,
       });
-    }
 
-    const bossId =
+
+    const id =
       interaction.options.getString("boss", true);
 
-    const def = BOSSES[bossId];
+    const def = BOSSES[id];
 
-    if (!def) {
-      return interaction.reply({
-        content: "❌ Unknown boss.",
-        ephemeral: true,
-      });
-    }
+    if (!def) return;
 
-    await spawnBoss(channel, bossId, true);
 
-    return interaction.reply({
-      content: `✅ ${def.name} spawned.`,
+    await interaction.reply({
+      content: "✅ Boss spawned",
       ephemeral: true,
     });
+
+
+    await spawnBoss(channel, id, true);
+
+    return;
   }
 
 
-  /* ===================== SPAWN MOB ===================== */
+  /* ================= SPAWN MOB ================= */
 
   if (interaction.commandName === "spawnmob") {
-    if (!hasEventRole(interaction.member)) {
+
+    if (!hasEventRole(interaction.member))
       return interaction.reply({
-        content: "⛔ No permission.",
+        content: "No permission",
         ephemeral: true,
       });
-    }
 
-    const eventKey =
+
+    const e =
       interaction.options.getString("event", true);
 
-    await spawnMob(channel, eventKey, {
+
+    if (!MOBS[e]) return;
+
+
+    await interaction.reply({
+      content: "✅ Mob spawned",
+      ephemeral: true,
+    });
+
+
+    await spawnMob(channel, e, {
       bleachChannelId: BLEACH_CHANNEL_ID,
       jjkChannelId: JJK_CHANNEL_ID,
       withPing: true,
     });
 
-    return interaction.reply({
-      content: "✅ Mob spawned.",
-      ephemeral: true,
-    });
+    return;
   }
 
 
-  /* ===================== WARDROBE ===================== */
+  /* ================= WARDROBE ================= */
 
   if (interaction.commandName === "wardrobe") {
-    const p = await getPlayer(interaction.user.id);
 
-    const member =
+    const p =
+      await getPlayer(interaction.user.id);
+
+
+    const m =
       await interaction.guild.members.fetch(
         interaction.user.id
-      );
+      ).catch(() => null);
+
+
+    if (!m) return;
+
 
     return interaction.reply({
-      embeds: [wardrobeEmbed(interaction.guild, p)],
-      components: wardrobeComponents(
-        interaction.guild,
-        member,
-        p
-      ),
+
+      embeds: [
+        wardrobeEmbed(interaction.guild, p),
+      ],
+
+      components:
+        wardrobeComponents(
+          interaction.guild,
+          m,
+          p
+        ),
+
       ephemeral: true,
     });
   }
+
 };
