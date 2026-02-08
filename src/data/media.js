@@ -53,27 +53,27 @@ const ULQ_VICTORY_MEDIA =
 const ULQ_DEFEAT_MEDIA =
   "https://media.discordapp.net/attachments/1405973335979851877/1469843317087797279/Your_paragraph_text_33.gif?ex=698921c3&is=6987d043&hm=a9a78cb6e341b7d27c4d94b4f1c29c248811d77b206ad4ea7b6f7571fceabd2f&=";
 
-/* ===================== GRIMMJOW (NEW) ===================== */
-const GRIMMJOW_SPAWN_MEDIA =
+// ✅ Grimmjow gifs (NEW)
+const GRIM_SPAWN_MEDIA =
   "https://media.discordapp.net/attachments/1405973335979851877/1469843123160088636/Your_paragraph_text_20.gif?ex=69892194&is=6987d014&hm=f4f9a53a32821a59c255ab38ca2785aee18654acfb13fad1220324fc93b31431&=";
 
-const GRIMMJOW_R1 =
+const GRIM_R1 =
   "https://media.discordapp.net/attachments/1405973335979851877/1469843137181651024/Your_paragraph_text_21.gif?ex=69892198&is=6987d018&hm=4852cd95f921b0d65021bb4569e695eca88078b0b75c31072e307163190e702f&=";
 
-const GRIMMJOW_R2 =
+const GRIM_R2 =
   "https://media.discordapp.net/attachments/1405973335979851877/1469843163945504899/Your_paragraph_text_23.gif?ex=6989219e&is=6987d01e&hm=2ac5fdbc70879714bf44c2c107d643cb61b67f79b7e27dbea0fb2a30c7feb861&=";
 
-const GRIMMJOW_VICTORY_MEDIA =
+const GRIM_VICTORY_MEDIA =
   "https://media.discordapp.net/attachments/1405973335979851877/1469843182920532062/Your_paragraph_text_24.gif?ex=698921a3&is=6987d023&hm=7156f4b3cddeb4dc24e79afd243b5967c6ea239b53c1fdb75e6a3ca271546ece&=";
 
-const GRIMMJOW_DEFEAT_MEDIA =
+const GRIM_DEFEAT_MEDIA =
   "https://media.discordapp.net/attachments/1405973335979851877/1469843151152746668/Your_paragraph_text_22.gif?ex=6989219b&is=6987d01b&hm=0482ac0a77dc9e0d047b55951c7708d71badbda4d9cc3b6f906d3e445e780dcc&=";
 
-/* ===================== BLEACH MOB (Hollow) ===================== */
+// Bleach mob (Hollow)
 const HOLLOW_MEDIA =
   "https://media.discordapp.net/attachments/1405973335979851877/1467508068303638540/Your_paragraph_text_10.gif?ex=6980a2e4&is=697f5164&hm=451cc0ec6edd18799593cf138549ddb86934217f6bee1e6364814d23153ead78&=";
 
-/* ===================== JJK BOSS (NEW MEDIA) ===================== */
+/* ===================== JJK MEDIA (NEW Special Grade Boss) ===================== */
 const JJK_BOSS_SPAWN_MEDIA =
   "https://media.discordapp.net/attachments/1405973335979851877/1470019091216597002/Your_paragraph_text_39.gif?ex=6989c576&is=698873f6&hm=202a603d2f90e20a5cc05442be5725288cbee9f3148115b34e1e38a502b92c8b&=";
 
@@ -92,8 +92,8 @@ const JJK_BOSS_VICTORY_MEDIA =
 const JJK_BOSS_DEFEAT_MEDIA =
   "https://media.discordapp.net/attachments/1405973335979851877/1470019147839701177/Your_paragraph_text_35.gif?ex=6989c584&is=69887404&hm=366ad3f129479258f8d56f37c4ba5c3a7fd15e9767a79435f78e81e3f5a132d5&=";
 
-/* ===================== JJK MOB (for now keep placeholder, we will change mob.js later) ===================== */
-const CURSED_SPIRIT_MEDIA = JJK_BOSS_SPAWN_MEDIA;
+// JJK mob (no new gif provided — keep placeholder)
+const CURSED_SPIRIT_MEDIA = HOLLOW_MEDIA;
 
 module.exports = {
   VASTO_SPAWN_MEDIA,
@@ -115,14 +115,16 @@ module.exports = {
   ULQ_VICTORY_MEDIA,
   ULQ_DEFEAT_MEDIA,
 
-  GRIMMJOW_SPAWN_MEDIA,
-  GRIMMJOW_R1,
-  GRIMMJOW_R2,
-  GRIMMJOW_VICTORY_MEDIA,
-  GRIMMJOW_DEFEAT_MEDIA,
+  // ✅ Grimmjow
+  GRIM_SPAWN_MEDIA,
+  GRIM_R1,
+  GRIM_R2,
+  GRIM_VICTORY_MEDIA,
+  GRIM_DEFEAT_MEDIA,
 
   HOLLOW_MEDIA,
 
+  // ✅ JJK boss
   JJK_BOSS_SPAWN_MEDIA,
   JJK_BOSS_R1,
   JJK_BOSS_R2,
