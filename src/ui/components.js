@@ -11,8 +11,15 @@ const { EVENT_ROLE_IDS, BOOSTER_ROLE_ID } = require("../config");
 const CID = {
   BOSS_JOIN: "boss_join",
   BOSS_RULES: "boss_rules",
-  BOSS_ACTION: "boss_action", // boss_action:<bossId>:<roundIndex>:<token>:<kind>:<payload?>
-  MOB_ATTACK: "mob_attack",   // mob_attack:<eventKey>
+
+  // boss_action:<bossId>:<roundIndex>:<token>:<kind>:<payload?>
+  BOSS_ACTION: "boss_action",
+
+  MOB_ATTACK: "mob_attack", // mob_attack:<eventKey>
+
+  // pvp
+  PVP_ACCEPT: "pvp_accept", // pvp_accept:<currency>:<amount>:<challengerId>:<targetId>
+  PVP_DECLINE: "pvp_decline",
 };
 
 function hasEventRole(member) {
@@ -26,18 +33,8 @@ function hasBoosterRole(member) {
 function bossButtons(disabled = false) {
   return [
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(CID.BOSS_JOIN)
-        .setLabel("Join Battle")
-        .setEmoji("🗡")
-        .setStyle(ButtonStyle.Danger)
-        .setDisabled(disabled),
-      new ButtonBuilder()
-        .setCustomId(CID.BOSS_RULES)
-        .setLabel("Rules")
-        .setEmoji("📜")
-        .setStyle(ButtonStyle.Secondary)
-        .setDisabled(disabled)
+      new ButtonBuilder().setCustomId(CID.BOSS_JOIN).setLabel("Join Battle").setEmoji("🗡").setStyle(ButtonStyle.Danger).setDisabled(disabled),
+      new ButtonBuilder().setCustomId(CID.BOSS_RULES).setLabel("Rules").setEmoji("📜").setStyle(ButtonStyle.Secondary).setDisabled(disabled)
     ),
   ];
 }
@@ -45,14 +42,29 @@ function bossButtons(disabled = false) {
 function singleActionRow(customId, label, emoji, disabled = false) {
   return [
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(customId)
-        .setLabel(label)
-        .setEmoji(emoji)
-        .setStyle(ButtonStyle.Danger)
-        .setDisabled(disabled)
+      new ButtonBuilder().setCustomId(customId).setLabel(label).setEmoji(emoji).setStyle(ButtonStyle.Danger).setDisabled(disabled)
     ),
   ];
+}
+
+function dualChoiceRow(customIdA, labelA, emojiA, customIdB, labelB, emojiB, disabled = false) {
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(customIdA).setLabel(labelA).setEmoji(emojiA).setStyle(ButtonStyle.Primary).setDisabled(disabled),
+      new ButtonBuilder().setCustomId(customIdB).setLabel(labelB).setEmoji(emojiB).setStyle(ButtonStyle.Secondary).setDisabled(disabled)
+    ),
+  ];
+}
+
+function triChoiceRow(buttons, disabled = false) {
+  // buttons: [{customId,label,emoji}]
+  const row = new ActionRowBuilder();
+  for (const b of buttons.slice(0, 5)) {
+    row.addComponents(
+      new ButtonBuilder().setCustomId(b.customId).setLabel(b.label).setEmoji(b.emoji).setStyle(ButtonStyle.Secondary).setDisabled(disabled)
+    );
+  }
+  return [row];
 }
 
 function comboDefenseRows(token, bossId, roundIndex) {
@@ -68,12 +80,15 @@ function comboDefenseRows(token, bossId, roundIndex) {
 }
 
 function mobButtons(eventKey, disabled = false) {
+  const label = eventKey === "bleach" ? "Attack Hollow" : "Exorcise Spirit";
+  const emoji = eventKey === "bleach" ? "⚔️" : "🪬";
+
   return [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`${CID.MOB_ATTACK}:${eventKey}`)
-        .setLabel(eventKey === "bleach" ? "Attack Hollow" : "Attack Spirit")
-        .setEmoji("⚔️")
+        .setLabel(label)
+        .setEmoji(emoji)
         .setStyle(ButtonStyle.Primary)
         .setDisabled(disabled)
     ),
@@ -130,11 +145,24 @@ function wardrobeComponents(guild, member, player) {
   return [new ActionRowBuilder().addComponents(menu)];
 }
 
-/* ===================== LEADERBOARD NAV (FIX CRASH) ===================== */
-// Раньше slash.js вызывал leaderboardNav(), но её не было.
-// Пока делаем пустую (без страниц), чтобы /leaderboard работал.
-function leaderboardNav() {
-  return [];
+/* ===================== PVP UI ===================== */
+function pvpButtons(currency, amount, challengerId, targetId, disabled = false) {
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`${CID.PVP_ACCEPT}:${currency}:${amount}:${challengerId}:${targetId}`)
+        .setLabel("Accept")
+        .setEmoji("✅")
+        .setStyle(ButtonStyle.Success)
+        .setDisabled(disabled),
+      new ButtonBuilder()
+        .setCustomId(`${CID.PVP_DECLINE}:${currency}:${amount}:${challengerId}:${targetId}`)
+        .setLabel("Decline")
+        .setEmoji("❌")
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(disabled)
+    ),
+  ];
 }
 
 module.exports = {
@@ -143,9 +171,11 @@ module.exports = {
   hasBoosterRole,
   bossButtons,
   singleActionRow,
+  dualChoiceRow,
+  triChoiceRow,
   comboDefenseRows,
   mobButtons,
   shopButtons,
   wardrobeComponents,
-  leaderboardNav, // ✅ важно
+  pvpButtons,
 };
