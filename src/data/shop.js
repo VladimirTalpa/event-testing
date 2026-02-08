@@ -1,75 +1,20 @@
-const {
-  E_REIATSU,
-  HOLLOW_EVENT_MS,
-  HOLLOW_HIT_REIATSU,
-  HOLLOW_MISS_REIATSU,
-  BONUS_PER_HOLLOW_KILL,
-  BONUS_MAX,
-} = require("../config");
+// src/data/shop.js
+const { E_REIATSU, E_CE, SHOP_COSMETIC_ROLE_ID } = require("../config");
 
-const { hollowEmbed } = require("../embeds");
-const { hollowButtons } = require("../components");
+const BLEACH_SHOP_ITEMS = [
+  { key: "zanpakuto_basic", name: "Zanpakutō (Basic)", price: 350, desc: `+4% survive vs Bleach bosses • +5% drop luck` },
+  { key: "hollow_mask_fragment", name: "Hollow Mask Fragment", price: 900, desc: `+7% survive vs Bleach bosses • +10% drop luck` },
+  { key: "soul_reaper_cloak", name: "Soul Reaper Cloak", price: 1200, desc: `+9% survive vs Bleach bosses • +6% drop luck` },
+  { key: "reiatsu_amplifier", name: "Reiatsu Amplifier", price: 1500, desc: `${E_REIATSU} +25% Reiatsu rewards • +2% survive vs Bleach bosses` },
+  { key: "cosmetic_role", name: "Sōsuke Aizen Role", price: 6000, desc: "Cosmetic Discord role (no stats).", roleId: SHOP_COSMETIC_ROLE_ID },
+];
 
-function safeName(name) { return String(name || "Unknown").replace(/@/g, "").replace(/#/g, "＃"); }
+const JJK_SHOP_ITEMS = [
+  { key: "black_flash_manual", name: "Black Flash Manual", price: 260, desc: `${E_CE} +20% Cursed Energy rewards • +2% survive vs Special Grade` },
+  { key: "domain_charm", name: "Domain Expansion Charm", price: 520, desc: `+8% survive vs Special Grade • +4% mob hit chance` },
+  { key: "cursed_tool", name: "Cursed Tool: Split-Soul Edge", price: 740, desc: `+10% survive vs Special Grade • +8% drop luck (JJK)` },
+  { key: "reverse_talisman", name: "Reverse Technique Talisman", price: 980, desc: `Once per boss fight: ignore your first hit (soft shield)` },
+  { key: "binding_vow_seal", name: "Binding Vow Seal", price: 1200, desc: `+15% survive vs Special Grade • -10% rewards (tradeoff)` },
+];
 
-async function editMessageSafe(channel, messageId, payload) {
-  const msg = await channel.messages.fetch(messageId).catch(() => null);
-  if (!msg) return null;
-  await msg.edit(payload).catch(() => {});
-  return msg;
-}
-
-async function spawnHollow(channel, hollowByChannel, players, pingRoleId) {
-  if (hollowByChannel.has(channel.id)) return;
-
-  if (pingRoleId) await channel.send(`<@&${pingRoleId}>`).catch(() => {});
-  const hollow = { messageId: null, attackers: new Map(), resolved: false };
-
-  const msg = await channel.send({
-    embeds: [hollowEmbed(0)],
-    components: hollowButtons(false),
-  });
-
-  hollow.messageId = msg.id;
-  hollowByChannel.set(channel.id, hollow);
-
-  setTimeout(async () => {
-    const still = hollowByChannel.get(channel.id);
-    if (!still || still.resolved) return;
-    still.resolved = true;
-
-    let anyHit = false;
-    const lines = [];
-
-    for (const [uid, info] of still.attackers.entries()) {
-      const hit = Math.random() < 0.5;
-      const player = await players.get(uid);
-      const name = safeName(info.displayName);
-
-      if (hit) {
-        anyHit = true;
-        player.reiatsu += HOLLOW_HIT_REIATSU;
-        player.survivalBonus = Math.min(BONUS_MAX, player.survivalBonus + BONUS_PER_HOLLOW_KILL);
-        lines.push(`⚔️ **${name}** hit! +${E_REIATSU} ${HOLLOW_HIT_REIATSU} • bonus +${BONUS_PER_HOLLOW_KILL}%`);
-      } else {
-        player.reiatsu += HOLLOW_MISS_REIATSU;
-        lines.push(`💨 **${name}** missed. +${E_REIATSU} ${HOLLOW_MISS_REIATSU}`);
-      }
-
-      await players.set(uid, player);
-    }
-
-    await editMessageSafe(channel, still.messageId, { components: hollowButtons(true) });
-
-    if (!still.attackers.size) {
-      await channel.send("💨 The Hollow disappeared… nobody attacked.").catch(() => {});
-    } else {
-      await channel.send(anyHit ? "🕳️ **Hollow defeated!**" : "🕳️ The Hollow escaped…").catch(() => {});
-      await channel.send(lines.join("\n").slice(0, 1900)).catch(() => {});
-    }
-
-    hollowByChannel.delete(channel.id);
-  }, HOLLOW_EVENT_MS);
-}
-
-module.exports = { spawnHollow };
+module.exports = { BLEACH_SHOP_ITEMS, JJK_SHOP_ITEMS };
