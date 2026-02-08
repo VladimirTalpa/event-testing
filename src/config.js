@@ -15,13 +15,13 @@ const BOOSTER_ROLE_ID = "1267266564961341501";
 /* ===================== THEME / EMOJIS ===================== */
 const COLOR = 0x7b2cff;
 
-// event logos (you requested these)
-const E_BLEACH = "<:bleach:1470018874408964119>";
-const E_JJK = "<:jjk:1470018845245968434>";
+// Event logos (your request)
+const E_BLEACH = "<:event:1470018874408964119>";
+const E_JJK = "<:event:1470018845245968434>";
 
 const E_VASTO = "<:event:1469832084418727979>";
 const E_ULQ = "<:event:1469831975446511648>";
-const E_GRIMJOW = "<:event:1469831949857325097>"; // kept (optional)
+const E_GRIMJOW = "<:event:1469831949857325097>"; // placeholder if you have it
 const E_REIATSU = "<:event:1469821285079978045>";
 const E_CE = "<:event:1469821211872727040>";
 const E_DRAKO = "<:event:1469812070542217389>";
@@ -35,6 +35,8 @@ const DRAKO_RATE_JJK = 19;
 
 /* ===================== COMMON GAME CONFIG ===================== */
 const ROUND_COOLDOWN_MS = 10 * 1000;
+
+// Default boss lives (most bosses)
 const MAX_HITS = 2;
 
 /* ===================== DAILY (BLEACH ONLY) ===================== */
@@ -45,12 +47,6 @@ const DAILY_BOOSTER = 200;
 /* ===================== DROPS / ROLES ===================== */
 const VASTO_DROP_ROLE_ID = "1467426528584405103"; // 2.5%
 const ULQ_DROP_ROLE_ID = "1469573731301986367";   // 3%
-const GRIMMJOW_DROP_ROLE_ID = "1469831066628919439"; // you requested
-
-const DROP_ROBUX_CHANCE_REAL_BASE = 0.005;
-const DROP_ROBUX_CHANCE_DISPLAY = 0.025;
-const DROP_ROBUX_CHANCE_CAP = 0.01;
-const ROBUX_CLAIM_TEXT = "To claim: contact **daez063**.";
 
 // Bleach shop cosmetic role
 const SHOP_COSMETIC_ROLE_ID = "1467438527200497768";
@@ -79,16 +75,17 @@ module.exports = {
 
   COLOR,
 
-  E_BLEACH,
-  E_JJK,
-
   E_VASTO,
   E_ULQ,
   E_GRIMJOW,
+
   E_REIATSU,
   E_CE,
   E_DRAKO,
+
   E_MEMBERS,
+  E_BLEACH,
+  E_JJK,
 
   DRAKO_RATE_BLEACH,
   DRAKO_RATE_JJK,
@@ -102,12 +99,6 @@ module.exports = {
 
   VASTO_DROP_ROLE_ID,
   ULQ_DROP_ROLE_ID,
-  GRIMMJOW_DROP_ROLE_ID,
-
-  DROP_ROBUX_CHANCE_REAL_BASE,
-  DROP_ROBUX_CHANCE_DISPLAY,
-  DROP_ROBUX_CHANCE_CAP,
-  ROBUX_CLAIM_TEXT,
 
   SHOP_COSMETIC_ROLE_ID,
 
