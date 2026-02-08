@@ -29,11 +29,9 @@ const MOBS = {
     media: HOLLOW_MEDIA,
     icon: "👁️",
     currencyEmoji: E_REIATSU,
-    // labels for UI/text
-    actionLabel: "Attack Hollow",
-    successVerb: "hit",
-    failVerb: "missed",
   },
+
+  // ✅ JJK “Exorcise” style, same mechanics as hollow
   jjk: {
     name: "Cursed Spirit",
     joinMs: JJK_MOB_MS,
@@ -42,12 +40,8 @@ const MOBS = {
     bonusPerKill: JJK_BONUS_PER_KILL,
     bonusMax: JJK_BONUS_MAX,
     media: CURSED_SPIRIT_MEDIA,
-    icon: "🟣",
+    icon: "🕳️",
     currencyEmoji: E_CE,
-    // labels for UI/text
-    actionLabel: "Exorcise Spirit",
-    successVerb: "exorcised",
-    failVerb: "failed",
   },
 };
 
