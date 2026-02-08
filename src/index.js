@@ -15,19 +15,17 @@ const {
 
 /* ===================== CONFIG ===================== */
 
-// Roles that can manually spawn events
+// Roles that can manually spawn bosses
 const EVENT_ROLE_IDS = ["1259865441405501571", "1287879457025163325"];
 
-// Channel (Bleach spawns only here) — ты можешь заменить на свой ID канала
-// В прошлых сообщениях ты давал ссылки, но тут нужен чистый ID канала.
-// Пример: https://discord.com/channels/GUILD/CHANNEL  -> берём CHANNEL
+// Bleach spawns only here
 const BLEACH_CHANNEL_ID = "1469757595031179314";
 
-// Join times
-const VASTO_JOIN_MS = 2 * 60 * 1000; // 2 minutes
-const ULQ_JOIN_MS = 3 * 60 * 1000;   // 3 minutes
+// Join windows
+const VASTO_JOIN_MS = 2 * 60 * 1000; // 2 min
+const ULQ_JOIN_MS = 3 * 60 * 1000;   // 3 min
 
-// Base chances
+// Chances per round
 const VASTO_SURVIVE_CHANCE = 0.30;
 const ULQ_SURVIVE_CHANCE = 0.20;
 
@@ -45,7 +43,7 @@ const VASTO_DROP_CHANCE = 0.025; // 2.5%
 const ULQ_DROP_ROLE_ID = "1469573731301986367";
 const ULQ_DROP_CHANCE = 0.03; // 3%
 
-// Emojis (as requested)
+// Emojis (you gave IDs; we use <:event:ID> same style as your old code)
 const E_VASTO = "<:event:1469832084418727979>";
 const E_ULQ = "<:event:1469831975446511648>";
 const E_GRIMMJOW = "<:event:1469831949857325097>";
@@ -57,15 +55,18 @@ const E_DRAKO = "<:event:1469812070542217389>";
 const COLOR_BLEACH = 0x7b2cff;
 
 // Phase timings
-const TEAM_BLOCK_WINDOW_MS = 5 * 1000;   // 5 seconds
-const FINISHER_WINDOW_MS = 10 * 1000;    // 10 seconds
-const QUICK_BLOCK_WINDOW_MS = 2 * 1000;  // 2 seconds
-const QTE_WINDOW_MS = 5 * 1000;          // 5 seconds
-const ROUND_GAP_MS = 1500;               // small pause between rounds
-
-// Team requirements
 const TEAM_BLOCK_REQUIRED = 4;
-const ULQ_MIN_SUCCESS_FOR_ROUND6 = 3;
+const TEAM_BLOCK_WINDOW_MS = 5 * 1000;
+
+const QTE_WINDOW_MS = 5 * 1000;
+
+const QUICK_BLOCK_WINDOW_MS = 2 * 1000;
+
+const FINISHER_WINDOW_MS = 10 * 1000;
+
+const ULQ_MIN_SUCCESS_FOR_R6 = 3;
+
+const ROUND_GAP_MS = 1200;
 
 /* ===================== MEDIA (your gifs) ===================== */
 
@@ -122,9 +123,7 @@ const ULQ_WIN_GIF =
 const ULQ_LOSE_GIF =
   "https://media.discordapp.net/attachments/1405973335979851877/1469843317087797279/Your_paragraph_text_33.gif?ex=698921c3&is=6987d043&hm=a9a78cb6e341b7d27c4d94b4f1c29c248811d77b206ad4ea7b6f7571fceabd2f&=";
 
-/* ===================== DATA (simple json) ===================== */
-/* Если у тебя уже есть Redis/DB версия — скажи, и я перепишу под Redis.
-   Сейчас делаю стабильный вариант, который у тебя уже точно работал. */
+/* ===================== DATA ===================== */
 
 const DATA_DIR = path.join(__dirname, "..", "data");
 const PLAYERS_FILE = path.join(DATA_DIR, "players.json");
@@ -159,6 +158,10 @@ function hasEventRole(member) {
   if (!member?.roles?.cache) return false;
   return EVENT_ROLE_IDS.some((id) => member.roles.cache.has(id));
 }
+function isBleachChannel(channel) {
+  return channel?.id === BLEACH_CHANNEL_ID;
+}
+function roll(chance) { return Math.random() < chance; }
 
 async function tryGiveRole(guild, userId, roleId) {
   try {
@@ -178,179 +181,55 @@ async function tryGiveRole(guild, userId, roleId) {
   }
 }
 
-function fightersListText(participants) {
-  const arr = [...participants.values()].map((p) => safeName(p.displayName));
-  if (!arr.length) return "`No fighters yet`";
-  return arr.join(", ").slice(0, 1000);
-}
-
-/* ===================== BOSSES DEFINITION ===================== */
-
-const BOSSES = {
-  vasto: {
-    key: "vasto",
-    title: `${E_VASTO} Vasto Lorde`,
-    difficulty: "Hard",
-    joinMs: VASTO_JOIN_MS,
-    surviveChance: VASTO_SURVIVE_CHANCE,
-    winReiatsu: VASTO_WIN_REIATSU,
-    hitReiatsu: VASTO_HIT_REIATSU,
-    dropRoleId: VASTO_DROP_ROLE_ID,
-    dropChance: VASTO_DROP_CHANCE,
-    spawnGif: VASTO_SPAWN_GIF,
-    winGif: VASTO_WIN_GIF,
-    loseGif: VASTO_LOSE_GIF,
-    phases: [
-      {
-        type: "pressure",
-        name: "Round 1 — Reiatsu wave",
-        desc: "Vasto Lorde releases a powerful Reiatsu wave. Endure the pressure.",
-        gif: VASTO_R1_GIF,
-      },
-      {
-        type: "pressure",
-        name: "Round 2 — Rage pressure",
-        desc: "Vasto Lorde enters rage. The pressure grows stronger.",
-        gif: VASTO_R2_GIF,
-      },
-      {
-        type: "team_block",
-        name: "Round 3 — Coordinated block",
-        desc: `Cooperate to block the attack! Need **${TEAM_BLOCK_REQUIRED}** fighters to press **Block** within **${TEAM_BLOCK_WINDOW_MS / 1000}s**.`,
-        gif: VASTO_R3_GIF,
-        required: TEAM_BLOCK_REQUIRED,
-        windowMs: TEAM_BLOCK_WINDOW_MS,
-      },
-      {
-        type: "pressure",
-        name: "Round 4 — Counterattack",
-        desc: "Vasto Lorde is weakened. Counterattack him!",
-        gif: VASTO_R4_GIF,
-      },
-      {
-        type: "finisher",
-        name: "Round 5 — Finish him",
-        desc: `Vasto Lorde took massive damage. Press **Finisher** within **${FINISHER_WINDOW_MS / 1000}s** or you get hit.`,
-        gif: VASTO_R5_GIF,
-        windowMs: FINISHER_WINDOW_MS,
-      },
-    ],
-  },
-
-  ulquiorra: {
-    key: "ulquiorra",
-    title: `${E_ULQ} Ulquiorra`,
-    difficulty: "Extreme",
-    joinMs: ULQ_JOIN_MS,
-    surviveChance: ULQ_SURVIVE_CHANCE,
-    winReiatsu: ULQ_WIN_REIATSU,
-    hitReiatsu: ULQ_HIT_REIATSU,
-    dropRoleId: ULQ_DROP_ROLE_ID,
-    dropChance: ULQ_DROP_CHANCE,
-    spawnGif: ULQ_SPAWN_GIF,
-    winGif: ULQ_WIN_GIF,
-    loseGif: ULQ_LOSE_GIF,
-    phases: [
-      {
-        type: "team_block",
-        name: "Round 1 — Barrage block",
-        desc: `Block together! Need **${TEAM_BLOCK_REQUIRED}** fighters to press **Block** within **${TEAM_BLOCK_WINDOW_MS / 1000}s**.`,
-        gif: ULQ_R1_GIF,
-        required: TEAM_BLOCK_REQUIRED,
-        windowMs: TEAM_BLOCK_WINDOW_MS,
-      },
-      {
-        type: "qte_combo",
-        name: "Round 2 — Combo Defense",
-        desc: `Press the sequence in order within **${QTE_WINDOW_MS / 1000}s**. Wrong press = hit.`,
-        gif: ULQ_R2_GIF,
-        windowMs: QTE_WINDOW_MS,
-      },
-      {
-        type: "pressure",
-        name: "Round 3 — Transformation pressure",
-        desc: "Ulquiorra transformed. Endure the insane pressure.",
-        gif: ULQ_R3_GIF,
-      },
-      {
-        type: "pressure",
-        name: "Round 4 — Stronger pressure",
-        desc: "Ulquiorra increases Reiatsu pressure. Breathing is harder.",
-        gif: ULQ_R4_GIF,
-      },
-      {
-        type: "quick_block",
-        name: "Round 5 — Quick block (2s)",
-        desc: `Press **Block** within **${QUICK_BLOCK_WINDOW_MS / 1000}s** or get hit. Successful block also counts as a counterattack.`,
-        gif: ULQ_R5_GIF,
-        windowMs: QUICK_BLOCK_WINDOW_MS,
-      },
-      {
-        type: "min_success",
-        name: "Round 6 — Final assault (need 3)",
-        desc: `At least **${ULQ_MIN_SUCCESS_FOR_ROUND6}** fighters must succeed this round — otherwise everyone loses.`,
-        gif: ULQ_R6_GIF,
-        minSuccess: ULQ_MIN_SUCCESS_FOR_ROUND6,
-      },
-    ],
-  },
-};
-
 /* ===================== EMBEDS ===================== */
 
-function spawnEmbed(bossDef, channelName, fightersCount, fightersText) {
+function spawnEmbed(boss, channelName, fightersText) {
   return new EmbedBuilder()
     .setColor(COLOR_BLEACH)
-    .setTitle(`${bossDef.title} appeared in chat!`)
+    .setTitle(`${boss.emoji} ${boss.name} appeared!`)
     .setDescription(
       [
-        `Difficulty: **${bossDef.difficulty}**`,
-        `⏳ Join time: **${Math.round(bossDef.joinMs / 60000)} minutes**`,
+        `Difficulty: **${boss.difficulty}**`,
+        `⏳ Join time: **${boss.joinLabel}**`,
         "",
         `Click **🗡 Join Battle** to participate.`,
       ].join("\n")
     )
     .addFields(
       { name: "👥 Fighters", value: fightersText, inline: false },
-      { name: "Joined", value: `\`${fightersCount}\``, inline: true },
-      { name: `${E_REIATSU} Rewards`, value: `Win: \`${bossDef.winReiatsu}\` • Hit bank: \`+${bossDef.hitReiatsu}\``, inline: true },
+      { name: `${E_REIATSU} Rewards`, value: `Win: \`${boss.winReiatsu}\` • Hit bank: \`+${boss.hitReiatsu}\``, inline: true },
       { name: "📌 Channel", value: `\`#${channelName}\``, inline: true }
     )
-    .setImage(bossDef.spawnGif);
+    .setImage(boss.spawnGif);
 }
 
-function phaseEmbed(bossDef, phase, aliveCount, extraDesc = "") {
+function phaseEmbed(boss, title, desc, gif, aliveCount) {
   return new EmbedBuilder()
     .setColor(COLOR_BLEACH)
-    .setTitle(`${bossDef.title} — ${phase.name}`)
-    .setDescription([phase.desc, extraDesc].filter(Boolean).join("\n"))
+    .setTitle(`${boss.emoji} ${boss.name} — ${title}`)
+    .setDescription(desc)
     .addFields({ name: "Alive fighters", value: `\`${aliveCount}\``, inline: true })
-    .setImage(phase.gif || bossDef.spawnGif);
+    .setImage(gif);
 }
 
-function winEmbed(bossDef, survivorsCount) {
-  const dropText =
-    bossDef.key === "vasto"
-      ? `Role drop: \`2.5%\``
-      : `Role drop: \`3%\``;
-
+function winEmbed(boss, survivorsCount) {
   return new EmbedBuilder()
     .setColor(0x2ecc71)
-    .setTitle(`${bossDef.title} defeated!`)
-    .setDescription(`✅ Rewards granted to survivors.`)
+    .setTitle(`${boss.emoji} ${boss.name} defeated!`)
+    .setDescription("✅ Rewards granted to survivors.")
     .addFields(
       { name: "Survivors", value: `\`${survivorsCount}\``, inline: true },
-      { name: "Drops", value: dropText, inline: true }
+      { name: "Drops", value: `Role drop: \`${(boss.dropChance * 100).toFixed(1)}%\``, inline: true }
     )
-    .setImage(bossDef.winGif);
+    .setImage(boss.winGif);
 }
 
-function loseEmbed(bossDef) {
+function loseEmbed(boss) {
   return new EmbedBuilder()
     .setColor(0xe74c3c)
-    .setTitle(`${bossDef.title} — Defeat`)
+    .setTitle(`${boss.emoji} ${boss.name} — Defeat`)
     .setDescription("❌ Everyone lost.")
-    .setImage(bossDef.loseGif);
+    .setImage(boss.loseGif);
 }
 
 /* ===================== COMPONENTS ===================== */
@@ -368,7 +247,7 @@ function joinButtons(disabled = false) {
   ];
 }
 
-function teamBlockButtons(disabled = false) {
+function blockButtons(disabled = false) {
   return [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
@@ -395,7 +274,6 @@ function finisherButtons(disabled = false) {
 }
 
 function qteButtons(disabled = false) {
-  // кнопки: red -> green -> blue -> yellow
   return [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId("qte_red").setLabel("Red").setStyle(ButtonStyle.Danger).setDisabled(disabled),
@@ -406,143 +284,242 @@ function qteButtons(disabled = false) {
   ];
 }
 
+/* ===================== BOSS DEFINITIONS ===================== */
+
+const BOSSES = {
+  vasto: {
+    key: "vasto",
+    name: "Vasto Lorde",
+    emoji: E_VASTO,
+    difficulty: "Hard",
+    joinMs: VASTO_JOIN_MS,
+    joinLabel: "2 minutes",
+    chance: VASTO_SURVIVE_CHANCE,
+    winReiatsu: VASTO_WIN_REIATSU,
+    hitReiatsu: VASTO_HIT_REIATSU,
+    dropRoleId: VASTO_DROP_ROLE_ID,
+    dropChance: VASTO_DROP_CHANCE,
+    spawnGif: VASTO_SPAWN_GIF,
+    winGif: VASTO_WIN_GIF,
+    loseGif: VASTO_LOSE_GIF,
+    phases: [
+      {
+        type: "pressure",
+        title: "Round 1",
+        desc: "Vasto Lorde releases a powerful Reiatsu wave.\nThose who endure **counterattack** and bank hit-reward.\nThose who fail take damage (1/2).",
+        gif: VASTO_R1_GIF,
+      },
+      {
+        type: "pressure",
+        title: "Round 2",
+        desc: "Vasto Lorde enters rage — pressure grows stronger.\nEndure to bank hit-reward.\nFail = damage (1/2).",
+        gif: VASTO_R2_GIF,
+      },
+      {
+        type: "team_block",
+        title: "Round 3",
+        desc: `Vasto Lorde prepares a massive attack!\n**Cooperate to block it!**\nNeed **${TEAM_BLOCK_REQUIRED}** fighters to press **Block** within **${TEAM_BLOCK_WINDOW_MS / 1000}s**.\nIf team fails (<${TEAM_BLOCK_REQUIRED}), everyone takes damage.`,
+        gif: VASTO_R3_GIF,
+      },
+      {
+        type: "pressure",
+        title: "Round 4",
+        desc: "Vasto Lorde is weakened — counterattack!\nSuccess = bank hit-reward.\nFail = damage (1/2).",
+        gif: VASTO_R4_GIF,
+      },
+      {
+        type: "finisher",
+        title: "Round 5 (Finisher)",
+        desc: `Vasto Lorde took massive damage — finish him!\nPress **Finisher** within **${FINISHER_WINDOW_MS / 1000}s**.\nIf you don't press — you take damage.`,
+        gif: VASTO_R5_GIF,
+      },
+    ],
+  },
+
+  ulquiorra: {
+    key: "ulquiorra",
+    name: "Ulquiorra",
+    emoji: E_ULQ,
+    difficulty: "Extreme",
+    joinMs: ULQ_JOIN_MS,
+    joinLabel: "3 minutes",
+    chance: ULQ_SURVIVE_CHANCE,
+    winReiatsu: ULQ_WIN_REIATSU,
+    hitReiatsu: ULQ_HIT_REIATSU,
+    dropRoleId: ULQ_DROP_ROLE_ID,
+    dropChance: ULQ_DROP_CHANCE,
+    spawnGif: ULQ_SPAWN_GIF,
+    winGif: ULQ_WIN_GIF,
+    loseGif: ULQ_LOSE_GIF,
+    phases: [
+      {
+        type: "team_block",
+        title: "Round 1",
+        desc: `Ulquiorra launches a brutal barrage!\n**Cooperate to block it!**\nNeed **${TEAM_BLOCK_REQUIRED}** fighters to press **Block** within **${TEAM_BLOCK_WINDOW_MS / 1000}s**.\nIf team fails (<${TEAM_BLOCK_REQUIRED}), everyone takes damage.`,
+        gif: ULQ_R1_GIF,
+      },
+      {
+        type: "qte",
+        title: "Round 2 (Combo Defense)",
+        desc: `Ulquiorra attacks again — combo defense!\nPress the sequence in order within **${QTE_WINDOW_MS / 1000}s**.\nWrong press = damage.`,
+        gif: ULQ_R2_GIF,
+      },
+      {
+        type: "pressure",
+        title: "Round 3",
+        desc: "Ulquiorra transformed — insane pressure.\nSuccess = no damage + bank hit-reward.\nFail = damage (1/2).",
+        gif: ULQ_R3_GIF,
+      },
+      {
+        type: "pressure",
+        title: "Round 4",
+        desc: "Ulquiorra increases pressure even more.\nSuccess = bank hit-reward.\nFail = damage (1/2).",
+        gif: ULQ_R4_GIF,
+      },
+      {
+        type: "quick_block",
+        title: "Round 5 (Quick Block)",
+        desc: `Ulquiorra prepares a strong attack!\nPress **Block** within **${QUICK_BLOCK_WINDOW_MS / 1000}s**.\nFail = damage.`,
+        gif: ULQ_R5_GIF,
+      },
+      {
+        type: "min_success",
+        title: "Round 6 (Need 3 wins)",
+        desc: `Final assault!\nAt least **${ULQ_MIN_SUCCESS_FOR_R6}** fighters must succeed this round.\nIf less than ${ULQ_MIN_SUCCESS_FOR_R6} succeed — **everyone loses instantly**.`,
+        gif: ULQ_R6_GIF,
+      },
+    ],
+  },
+};
+
 /* ===================== RUNTIME STATE ===================== */
 
 const bossByChannel = new Map();
 /*
-boss state:
+state:
 {
-  key: "vasto|ulquiorra",
+  bossKey,
   joining: true/false,
-  messageId,
+  spawnMsgId,
   participants: Map<uid, { displayName, hits, hitBank }>,
   alive: Set<uid>,
-  // phase interactive state:
-  activePhase: { type, ... } or null
-  phaseMsgId: string|null
-  blockPressers: Set<uid> for block phases
-  finisherPressers: Set<uid> for finisher
-  qte: { seq: ["qte_red",...], step: Map<uid, number>, failed: Set<uid>, deadline, msgId }
+  // phase interaction data:
+  blockPressers: Set<uid>,
+  finisherPressers: Set<uid>,
+  qte: { seq: string[], step: Map<uid, number>, failed: Set<uid>, deadline: number, msgId: string|null }
 }
 */
 
-function ensureBleachChannel(interactionOrChannel) {
-  const ch = interactionOrChannel?.channel || interactionOrChannel;
-  if (!ch?.id) return true;
-  return ch.id === BLEACH_CHANNEL_ID;
+/* ===================== CORE ===================== */
+
+function fighterTextFromParticipants(participants) {
+  const arr = [...participants.values()].map((p) => safeName(p.displayName));
+  if (!arr.length) return "`No fighters yet`";
+  return arr.join(", ").slice(0, 1000);
 }
 
-/* ===================== CORE LOGIC ===================== */
-
-function rollSurvive(chance) {
-  return Math.random() < chance;
+function ensureParticipantAlive(state, uid) {
+  return state.participants.has(uid) && state.alive.has(uid);
 }
 
 function applyHit(state, uid) {
   const p = state.participants.get(uid);
-  if (!p) return { eliminated: true };
+  if (!p) return { eliminated: true, hits: 2 };
   p.hits += 1;
   const eliminated = p.hits >= 2;
-  return { eliminated };
+  if (eliminated) state.alive.delete(uid);
+  return { eliminated, hits: p.hits };
 }
 
-function giveHitBank(state, uid, amount) {
+function bankHit(state, uid, amount) {
   const p = state.participants.get(uid);
   if (!p) return;
   p.hitBank += amount;
 }
 
+async function updateSpawnMsg(channel, state) {
+  const boss = BOSSES[state.bossKey];
+  const text = fighterTextFromParticipants(state.participants);
+  const msg = await channel.messages.fetch(state.spawnMsgId).catch(() => null);
+  if (!msg) return;
+  await msg.edit({
+    embeds: [spawnEmbed(boss, channel.name, text)],
+    components: joinButtons(!state.joining),
+  }).catch(() => {});
+}
+
 async function spawnBoss(channel, bossKey) {
-  if (!channel?.isTextBased?.()) return;
   if (bossByChannel.has(channel.id)) {
     await channel.send("⚠️ A boss is already active in this channel.").catch(() => {});
     return;
   }
 
-  const bossDef = BOSSES[bossKey];
-  if (!bossDef) {
+  const boss = BOSSES[bossKey];
+  if (!boss) {
     await channel.send("❌ Unknown boss.").catch(() => {});
     return;
   }
 
   const state = {
-    key: bossKey,
+    bossKey,
     joining: true,
-    messageId: null,
+    spawnMsgId: null,
     participants: new Map(),
     alive: new Set(),
-    activePhase: null,
-    phaseMsgId: null,
     blockPressers: new Set(),
     finisherPressers: new Set(),
     qte: null,
   };
 
   const msg = await channel.send({
-    embeds: [spawnEmbed(bossDef, channel.name, 0, "`No fighters yet`")],
+    embeds: [spawnEmbed(boss, channel.name, "`No fighters yet`")],
     components: joinButtons(false),
   }).catch(() => null);
 
   if (!msg) return;
 
-  state.messageId = msg.id;
+  state.spawnMsgId = msg.id;
   bossByChannel.set(channel.id, state);
 
   setTimeout(() => {
     const still = bossByChannel.get(channel.id);
-    if (!still || still.messageId !== state.messageId) return;
-    runBossScenario(channel, still).catch(() => {});
-  }, bossDef.joinMs);
+    if (!still || still.spawnMsgId !== state.spawnMsgId) return;
+    runBoss(channel, still).catch((e) => console.error("runBoss error:", e));
+  }, boss.joinMs);
 }
 
-async function updateSpawnMessage(channel, state) {
-  const bossDef = BOSSES[state.key];
-  const fightersText = fightersListText(state.participants);
-  await channel.messages.fetch(state.messageId).then(async (m) => {
-    await m.edit({
-      embeds: [spawnEmbed(bossDef, channel.name, state.participants.size, fightersText)],
-      components: joinButtons(!state.joining),
-    }).catch(() => {});
-  }).catch(() => {});
-}
+async function runBoss(channel, state) {
+  const boss = BOSSES[state.bossKey];
 
-async function runBossScenario(channel, state) {
-  const bossDef = BOSSES[state.key];
   state.joining = false;
-  await updateSpawnMessage(channel, state);
+  await updateSpawnMsg(channel, state);
 
   state.alive = new Set(state.participants.keys());
-
   if (state.alive.size === 0) {
-    await channel.send(`💨 ${bossDef.title} vanished… nobody joined.`).catch(() => {});
+    await channel.send(`💨 ${boss.emoji} ${boss.name} vanished… nobody joined.`).catch(() => {});
     bossByChannel.delete(channel.id);
     return;
   }
 
-  await channel.send(`⚔️ ${bossDef.title} battle begins!`).catch(() => {});
+  await channel.send(`⚔️ ${boss.emoji} **${boss.name}** battle begins!`).catch(() => {});
   await sleep(800);
 
-  for (let i = 0; i < bossDef.phases.length; i++) {
+  for (const phase of boss.phases) {
     if (state.alive.size === 0) break;
 
-    const phase = bossDef.phases[i];
-    state.activePhase = phase;
-
-    // run phase by type
     if (phase.type === "pressure") {
-      await runPressurePhase(channel, state, bossDef, phase);
+      await runPressurePhase(channel, state, boss, phase);
     } else if (phase.type === "team_block") {
-      await runTeamBlockPhase(channel, state, bossDef, phase);
-    } else if (phase.type === "finisher") {
-      await runFinisherPhase(channel, state, bossDef, phase);
-    } else if (phase.type === "qte_combo") {
-      await runQtePhase(channel, state, bossDef, phase);
+      await runTeamBlockPhase(channel, state, boss, phase);
+    } else if (phase.type === "qte") {
+      await runQtePhase(channel, state, boss, phase);
     } else if (phase.type === "quick_block") {
-      await runQuickBlockPhase(channel, state, bossDef, phase);
+      await runQuickBlockPhase(channel, state, boss, phase);
+    } else if (phase.type === "finisher") {
+      await runFinisherPhase(channel, state, boss, phase);
     } else if (phase.type === "min_success") {
-      const ok = await runMinSuccessPhase(channel, state, bossDef, phase);
+      const ok = await runMinSuccessPhase(channel, state, boss, phase);
       if (!ok) {
-        // wipe condition
         state.alive.clear();
         break;
       }
@@ -551,202 +528,161 @@ async function runBossScenario(channel, state) {
     await sleep(ROUND_GAP_MS);
   }
 
-  // Finish: if anyone alive => win
   if (state.alive.size > 0) {
-    await grantVictory(channel, state, bossDef);
+    await grantVictory(channel, state, boss);
   } else {
-    await channel.send({ embeds: [loseEmbed(bossDef)] }).catch(() => {});
+    await channel.send({ embeds: [loseEmbed(boss)] }).catch(() => {});
   }
 
   bossByChannel.delete(channel.id);
 }
 
-async function runPressurePhase(channel, state, bossDef, phase) {
-  const aliveArr = [...state.alive];
+async function runPressurePhase(channel, state, boss, phase) {
+  const alive = [...state.alive];
 
-  const msg = await channel.send({
-    embeds: [phaseEmbed(bossDef, phase, aliveArr.length)],
-  }).catch(() => null);
-  state.phaseMsgId = msg?.id || null;
+  await channel.send({
+    embeds: [phaseEmbed(boss, phase.title, phase.desc, phase.gif, alive.length)],
+  }).catch(() => {});
 
   const lines = [];
 
-  for (const uid of aliveArr) {
+  for (const uid of alive) {
     const p = state.participants.get(uid);
     const name = safeName(p?.displayName);
-    const survived = rollSurvive(bossDef.surviveChance);
 
-    if (survived) {
-      // counts as successful hit -> bank it
-      giveHitBank(state, uid, bossDef.hitReiatsu);
-      lines.push(`✅ **${name}** endured the pressure and counterattacked! (+${E_REIATSU} ${bossDef.hitReiat
-su} bank)`);
+    const ok = roll(boss.chance);
+    if (ok) {
+      bankHit(state, uid, boss.hitReiatsu);
+      lines.push(`✅ **${name}** endured and counterattacked! (+${E_REIATSU} ${boss.hitReiatsu} bank)`);
     } else {
-      const { eliminated } = applyHit(state, uid);
-      lines.push(`💥 **${name}** got hit! (${state.participants.get(uid)?.hits}/2)`);
-      if (eliminated) {
-        state.alive.delete(uid);
-        lines.push(`☠️ **${name}** was eliminated.`);
-      }
+      const r = applyHit(state, uid);
+      lines.push(`💥 **${name}** got hit! (${r.hits}/2)`);
+      if (r.eliminated) lines.push(`☠️ **${name}** was eliminated.`);
     }
-    await sleep(350);
+
+    await sleep(250);
   }
 
   await channel.send(lines.join("\n").slice(0, 1900)).catch(() => {});
 }
 
-async function runTeamBlockPhase(channel, state, bossDef, phase) {
-  const aliveArr = [...state.alive];
+async function runTeamBlockPhase(channel, state, boss, phase) {
+  const alive = [...state.alive];
   state.blockPressers = new Set();
 
   const msg = await channel.send({
-    embeds: [
-      phaseEmbed(
-        bossDef,
-        phase,
-        aliveArr.length,
-        `🛡 Press **Block** now! Need **${phase.required}** fighters within **${phase.windowMs / 1000}s**.`
-      ),
-    ],
-    components: teamBlockButtons(false),
+    embeds: [phaseEmbed(boss, phase.title, phase.desc, phase.gif, alive.length)],
+    components: blockButtons(false),
   }).catch(() => null);
 
-  state.phaseMsgId = msg?.id || null;
+  await sleep(TEAM_BLOCK_WINDOW_MS);
 
-  // wait window
-  await sleep(phase.windowMs);
-
-  // disable buttons
-  if (state.phaseMsgId) {
-    await channel.messages.fetch(state.phaseMsgId).then((m) => m.edit({ components: teamBlockButtons(true) }).catch(() => {})).catch(() => {});
+  if (msg) {
+    await msg.edit({ components: blockButtons(true) }).catch(() => {});
   }
 
   const blockers = state.blockPressers;
-  const okTeam = blockers.size >= phase.required;
-
   const lines = [];
-  lines.push(`🛡 Blockers: **${blockers.size}/${phase.required}**`);
+  lines.push(`🛡 Blockers: **${blockers.size}/${TEAM_BLOCK_REQUIRED}**`);
 
-  if (!okTeam) {
-    // team failed => everyone gets hit
-    lines.push(`❌ Not enough blockers. The attack hits everyone!`);
-    for (const uid of aliveArr) {
+  if (blockers.size < TEAM_BLOCK_REQUIRED) {
+    lines.push("❌ Not enough blockers — the attack hits everyone!");
+    for (const uid of alive) {
       const p = state.participants.get(uid);
       const name = safeName(p?.displayName);
-      const { eliminated } = applyHit(state, uid);
-      lines.push(`💥 **${name}** got hit! (${state.participants.get(uid)?.hits}/2)`);
-      if (eliminated) {
-        state.alive.delete(uid);
-        lines.push(`☠️ **${name}** was eliminated.`);
-      }
+      const r = applyHit(state, uid);
+      lines.push(`💥 **${name}** got hit! (${r.hits}/2)`);
+      if (r.eliminated) lines.push(`☠️ **${name}** was eliminated.`);
     }
     await channel.send(lines.join("\n").slice(0, 1900)).catch(() => {});
     return;
   }
 
-  // team succeeded:
-  // - those who pressed: survive + hit-bank (they "counterattacked")
-  // - those who didn't: get hit
-  lines.push(`✅ The team blocked the barrage!`);
+  lines.push("✅ The team blocked the barrage!");
 
-  for (const uid of aliveArr) {
+  for (const uid of alive) {
     const p = state.participants.get(uid);
     const name = safeName(p?.displayName);
 
     if (blockers.has(uid)) {
-      giveHitBank(state, uid, bossDef.hitReiatsu);
-      lines.push(`✅ **${name}** blocked and counterattacked! (+${E_REIATSU} ${bossDef.hitReiatsu} bank)`);
+      bankHit(state, uid, boss.hitReiatsu);
+      lines.push(`✅ **${name}** blocked and counterattacked! (+${E_REIATSU} ${boss.hitReiatsu} bank)`);
     } else {
-      const { eliminated } = applyHit(state, uid);
-      lines.push(`💥 **${name}** failed to block and got hit! (${state.participants.get(uid)?.hits}/2)`);
-      if (eliminated) {
-        state.alive.delete(uid);
-        lines.push(`☠️ **${name}** was eliminated.`);
-      }
+      const r = applyHit(state, uid);
+      lines.push(`💥 **${name}** didn't block and got hit! (${r.hits}/2)`);
+      if (r.eliminated) lines.push(`☠️ **${name}** was eliminated.`);
     }
   }
 
   await channel.send(lines.join("\n").slice(0, 1900)).catch(() => {});
 }
 
-function randomQteSequence() {
-  // You asked: red -> green -> blue -> yellow style; but also said random allowed.
-  // We'll do random using those 4, length 4.
+function randomQteSeq() {
   const pool = ["qte_red", "qte_green", "qte_blue", "qte_yellow"];
   const seq = [];
-  while (seq.length < 4) {
-    seq.push(pool[Math.floor(Math.random() * pool.length)]);
-  }
+  for (let i = 0; i < 4; i++) seq.push(pool[Math.floor(Math.random() * pool.length)]);
   return seq;
 }
-
-function qteLabel(cid) {
-  if (cid === "qte_red") return "🟥";
-  if (cid === "qte_green") return "🟩";
-  if (cid === "qte_blue") return "🟦";
-  if (cid === "qte_yellow") return "🟨";
+function qteSymbol(id) {
+  if (id === "qte_red") return "🟥";
+  if (id === "qte_green") return "🟩";
+  if (id === "qte_blue") return "🟦";
+  if (id === "qte_yellow") return "🟨";
   return "⬛";
 }
 
-async function runQtePhase(channel, state, bossDef, phase) {
-  const aliveArr = [...state.alive];
+async function runQtePhase(channel, state, boss, phase) {
+  const alive = [...state.alive];
 
-  const seq = randomQteSequence();
-  const seqText = seq.map(qteLabel).join(" → ");
+  const seq = randomQteSeq();
+  const seqText = seq.map(qteSymbol).join(" → ");
 
-  // per-player step
-  const step = new Map();
-  const failed = new Set();
-
-  state.qte = {
+  const qte = {
     seq,
-    step,
-    failed,
-    deadline: Date.now() + (phase.windowMs || QTE_WINDOW_MS),
+    step: new Map(),
+    failed: new Set(),
+    deadline: Date.now() + QTE_WINDOW_MS,
     msgId: null,
   };
+  state.qte = qte;
 
   const msg = await channel.send({
     embeds: [
       phaseEmbed(
-        bossDef,
-        phase,
-        aliveArr.length,
-        `🎮 **Combo Defense**\nPress in order: **${seqText}**\n⏳ Time: **${(phase.windowMs || QTE_WINDOW_MS) / 1000}s**\n❌ Wrong press = hit`
+        boss,
+        phase.title,
+        `${phase.desc}\n\nPress in order: **${seqText}**\n⏳ Time: **${QTE_WINDOW_MS / 1000}s**\n❌ Wrong press = hit`,
+        phase.gif,
+        alive.length
       ),
     ],
     components: qteButtons(false),
   }).catch(() => null);
 
-  state.qte.msgId = msg?.id || null;
+  if (msg) qte.msgId = msg.id;
 
-  await sleep(phase.windowMs || QTE_WINDOW_MS);
+  await sleep(QTE_WINDOW_MS);
 
-  // disable
-  if (state.qte.msgId) {
-    await channel.messages.fetch(state.qte.msgId).then((m) => m.edit({ components: qteButtons(true) }).catch(() => {})).catch(() => {});
+  if (msg) {
+    await msg.edit({ components: qteButtons(true) }).catch(() => {});
   }
 
-  // resolve: anyone who didn't complete gets hit (or already failed)
   const lines = [];
-  for (const uid of aliveArr) {
+  for (const uid of alive) {
     const p = state.participants.get(uid);
     const name = safeName(p?.displayName);
 
-    const s = step.get(uid) || 0;
-    const completed = s >= seq.length;
-    const isFailed = failed.has(uid);
+    const step = qte.step.get(uid) || 0;
+    const completed = step >= qte.seq.length;
+    const failed = qte.failed.has(uid);
 
-    if (completed && !isFailed) {
-      giveHitBank(state, uid, bossDef.hitReiatsu);
-      lines.push(`✅ **${name}** completed the combo and counterattacked! (+${E_REIATSU} ${bossDef.hitReiatsu} bank)`);
+    if (completed && !failed) {
+      bankHit(state, uid, boss.hitReiatsu);
+      lines.push(`✅ **${name}** completed the combo! (+${E_REIATSU} ${boss.hitReiatsu} bank)`);
     } else {
-      const { eliminated } = applyHit(state, uid);
-      lines.push(`💥 **${name}** failed the combo and got hit! (${state.participants.get(uid)?.hits}/2)`);
-      if (eliminated) {
-        state.alive.delete(uid);
-        lines.push(`☠️ **${name}** was eliminated.`);
-      }
+      const r = applyHit(state, uid);
+      lines.push(`💥 **${name}** failed the combo and got hit! (${r.hits}/2)`);
+      if (r.eliminated) lines.push(`☠️ **${name}** was eliminated.`);
     }
   }
 
@@ -754,189 +690,140 @@ async function runQtePhase(channel, state, bossDef, phase) {
   await channel.send(lines.join("\n").slice(0, 1900)).catch(() => {});
 }
 
-async function runQuickBlockPhase(channel, state, bossDef, phase) {
-  const aliveArr = [...state.alive];
+async function runQuickBlockPhase(channel, state, boss, phase) {
+  const alive = [...state.alive];
   state.blockPressers = new Set();
 
   const msg = await channel.send({
-    embeds: [
-      phaseEmbed(
-        bossDef,
-        phase,
-        aliveArr.length,
-        `🛡 Quick block! Press within **${(phase.windowMs || QUICK_BLOCK_WINDOW_MS) / 1000}s**.`
-      ),
-    ],
-    components: teamBlockButtons(false),
+    embeds: [phaseEmbed(boss, phase.title, phase.desc, phase.gif, alive.length)],
+    components: blockButtons(false),
   }).catch(() => null);
 
-  state.phaseMsgId = msg?.id || null;
+  await sleep(QUICK_BLOCK_WINDOW_MS);
 
-  await sleep(phase.windowMs || QUICK_BLOCK_WINDOW_MS);
-
-  // disable buttons
-  if (state.phaseMsgId) {
-    await channel.messages.fetch(state.phaseMsgId).then((m) => m.edit({ components: teamBlockButtons(true) }).catch(() => {})).catch(() => {});
+  if (msg) {
+    await msg.edit({ components: blockButtons(true) }).catch(() => {});
   }
 
   const blockers = state.blockPressers;
   const lines = [];
 
-  for (const uid of aliveArr) {
+  for (const uid of alive) {
     const p = state.participants.get(uid);
     const name = safeName(p?.displayName);
 
     if (blockers.has(uid)) {
-      giveHitBank(state, uid, bossDef.hitReiatsu);
-      lines.push(`✅ **${name}** blocked in time and counterattacked! (+${E_REIATSU} ${bossDef.hitReiatsu} bank)`);
+      bankHit(state, uid, boss.hitReiatsu);
+      lines.push(`✅ **${name}** blocked in time! (+${E_REIATSU} ${boss.hitReiatsu} bank)`);
     } else {
-      const { eliminated } = applyHit(state, uid);
-      lines.push(`💥 **${name}** failed to block and got hit! (${state.participants.get(uid)?.hits}/2)`);
-      if (eliminated) {
-        state.alive.delete(uid);
-        lines.push(`☠️ **${name}** was eliminated.`);
-      }
+      const r = applyHit(state, uid);
+      lines.push(`💥 **${name}** missed the block! (${r.hits}/2)`);
+      if (r.eliminated) lines.push(`☠️ **${name}** was eliminated.`);
     }
   }
 
   await channel.send(lines.join("\n").slice(0, 1900)).catch(() => {});
 }
 
-async function runFinisherPhase(channel, state, bossDef, phase) {
-  const aliveArr = [...state.alive];
+async function runFinisherPhase(channel, state, boss, phase) {
+  const alive = [...state.alive];
   state.finisherPressers = new Set();
 
   const msg = await channel.send({
-    embeds: [
-      phaseEmbed(
-        bossDef,
-        phase,
-        aliveArr.length,
-        `⚔️ **Finisher**! Press within **${(phase.windowMs || FINISHER_WINDOW_MS) / 1000}s** or you get hit.`
-      ),
-    ],
+    embeds: [phaseEmbed(boss, phase.title, phase.desc, phase.gif, alive.length)],
     components: finisherButtons(false),
   }).catch(() => null);
 
-  state.phaseMsgId = msg?.id || null;
+  await sleep(FINISHER_WINDOW_MS);
 
-  await sleep(phase.windowMs || FINISHER_WINDOW_MS);
-
-  // disable
-  if (state.phaseMsgId) {
-    await channel.messages.fetch(state.phaseMsgId).then((m) => m.edit({ components: finisherButtons(true) }).catch(() => {})).catch(() => {});
+  if (msg) {
+    await msg.edit({ components: finisherButtons(true) }).catch(() => {});
   }
 
   const finishers = state.finisherPressers;
   const lines = [];
 
-  for (const uid of aliveArr) {
+  for (const uid of alive) {
     const p = state.participants.get(uid);
     const name = safeName(p?.displayName);
 
     if (finishers.has(uid)) {
-      // successful finisher counts as hit bank too
-      giveHitBank(state, uid, bossDef.hitReiatsu);
-      lines.push(`✅ **${name}** landed the finisher! (+${E_REIATSU} ${bossDef.hitReiatsu} bank)`);
+      bankHit(state, uid, boss.hitReiatsu);
+      lines.push(`✅ **${name}** landed a finisher! (+${E_REIATSU} ${boss.hitReiatsu} bank)`);
     } else {
-      const { eliminated } = applyHit(state, uid);
-      lines.push(`💥 **${name}** missed the finisher and got hit! (${state.participants.get(uid)?.hits}/2)`);
-      if (eliminated) {
-        state.alive.delete(uid);
-        lines.push(`☠️ **${name}** was eliminated.`);
-      }
+      const r = applyHit(state, uid);
+      lines.push(`💥 **${name}** missed the finisher! (${r.hits}/2)`);
+      if (r.eliminated) lines.push(`☠️ **${name}** was eliminated.`);
     }
   }
 
   await channel.send(lines.join("\n").slice(0, 1900)).catch(() => {});
 }
 
-async function runMinSuccessPhase(channel, state, bossDef, phase) {
-  const aliveArr = [...state.alive];
+async function runMinSuccessPhase(channel, state, boss, phase) {
+  const alive = [...state.alive];
 
-  const msg = await channel.send({
-    embeds: [
-      phaseEmbed(
-        bossDef,
-        phase,
-        aliveArr.length,
-        `⚠️ Need at least **${phase.minSuccess}** successes, or everyone loses.`
-      ),
-    ],
-  }).catch(() => null);
-
-  state.phaseMsgId = msg?.id || null;
+  await channel.send({
+    embeds: [phaseEmbed(boss, phase.title, phase.desc, phase.gif, alive.length)],
+  }).catch(() => {});
 
   const success = [];
   const fail = [];
 
-  for (const uid of aliveArr) {
-    const p = state.participants.get(uid);
-    const ok = rollSurvive(bossDef.surviveChance);
+  for (const uid of alive) {
+    const ok = roll(boss.chance);
     (ok ? success : fail).push(uid);
   }
 
   const lines = [];
   lines.push(`✅ Success: **${success.length}** • ❌ Fail: **${fail.length}**`);
 
-  if (success.length < phase.minSuccess) {
-    lines.push(`💀 Not enough successes. **Everyone loses.**`);
+  if (success.length < ULQ_MIN_SUCCESS_FOR_R6) {
+    lines.push("💀 Not enough successes. Everyone loses.");
     await channel.send(lines.join("\n").slice(0, 1900)).catch(() => {});
-    return false; // wipe
+    return false;
   }
 
-  // those who succeeded get hit-bank; those who failed get hit
   for (const uid of success) {
-    giveHitBank(state, uid, bossDef.hitReiatsu);
+    bankHit(state, uid, boss.hitReiatsu);
   }
 
   for (const uid of fail) {
     const p = state.participants.get(uid);
     const name = safeName(p?.displayName);
-    const { eliminated } = applyHit(state, uid);
-    lines.push(`💥 **${name}** got hit! (${state.participants.get(uid)?.hits}/2)`);
-    if (eliminated) {
-      state.alive.delete(uid);
-      lines.push(`☠️ **${name}** was eliminated.`);
-    }
+    const r = applyHit(state, uid);
+    lines.push(`💥 **${name}** got hit! (${r.hits}/2)`);
+    if (r.eliminated) lines.push(`☠️ **${name}** was eliminated.`);
   }
 
   await channel.send(lines.join("\n").slice(0, 1900)).catch(() => {});
   return true;
 }
 
-async function grantVictory(channel, state, bossDef) {
+async function grantVictory(channel, state, boss) {
   const survivors = [...state.alive];
-
   const db = loadPlayers();
   const lines = [];
 
   for (const uid of survivors) {
     const pState = state.participants.get(uid);
-    const hitBank = pState?.hitBank || 0;
+    const bank = pState?.hitBank || 0;
 
     const player = getPlayer(db, uid);
-    // grant: win reward + banked hits
-    player.reiatsu += bossDef.winReiatsu + hitBank;
+    player.reiatsu += (boss.winReiatsu + bank);
 
-    lines.push(
-      `• <@${uid}> +${E_REIATSU} ${bossDef.winReiatsu} (Win) +${E_REIATSU} ${hitBank} (Hit bank)`
-    );
+    lines.push(`• <@${uid}> +${E_REIATSU} ${boss.winReiatsu} (Win) +${E_REIATSU} ${bank} (Hit bank)`);
 
-    // role drop
-    if (Math.random() < bossDef.dropChance) {
-      const res = await tryGiveRole(channel.guild, uid, bossDef.dropRoleId);
-      lines.push(
-        res.ok
-          ? `🎭 <@${uid}> obtained the boss role!`
-          : `⚠️ <@${uid}> won role but bot couldn't assign: ${res.reason}`
-      );
+    if (Math.random() < boss.dropChance) {
+      const res = await tryGiveRole(channel.guild, uid, boss.dropRoleId);
+      lines.push(res.ok ? `🎭 <@${uid}> obtained the boss role!`
+                        : `⚠️ <@${uid}> won role but bot couldn't assign: ${res.reason}`);
     }
   }
 
   savePlayers(db);
 
-  await channel.send({ embeds: [winEmbed(bossDef, survivors.length)] }).catch(() => {});
+  await channel.send({ embeds: [winEmbed(boss, survivors.length)] }).catch(() => {});
   await channel.send(lines.join("\n").slice(0, 1900)).catch(() => {});
 }
 
@@ -947,37 +834,37 @@ const client = new Client({
   partials: [Partials.Channel],
 });
 
-client.once(Events.ClientReady, async () => {
+client.once(Events.ClientReady, () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
-  console.log("Bleach channel locked to:", BLEACH_CHANNEL_ID);
+  console.log("Bleach channel:", BLEACH_CHANNEL_ID);
 });
 
 /* ===================== INTERACTIONS ===================== */
 
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
-    // Slash commands
+    // Slash
     if (interaction.isChatInputCommand()) {
       const channel = interaction.channel;
       if (!channel || !channel.isTextBased()) {
         return interaction.reply({ content: "❌ Use commands in a text channel.", ephemeral: true });
       }
 
-      // lock bleach boss spawning to bleach channel
-      if (!ensureBleachChannel(interaction)) {
-        return interaction.reply({ content: "⛔ Bleach bosses can only spawn in the Bleach event channel.", ephemeral: true });
-      }
-
       if (interaction.commandName === "spawnboss") {
+        if (!isBleachChannel(channel)) {
+          return interaction.reply({ content: "⛔ Bleach bosses can only spawn in the Bleach channel.", ephemeral: true });
+        }
         if (!hasEventRole(interaction.member)) {
           return interaction.reply({ content: "⛔ You don’t have the required role.", ephemeral: true });
         }
-        const boss = interaction.options.getString("boss", true);
-        if (!BOSSES[boss]) {
+
+        const bossKey = interaction.options.getString("boss", true);
+        if (!BOSSES[bossKey]) {
           return interaction.reply({ content: "❌ Unknown boss option.", ephemeral: true });
         }
-        await interaction.reply({ content: `✅ Spawning **${boss}**...`, ephemeral: true });
-        await spawnBoss(channel, boss);
+
+        await interaction.reply({ content: `✅ Spawning **${bossKey}**...`, ephemeral: true });
+        await spawnBoss(channel, bossKey);
         return;
       }
 
@@ -1020,18 +907,18 @@ client.on(Events.InteractionCreate, async (interaction) => {
           hitBank: 0,
         });
 
-        await updateSpawnMessage(channel, state);
+        await updateSpawnMsg(channel, state);
         await interaction.followUp({ content: "✅ Joined the boss fight.", ephemeral: true }).catch(() => {});
         return;
       }
 
-      // Only participants & alive can interact in phases
-      if (!state.participants.has(uid) || !state.alive.has(uid)) {
+      // Must be alive participant for phase buttons
+      if (!ensureParticipantAlive(state, uid)) {
         await interaction.followUp({ content: "❌ You are not an alive participant in this fight.", ephemeral: true }).catch(() => {});
         return;
       }
 
-      // Block (team / quick)
+      // Block
       if (cid === "boss_block") {
         state.blockPressers.add(uid);
         await interaction.followUp({ content: "🛡 Block registered!", ephemeral: true }).catch(() => {});
@@ -1045,7 +932,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return;
       }
 
-      // QTE buttons
+      // QTE
       if (cid.startsWith("qte_")) {
         const qte = state.qte;
         if (!qte) {
@@ -1061,19 +948,18 @@ client.on(Events.InteractionCreate, async (interaction) => {
           return;
         }
 
-        const currentStep = qte.step.get(uid) || 0;
-        const expected = qte.seq[currentStep];
+        const step = qte.step.get(uid) || 0;
+        const expected = qte.seq[step];
 
         if (cid !== expected) {
-          qte.failed.add(uid); // wrong press => fail
+          qte.failed.add(uid);
           await interaction.followUp({ content: "💥 Wrong button — you will take a hit.", ephemeral: true }).catch(() => {});
           return;
         }
 
-        qte.step.set(uid, currentStep + 1);
-
-        const done = (currentStep + 1) >= qte.seq.length;
-        await interaction.followUp({ content: done ? "✅ Combo completed!" : `✅ Step ${currentStep + 1}/${qte.seq.length}`, ephemeral: true }).catch(() => {});
+        qte.step.set(uid, step + 1);
+        const done = (step + 1) >= qte.seq.length;
+        await interaction.followUp({ content: done ? "✅ Combo completed!" : `✅ Step ${step + 1}/${qte.seq.length}`, ephemeral: true }).catch(() => {});
         return;
       }
     }
