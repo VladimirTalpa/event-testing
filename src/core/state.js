@@ -1,7 +1,5 @@
-
+// src/core/state.js
 const bossByChannel = new Map();
-const hollowByChannel = new Map();
-const clashByChannel = new Map();
-const lastClashByUser = new Map();
+const mobByChannel = new Map();
 
-module.exports = { bossByChannel, hollowByChannel, clashByChannel, lastClashByUser };
+module.exports = { bossByChannel, mobByChannel };
