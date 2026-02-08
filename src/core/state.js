@@ -1,7 +1,7 @@
 // src/core/state.js
 const bossByChannel = new Map();
 const mobByChannel = new Map();
-
+const pvpById = new Map(); // key = `${channelId}:${challengerId}:${targetId}`
 /**
  * leaderboardCache:
  * messageId -> { eventKey, entries, pageSize }
