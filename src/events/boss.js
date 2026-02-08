@@ -129,6 +129,25 @@ async function updateBossSpawnMessage(channel, boss) {
   }).catch(() => {});
 }
 
+/* ===================== MATERIAL REWARD ===================== */
+function resolveMaterialReward(def) {
+  // Preferred: set in bosses.js (materialKey/materialAmount/materialName)
+  if (def && def.materialKey) {
+    return {
+      key: String(def.materialKey),
+      amount: Number.isFinite(def.materialAmount) ? def.materialAmount : 1,
+      name: def.materialName || def.materialKey,
+    };
+  }
+
+  // Fallback: your request — Special Grade gives cursed shard for future crafting
+  if (def && def.event === "jjk" && def.id === "specialgrade") {
+    return { key: "cursed_shard", amount: 1, name: "Cursed Shard" };
+  }
+
+  return null;
+}
+
 async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
   try {
     boss.joining = false;
@@ -192,7 +211,6 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         }).catch(() => null);
 
         await sleep(r.windowMs || 5000);
-
         if (msg?.id) await msg.edit({ components: singleActionRow(customId, r.buttonLabel || "Block", r.buttonEmoji || "🛡️", true) }).catch(() => {});
 
         const pressed = boss.activeAction?.token === token ? boss.activeAction.pressed : new Set();
@@ -241,7 +259,6 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         }).catch(() => null);
 
         await sleep(r.windowMs || 5000);
-
         if (msg?.id) await msg.edit({ components: singleActionRow(customId, label, emoji, true) }).catch(() => {});
 
         const pressed = boss.activeAction?.token === token ? boss.activeAction.pressed : new Set();
@@ -395,6 +412,8 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
       return;
     }
 
+    const material = resolveMaterialReward(boss.def);
+
     const lines = [];
     for (const uid of survivors) {
       const player = await getPlayer(uid);
@@ -407,16 +426,24 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
       if (boss.def.event === "bleach") player.bleach.reiatsu += total;
       else player.jjk.cursedEnergy += total;
 
-      // ✅ NEW: JJK material reward per victory (Special Grade gives cursed_shard)
-      if (boss.def.event === "jjk" && boss.def.materialReward?.key) {
-        const { key, amount } = boss.def.materialReward;
-        if (!player.jjk.materials) player.jjk.materials = {};
-        player.jjk.materials[key] = (player.jjk.materials[key] || 0) + (Number(amount) || 0);
+      // ✅ material reward
+      if (material && boss.def.event === "jjk") {
+        if (!player.jjk.materials) player.jjk.materials = { cursed_shard: 0 };
+        if (!Number.isFinite(player.jjk.materials.cursed_shard)) player.jjk.materials.cursed_shard = 0;
+
+        // пока у нас только cursed_shard, но структура уже готова
+        if (material.key === "cursed_shard") {
+          player.jjk.materials.cursed_shard += material.amount;
+        }
       }
 
       await setPlayer(uid, player);
 
-      lines.push(`• <@${uid}> +${win} (Win) +${hits} (Bank)`);
+      if (boss.def.event === "bleach") {
+        lines.push(`• <@${uid}> +${win} (Win) +${hits} (Bank)`);
+      } else {
+        lines.push(`• <@${uid}> +${win} (Win) +${hits} (Bank)` + (material ? ` • +${material.amount} ${material.name}` : ""));
+      }
 
       const luckMult = getEventDropMult(boss.def.event, player);
       const baseChance = boss.def.roleDropChance || 0;
@@ -437,12 +464,6 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
       const robuxChance = Math.min(DROP_ROBUX_CHANCE_CAP, DROP_ROBUX_CHANCE_REAL_BASE * luckMult);
       if (Math.random() < robuxChance) {
         lines.push(`🎁 <@${uid}> won **100 Robux** — ${ROBUX_CLAIM_TEXT}`);
-      }
-
-      // Show material gained line (only if boss defines it)
-      if (boss.def.event === "jjk" && boss.def.materialReward?.key) {
-        const { name, amount } = boss.def.materialReward;
-        lines.push(`🧩 <@${uid}> gained **${amount}x ${name || boss.def.materialReward.key}**`);
       }
     }
 
