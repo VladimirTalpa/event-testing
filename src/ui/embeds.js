@@ -13,7 +13,6 @@ const {
   E_DRAKO,
   DRAKO_RATE_BLEACH,
   DRAKO_RATE_JJK,
-  DROP_ROBUX_CHANCE_DISPLAY,
 } = require("../config");
 
 const { BLEACH_SHOP_ITEMS, JJK_SHOP_ITEMS } = require("../data/shop");
@@ -64,6 +63,13 @@ function bossSpawnEmbed(def, channelName, joinedCount, fightersText) {
   const eventTag = def.event === "bleach" ? `${E_BLEACH} BLEACH` : `${E_JJK} JJK`;
   const currency = def.event === "bleach" ? E_REIATSU : E_CE;
 
+  const maxHits = def.maxHits ?? MAX_HITS;
+
+  const rewardLine =
+    def.winRewardRange
+      ? `\`${def.winRewardRange.min}–${def.winRewardRange.max} on win • +${def.hitReward}/success (banked)\``
+      : `\`${def.winReward} on win • +${def.hitReward}/success (banked)\``;
+
   return new EmbedBuilder()
     .setColor(COLOR)
     .setTitle(`${eventTag} — ${def.icon} ${def.name} Appeared!`)
@@ -75,11 +81,11 @@ function bossSpawnEmbed(def, channelName, joinedCount, fightersText) {
     .addFields(
       { name: `${E_MEMBERS} Fighters`, value: fightersText, inline: false },
       { name: `Joined`, value: `\`${joinedCount}\``, inline: true },
-      { name: `${currency} Rewards`, value: `\`${def.winReward} on win • +${def.hitReward}/success (banked)\``, inline: true },
+      { name: `${currency} Rewards`, value: rewardLine, inline: true },
       { name: `📌 Channel`, value: `\`#${channelName}\``, inline: true }
     )
     .setImage(def.spawnMedia)
-    .setFooter({ text: `Boss • ${def.rounds.length} rounds • ${MAX_HITS} hits = eliminated` });
+    .setFooter({ text: `Boss • ${def.rounds.length} rounds • ${maxHits} hits = eliminated` });
 }
 
 function bossRoundEmbed(def, roundIndex, aliveCount) {
@@ -102,7 +108,7 @@ function bossVictoryEmbed(def, survivorsCount) {
     .setDescription("Rewards granted to survivors.")
     .addFields(
       { name: `${E_MEMBERS} Survivors`, value: `\`${survivorsCount}\``, inline: true },
-      { name: `🎭 Drops`, value: `Role + Robux (display ${(DROP_ROBUX_CHANCE_DISPLAY * 100).toFixed(1)}%)`, inline: true }
+      { name: `🎭 Drops`, value: `Role drops may occur.`, inline: true }
     )
     .setImage(def.victoryMedia);
 }
@@ -117,6 +123,7 @@ function bossDefeatEmbed(def) {
 
 function mobEmbed(eventKey, joinedCount, mob) {
   const eventTag = eventKey === "bleach" ? `${E_BLEACH} BLEACH` : `${E_JJK} JJK`;
+  const actionWord = eventKey === "jjk" ? "Exorcise" : "Attack";
 
   return new EmbedBuilder()
     .setColor(COLOR)
@@ -127,9 +134,11 @@ function mobEmbed(eventKey, joinedCount, mob) {
         `🎲 **Hit chance:** 50%`,
         `${mob.currencyEmoji} **Hit:** ${mob.hitReward} • **Miss:** ${mob.missReward}`,
         `If you hit: +${mob.bonusPerKill}% boss bonus (max ${mob.bonusMax}%).`,
+        "",
+        `Press **${actionWord}**.`,
       ].join("\n")
     )
-    .addFields({ name: `${E_MEMBERS} Participants`, value: `\`${joinedCount}\``, inline: true })
+    .addFields({ name: `${E_MEMBERS} Attackers`, value: `\`${joinedCount}\``, inline: true })
     .setImage(mob.media);
 }
 
@@ -167,7 +176,8 @@ function inventoryEmbed(eventKey, player, bonusMaxBleach = 30, bonusMaxJjk = 30)
   const inv = player.jjk.items;
   const itemBonus = calcJjkSurvivalBonus(inv);
   const mult = calcJjkCEMultiplier(inv);
-  const shards = player.jjk?.materials?.cursed_shard ?? 0;
+
+  const mats = player.jjk.materials || { cursedShards: 0, expeditionKeys: 0 };
 
   return new EmbedBuilder()
     .setColor(COLOR)
@@ -178,7 +188,9 @@ function inventoryEmbed(eventKey, player, bonusMaxBleach = 30, bonusMaxJjk = 30)
         `${E_DRAKO} Drako Coin: **${player.drako}**`,
         `🔁 Drako rate: **${DRAKO_RATE_JJK} ${E_CE} = 1 ${E_DRAKO}** (one-way)`,
         "",
-        `🧩 Cursed Shards: **${shards}**`,
+        `🧩 Materials:`,
+        `• Cursed Shards: **${mats.cursedShards}**`,
+        `• Expedition Keys: **${mats.expeditionKeys}**`,
         "",
         `⭐ Boss bonus (mob kills): **${player.jjk.survivalBonus}% / ${bonusMaxJjk}%**`,
         `🛡 Item survival bonus: **${itemBonus}%**`,
@@ -246,7 +258,11 @@ function wardrobeEmbed(guild, player) {
   return new EmbedBuilder()
     .setColor(COLOR)
     .setTitle("🧥 Wardrobe")
-    .setDescription("Saved roles never disappear.\nSelect a role to **equip/unequip**.\n\n" + lines);
+    .setDescription(
+      "Saved roles never disappear.\n" +
+      "Select a role to **equip/unequip**.\n\n" +
+      lines
+    );
 }
 
 module.exports = {
