@@ -2,7 +2,7 @@
 const { bossByChannel, mobByChannel } = require("../core/state");
 const { getPlayer, setPlayer } = require("../core/players");
 const { safeName } = require("../core/utils");
-const { mobEmbed, shopEmbed, wardrobeEmbed } = require("../ui/embeds");
+const { mobEmbed, shopEmbed } = require("../ui/embeds");
 const { CID, mobButtons, shopButtons } = require("../ui/components");
 const { MOBS } = require("../data/mobs");
 const { BLEACH_SHOP_ITEMS, JJK_SHOP_ITEMS } = require("../data/shop");
@@ -53,7 +53,6 @@ module.exports = async function handleButtons(interaction) {
 
     boss.participants.set(uid, { hits: 0, displayName: interaction.member?.displayName || interaction.user.username });
 
-    // update spawn message
     const fighters = [...boss.participants.values()];
     const fightersText = fighters.length
       ? fighters.map((p) => safeName(p.displayName)).join(", ").slice(0, 1000)
@@ -96,7 +95,7 @@ module.exports = async function handleButtons(interaction) {
     const bossId = parts[1];
     const roundIndex = Number(parts[2]);
     const token = parts[3];
-    const kind = parts[4];
+    const kind = parts[4]; // "press" or "combo"
     const payload = parts[5];
 
     const boss = bossByChannel.get(channel.id);
@@ -117,6 +116,16 @@ module.exports = async function handleButtons(interaction) {
     }
 
     if (kind === "press") {
+      // ✅ NEW: multi_press mode support
+      if (boss.activeAction.mode === "multi_press") {
+        const map = boss.activeAction.pressCount;
+        const prev = map.get(uid) || 0;
+        map.set(uid, prev + 1);
+        await interaction.followUp({ content: `✅ Block registered! (${prev + 1})`, ephemeral: true }).catch(() => {});
+        return;
+      }
+
+      // normal press mode
       if (boss.activeAction.pressed.has(uid)) {
         await interaction.followUp({ content: "✅ Already pressed.", ephemeral: true }).catch(() => {});
         return;
@@ -157,7 +166,7 @@ module.exports = async function handleButtons(interaction) {
     }
   }
 
-  // Mob attack / exorcise
+  // Mob attack
   if (cid.startsWith(`${CID.MOB_ATTACK}:`)) {
     const eventKey = cid.split(":")[1];
     const state = mobByChannel.get(channel.id);
@@ -169,7 +178,7 @@ module.exports = async function handleButtons(interaction) {
 
     const uid = interaction.user.id;
     if (state.attackers.has(uid)) {
-      await interaction.followUp({ content: "⚠️ You already acted.", ephemeral: true }).catch(() => {});
+      await interaction.followUp({ content: "⚠️ You already attacked.", ephemeral: true }).catch(() => {});
       return;
     }
 
@@ -184,14 +193,11 @@ module.exports = async function handleButtons(interaction) {
       }).catch(() => {});
     }
 
-    await interaction.followUp({
-      content: eventKey === "jjk" ? "🪬 Exorcise registered!" : "⚔️ Attack registered!",
-      ephemeral: true
-    }).catch(() => {});
+    await interaction.followUp({ content: eventKey === "bleach" ? "⚔️ Attack registered!" : "🪬 Exorcise registered!", ephemeral: true }).catch(() => {});
     return;
   }
 
-  // Shop buys (unchanged)
+  // Shop buys (без изменений, оставляю как у тебя)
   if (cid.startsWith("buy_")) {
     const p = await getPlayer(interaction.user.id);
 
