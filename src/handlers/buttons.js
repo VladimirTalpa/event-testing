@@ -1,10 +1,9 @@
-
 // src/handlers/buttons.js
 const { bossByChannel, mobByChannel } = require("../core/state");
-const { getPlayer, setPlayer } = require("../core/players");
+const { getPlayer, setPlayer, getTopPlayers } = require("../core/players");
 const { safeName } = require("../core/utils");
-const { mobEmbed, shopEmbed, wardrobeEmbed } = require("../ui/embeds");
-const { CID, mobButtons, shopButtons } = require("../ui/components");
+const { mobEmbed, shopEmbed, leaderboardEmbed } = require("../ui/embeds");
+const { CID, mobButtons, shopButtons, leaderboardButtons } = require("../ui/components");
 const { MOBS } = require("../data/mobs");
 const { BLEACH_SHOP_ITEMS, JJK_SHOP_ITEMS } = require("../data/shop");
 
@@ -54,7 +53,6 @@ module.exports = async function handleButtons(interaction) {
 
     boss.participants.set(uid, { hits: 0, displayName: interaction.member?.displayName || interaction.user.username });
 
-    // update spawn message
     const fighters = [...boss.participants.values()];
     const fightersText = fighters.length
       ? fighters.map((p) => safeName(p.displayName)).join(", ").slice(0, 1000)
@@ -90,15 +88,15 @@ module.exports = async function handleButtons(interaction) {
     return;
   }
 
-  // Boss action buttons (press/coop/combo) — logic stays in boss runner, but we record presses here
+  // Boss action buttons
   if (cid.startsWith("boss_action:")) {
     const parts = cid.split(":");
     // boss_action:<bossId>:<roundIndex>:<token>:<kind>:<payload?>
     const bossId = parts[1];
     const roundIndex = Number(parts[2]);
     const token = parts[3];
-    const kind = parts[4]; // "press" or "combo"
-    const payload = parts[5]; // block/finisher/quick_block OR combo color
+    const kind = parts[4]; // press/combo/multi
+    const payload = parts[5];
 
     const boss = bossByChannel.get(channel.id);
     if (!boss || boss.def.id !== bossId) {
@@ -124,6 +122,32 @@ module.exports = async function handleButtons(interaction) {
       }
       boss.activeAction.pressed.add(uid);
       await interaction.followUp({ content: "✅ Registered!", ephemeral: true }).catch(() => {});
+      return;
+    }
+
+    // NEW: multi press tracking per user
+    if (kind === "multi") {
+      if (boss.activeAction.mode !== "multi") {
+        await interaction.followUp({ content: "❌ Not a multi-press phase.", ephemeral: true }).catch(() => {});
+        return;
+      }
+      const slot = payload; // b1/b2/b3
+      if (!slot) {
+        await interaction.followUp({ content: "❌ Invalid button.", ephemeral: true }).catch(() => {});
+        return;
+      }
+
+      let set = boss.activeAction.perUser.get(uid);
+      if (!set) { set = new Set(); boss.activeAction.perUser.set(uid, set); }
+
+      if (set.has(slot)) {
+        await interaction.followUp({ content: "✅ Already pressed this one.", ephemeral: true }).catch(() => {});
+        return;
+      }
+
+      set.add(slot);
+      const need = boss.activeAction.neededPresses || 3;
+      await interaction.followUp({ content: `✅ Registered! (${set.size}/${need})`, ephemeral: true }).catch(() => {});
       return;
     }
 
@@ -185,7 +209,7 @@ module.exports = async function handleButtons(interaction) {
       }).catch(() => {});
     }
 
-    await interaction.followUp({ content: "⚔️ Attack registered!", ephemeral: true }).catch(() => {});
+    await interaction.followUp({ content: eventKey === "jjk" ? "🪬 Exorcism registered!" : "⚔️ Attack registered!", ephemeral: true }).catch(() => {});
     return;
   }
 
@@ -276,6 +300,35 @@ module.exports = async function handleButtons(interaction) {
     }
 
     await interaction.followUp({ content: "✅ Purchased!", ephemeral: true }).catch(() => {});
+    return;
+  }
+
+  // Leaderboard pagination
+  if (cid.startsWith(`${CID.LB_PAGE}:`)) {
+    const [, eventKey, pageStr] = cid.split(":");
+    const page = Math.max(0, Number(pageStr) || 0);
+
+    const all = await getTopPlayers(eventKey, 999999);
+    const pageSize = 10;
+    const totalPages = Math.max(1, Math.ceil(all.length / pageSize));
+    const p = Math.min(page, totalPages - 1);
+
+    const slice = all.slice(p * pageSize, p * pageSize + pageSize);
+
+    const entries = [];
+    for (const r of slice) {
+      let name = r.userId;
+      try {
+        const m = await interaction.guild.members.fetch(r.userId);
+        name = safeName(m?.displayName || m?.user?.username || r.userId);
+      } catch {}
+      entries.push({ name, score: r.score });
+    }
+
+    await interaction.message.edit({
+      embeds: [leaderboardEmbed(eventKey, entries, p, totalPages)],
+      components: leaderboardButtons(eventKey, p, totalPages),
+    }).catch(() => {});
     return;
   }
 };
