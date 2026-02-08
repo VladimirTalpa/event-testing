@@ -1,12 +1,72 @@
+// src/ui/embeds.js
 const { EmbedBuilder } = require("discord.js");
-const cfg = require("../config");
+
+const {
+  COLOR,
+  MAX_HITS,
+
+  E_MEMBERS,
+  E_BLEACH,
+  E_JJK,
+  E_REIATSU,
+  E_CE,
+  E_DRAKO,
+  DRAKO_RATE_BLEACH,
+  DRAKO_RATE_JJK,
+  DROP_ROBUX_CHANCE_DISPLAY,
+} = require("../config");
+
+const { BLEACH_SHOP_ITEMS, JJK_SHOP_ITEMS } = require("../data/shop");
+
+const { safeName } = require("../core/utils");
+
+/* ===== bonuses / multipliers ===== */
+function calcBleachSurvivalBonus(items) {
+  let bonus = 0;
+  if (items.zanpakuto_basic) bonus += 4;
+  if (items.hollow_mask_fragment) bonus += 7;
+  if (items.soul_reaper_cloak) bonus += 9;
+  if (items.reiatsu_amplifier) bonus += 2;
+  return bonus;
+}
+function calcBleachReiatsuMultiplier(items) {
+  return items.reiatsu_amplifier ? 1.25 : 1.0;
+}
+function calcBleachDropLuckMultiplier(items) {
+  let mult = 1.0;
+  if (items.zanpakuto_basic) mult += 0.05;
+  if (items.hollow_mask_fragment) mult += 0.10;
+  if (items.soul_reaper_cloak) mult += 0.06;
+  return mult;
+}
+
+function calcJjkSurvivalBonus(items) {
+  let bonus = 0;
+  if (items.black_flash_manual) bonus += 2;
+  if (items.domain_charm) bonus += 8;
+  if (items.cursed_tool) bonus += 10;
+  if (items.reverse_talisman) bonus += 0;
+  if (items.binding_vow_seal) bonus += 15;
+  return bonus;
+}
+function calcJjkCEMultiplier(items) {
+  let mult = 1.0;
+  if (items.black_flash_manual) mult *= 1.20;
+  if (items.binding_vow_seal) mult *= 0.90;
+  return mult;
+}
+function calcJjkDropLuckMultiplier(items) {
+  let mult = 1.0;
+  if (items.cursed_tool) mult += 0.08;
+  return mult;
+}
 
 function bossSpawnEmbed(def, channelName, joinedCount, fightersText) {
-  const eventTag = def.event === "bleach" ? `${cfg.E_BLEACH} BLEACH` : `${cfg.E_JJK} JJK`;
-  const currency = def.event === "bleach" ? cfg.E_REIATSU : cfg.E_CE;
+  const eventTag = def.event === "bleach" ? `${E_BLEACH} BLEACH` : `${E_JJK} JJK`;
+  const currency = def.event === "bleach" ? E_REIATSU : E_CE;
 
   return new EmbedBuilder()
-    .setColor(cfg.COLOR)
+    .setColor(COLOR)
     .setTitle(`${eventTag} — ${def.icon} ${def.name} Appeared!`)
     .setDescription(
       `**Difficulty:** ${def.difficulty}\n` +
@@ -14,36 +74,38 @@ function bossSpawnEmbed(def, channelName, joinedCount, fightersText) {
       `Press **🗡 Join Battle** to participate.`
     )
     .addFields(
-      { name: `${cfg.E_MEMBERS} Fighters`, value: fightersText, inline: false },
+      { name: `${E_MEMBERS} Fighters`, value: fightersText, inline: false },
       { name: `Joined`, value: `\`${joinedCount}\``, inline: true },
       { name: `${currency} Rewards`, value: `\`${def.winReward} on win • +${def.hitReward}/success (banked)\``, inline: true },
       { name: `📌 Channel`, value: `\`#${channelName}\``, inline: true }
     )
-    .setImage(def.spawnMedia || null)
-    .setFooter({ text: `Boss • ${def.rounds.length} rounds • ${cfg.MAX_HITS} hits = eliminated` });
+    .setImage(def.spawnMedia)
+    .setFooter({ text: `Boss • ${def.rounds.length} rounds • ${MAX_HITS} hits = eliminated` });
 }
 
 function bossRoundEmbed(def, roundIndex, aliveCount) {
   const r = def.rounds[roundIndex];
-  const eventTag = def.event === "bleach" ? `${cfg.E_BLEACH} BLEACH` : `${cfg.E_JJK} JJK`;
+  const eventTag = def.event === "bleach" ? `${E_BLEACH} BLEACH` : `${E_JJK} JJK`;
 
   return new EmbedBuilder()
-    .setColor(cfg.COLOR)
+    .setColor(COLOR)
     .setTitle(`${eventTag} — ${def.icon} ${def.name} • ${r.title}`)
     .setDescription(r.intro)
-    .addFields({ name: `${cfg.E_MEMBERS} Alive fighters`, value: `\`${aliveCount}\``, inline: true })
-    .setImage(r.media || def.spawnMedia || null)
+    .addFields({ name: `${E_MEMBERS} Alive fighters`, value: `\`${aliveCount}\``, inline: true })
+    .setImage(r.media || def.spawnMedia)
     .setFooter({ text: `Round ${roundIndex + 1}/${def.rounds.length}` });
 }
 
 function bossVictoryEmbed(def, survivorsCount) {
-  const extra = def.materialDrop?.key ? "\n🧩 Materials granted." : "";
   return new EmbedBuilder()
     .setColor(0x2ecc71)
     .setTitle(`✅ ${def.name} Defeated!`)
-    .setDescription(`Rewards granted to survivors.${extra}`)
-    .addFields({ name: `${cfg.E_MEMBERS} Survivors`, value: `\`${survivorsCount}\``, inline: true })
-    .setImage(def.victoryMedia || null);
+    .setDescription("Rewards granted to survivors.")
+    .addFields(
+      { name: `${E_MEMBERS} Survivors`, value: `\`${survivorsCount}\``, inline: true },
+      { name: `🎭 Drops`, value: `Role + Robux (display ${(DROP_ROBUX_CHANCE_DISPLAY * 100).toFixed(1)}%)`, inline: true }
+    )
+    .setImage(def.victoryMedia);
 }
 
 function bossDefeatEmbed(def) {
@@ -51,65 +113,161 @@ function bossDefeatEmbed(def) {
     .setColor(0xe74c3c)
     .setTitle(`❌ Defeat`)
     .setDescription(`Everyone lost. **${def.name}** wins.`)
-    .setImage(def.defeatMedia || null);
+    .setImage(def.defeatMedia);
 }
 
-function mobEmbed(eventKey, mob, joinedCount) {
-  const eventTag = eventKey === "bleach" ? `${cfg.E_BLEACH} BLEACH` : `${cfg.E_JJK} JJK`;
-  const cur = eventKey === "bleach" ? cfg.E_REIATSU : cfg.E_CE;
-
-  const verb = eventKey === "bleach" ? "Attack" : "Exorcise";
-  const hitLine = eventKey === "bleach"
-    ? `${cur} **Hit:** ${mob.hitReward} • **Miss:** ${mob.missReward}`
-    : `${cur} **Exorcise:** ${mob.hitReward} • **Fail:** ${mob.missReward}`;
+function mobEmbed(eventKey, joinedCount, mob) {
+  const eventTag = eventKey === "bleach" ? `${E_BLEACH} BLEACH` : `${E_JJK} JJK`;
 
   return new EmbedBuilder()
-    .setColor(cfg.COLOR)
+    .setColor(COLOR)
     .setTitle(`${eventTag} — ${mob.icon} ${mob.name} Appeared!`)
     .setDescription(
       [
-        `⏳ **Time:** ${Math.round(mob.joinMs / 60000)} minutes`,
-        `🎲 **Chance:** ${Math.round(mob.hitChance * 100)}%`,
-        hitLine,
-        `If success: +${mob.bonusPerKill}% boss bonus (max ${mob.bonusMax}%).`,
-        `Press **${verb}** to participate.`,
+        `⏳ **Time:** 2 minutes`,
+        `🎲 **Hit chance:** 50%`,
+        `${mob.currencyEmoji} **Hit:** ${mob.hitReward} • **Miss:** ${mob.missReward}`,
+        `If you hit: +${mob.bonusPerKill}% boss bonus (max ${mob.bonusMax}%).`,
       ].join("\n")
     )
-    .addFields({ name: `${cfg.E_MEMBERS} Participants`, value: `\`${joinedCount}\``, inline: true })
-    .setImage(mob.media || null);
+    .addFields({ name: `${E_MEMBERS} Attackers`, value: `\`${joinedCount}\``, inline: true })
+    .setImage(mob.media);
 }
 
-function inventoryEmbed(eventKey, player) {
+function inventoryEmbed(eventKey, player, bonusMaxBleach = 30, bonusMaxJjk = 30) {
   if (eventKey === "bleach") {
+    const inv = player.bleach.items;
+    const itemBonus = calcBleachSurvivalBonus(inv);
+    const mult = calcBleachReiatsuMultiplier(inv);
+
     return new EmbedBuilder()
-      .setColor(cfg.COLOR)
-      .setTitle(`${cfg.E_BLEACH} Bleach — Inventory`)
+      .setColor(COLOR)
+      .setTitle(`${E_BLEACH} Bleach — Inventory`)
       .setDescription(
         [
-          `${cfg.E_REIATSU} Reiatsu: **${player.bleach.reiatsu}**`,
-          `${cfg.E_DRAKO} Drako: **${player.drako}**`,
+          `${E_REIATSU} Reiatsu: **${player.bleach.reiatsu}**`,
+          `${E_DRAKO} Drako Coin: **${player.drako}**`,
+          `🔁 Drako rate: **${DRAKO_RATE_BLEACH} ${E_REIATSU} = 1 ${E_DRAKO}** (one-way)`,
+          "",
+          `⭐ Boss bonus (mob kills): **${player.bleach.survivalBonus}% / ${bonusMaxBleach}%**`,
+          `🛡 Item survival bonus: **${itemBonus}%**`,
+          `🍀 Drop luck: **x${calcBleachDropLuckMultiplier(inv).toFixed(2)}**`,
+          `💰 Reward multiplier: **x${mult.toFixed(2)}**`,
+          "",
+          `• Zanpakutō: ${inv.zanpakuto_basic ? "✅" : "❌"}`,
+          `• Mask Fragment: ${inv.hollow_mask_fragment ? "✅" : "❌"}`,
+          `• Cloak: ${inv.soul_reaper_cloak ? "✅" : "❌"}`,
+          `• Amplifier: ${inv.reiatsu_amplifier ? "✅" : "❌"}`,
+          `• Aizen role: ${inv.cosmetic_role ? "✅" : "❌"}`,
+          "",
+          `🧥 Wardrobe saved roles: **${player.ownedRoles.length}**`,
         ].join("\n")
       );
   }
 
+  const inv = player.jjk.items;
+  const itemBonus = calcJjkSurvivalBonus(inv);
+  const mult = calcJjkCEMultiplier(inv);
+
   return new EmbedBuilder()
-    .setColor(cfg.COLOR)
-    .setTitle(`${cfg.E_JJK} Jujutsu Kaisen — Inventory`)
+    .setColor(COLOR)
+    .setTitle(`${E_JJK} Jujutsu Kaisen — Inventory`)
     .setDescription(
       [
-        `${cfg.E_CE} Cursed Energy: **${player.jjk.cursedEnergy}**`,
-        `${cfg.E_DRAKO} Drako: **${player.drako}**`,
+        `${E_CE} Cursed Energy: **${player.jjk.cursedEnergy}**`,
+        `${E_DRAKO} Drako Coin: **${player.drako}**`,
+        `🔁 Drako rate: **${DRAKO_RATE_JJK} ${E_CE} = 1 ${E_DRAKO}** (one-way)`,
         "",
-        `🧩 Cursed Shards: **${player.jjk.materials?.cursed_shard || 0}**`,
+        `⭐ Boss bonus (mob kills): **${player.jjk.survivalBonus}% / ${bonusMaxJjk}%**`,
+        `🛡 Item survival bonus: **${itemBonus}%**`,
+        `🍀 Drop luck: **x${calcJjkDropLuckMultiplier(inv).toFixed(2)}**`,
+        `💰 Reward multiplier: **x${mult.toFixed(2)}**`,
+        "",
+        `• Black Flash Manual: ${inv.black_flash_manual ? "✅" : "❌"}`,
+        `• Domain Charm: ${inv.domain_charm ? "✅" : "❌"}`,
+        `• Cursed Tool: ${inv.cursed_tool ? "✅" : "❌"}`,
+        `• Reverse Talisman: ${inv.reverse_talisman ? "✅" : "❌"}`,
+        `• Binding Vow Seal: ${inv.binding_vow_seal ? "✅" : "❌"}`,
+        "",
+        `🧥 Wardrobe saved roles: **${player.ownedRoles.length}**`,
       ].join("\n")
     );
 }
 
+function shopEmbed(eventKey, player) {
+  if (eventKey === "bleach") {
+    const inv = player.bleach.items;
+    const lines = BLEACH_SHOP_ITEMS.map((it) => {
+      const owned = inv[it.key] ? "✅ Owned" : `${E_REIATSU} ${it.price} Reiatsu`;
+      return `**${it.name}** — ${owned}\n> ${it.desc}`;
+    });
+
+    return new EmbedBuilder()
+      .setColor(COLOR)
+      .setTitle(`${E_BLEACH} Bleach — Shop`)
+      .setDescription(lines.join("\n\n"))
+      .addFields(
+        { name: `${E_REIATSU} Your Reiatsu`, value: `\`${player.bleach.reiatsu}\``, inline: true },
+        { name: `${E_DRAKO} Your Drako`, value: `\`${player.drako}\``, inline: true },
+        { name: `🔁 Drako rate`, value: `\`${DRAKO_RATE_BLEACH} Reiatsu = 1 Drako (one-way)\``, inline: false }
+      );
+  }
+
+  const inv = player.jjk.items;
+  const lines = JJK_SHOP_ITEMS.map((it) => {
+    const owned = inv[it.key] ? "✅ Owned" : `${E_CE} ${it.price} Cursed Energy`;
+    return `**${it.name}** — ${owned}\n> ${it.desc}`;
+  });
+
+  return new EmbedBuilder()
+    .setColor(COLOR)
+    .setTitle(`${E_JJK} Jujutsu Kaisen — Shop`)
+    .setDescription(lines.join("\n\n"))
+    .addFields(
+      { name: `${E_CE} Your Cursed Energy`, value: `\`${player.jjk.cursedEnergy}\``, inline: true },
+      { name: `${E_DRAKO} Your Drako`, value: `\`${player.drako}\``, inline: true },
+      { name: `🔁 Drako rate`, value: `\`${DRAKO_RATE_JJK} Cursed Energy = 1 Drako (one-way)\``, inline: false }
+    );
+}
+
+function leaderboardEmbed(eventKey, entries) {
+  const tag = eventKey === "bleach" ? `${E_BLEACH} Bleach` : `${E_JJK} JJK`;
+  const currency = eventKey === "bleach" ? E_REIATSU : E_CE;
+  const lines = entries.map((e, i) => `**#${i + 1}** — ${safeName(e.name)}: **${currency} ${e.score}**`);
+  return new EmbedBuilder().setColor(COLOR).setTitle(`🏆 ${tag} Leaderboard`).setDescription(lines.join("\n") || "No data yet.");
+}
+
+function wardrobeEmbed(guild, player) {
+  const roles = player.ownedRoles.map((rid) => guild.roles.cache.get(rid)).filter(Boolean);
+  const lines = roles.length ? roles.map((r) => `• <@&${r.id}>`).join("\n") : "_No saved roles yet._";
+
+  return new EmbedBuilder()
+    .setColor(COLOR)
+    .setTitle("🧥 Wardrobe")
+    .setDescription(
+      "Saved roles never disappear.\n" +
+      "Select a role to **equip/unequip**.\n\n" +
+      lines
+    );
+}
+
 module.exports = {
+  // embeds
   bossSpawnEmbed,
   bossRoundEmbed,
   bossVictoryEmbed,
   bossDefeatEmbed,
   mobEmbed,
   inventoryEmbed,
+  shopEmbed,
+  leaderboardEmbed,
+  wardrobeEmbed,
+
+  // bonus helpers exported because events need them too:
+  calcBleachSurvivalBonus,
+  calcBleachReiatsuMultiplier,
+  calcBleachDropLuckMultiplier,
+  calcJjkSurvivalBonus,
+  calcJjkCEMultiplier,
+  calcJjkDropLuckMultiplier,
 };
