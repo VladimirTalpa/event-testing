@@ -1,13 +1,11 @@
 // src/handlers/buttons.js
 const { bossByChannel, mobByChannel } = require("../core/state");
-const { getPlayer, setPlayer, getTopPlayers } = require("../core/players");
+const { getPlayer, setPlayer } = require("../core/players");
 const { safeName } = require("../core/utils");
-const { mobEmbed, shopEmbed } = require("../ui/embeds");
-const { CID, mobButtons, shopButtons, leaderboardNav } = require("../ui/components");
+const { mobEmbed, shopEmbed, wardrobeEmbed } = require("../ui/embeds");
+const { CID, mobButtons, shopButtons } = require("../ui/components");
 const { MOBS } = require("../data/mobs");
 const { BLEACH_SHOP_ITEMS, JJK_SHOP_ITEMS } = require("../data/shop");
-const { EmbedBuilder } = require("discord.js");
-const { E_BLEACH, E_JJK, E_REIATSU, E_CE } = require("../config");
 
 async function tryGiveRole(guild, userId, roleId) {
   try {
@@ -31,46 +29,6 @@ function ensureOwnedRole(player, roleId) {
   if (!player.ownedRoles.includes(id)) player.ownedRoles.push(id);
 }
 
-/* ===================== LEADERBOARD UI ===================== */
-async function buildLeaderboardMessage(guild, eventKey, page = 0) {
-  const PER_PAGE = 10;
-  const rows = await getTopPlayers(eventKey, 9999);
-
-  const total = rows.length;
-  const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
-  const p = Math.max(0, Math.min(page, totalPages - 1));
-
-  const slice = rows.slice(p * PER_PAGE, p * PER_PAGE + PER_PAGE);
-
-  const entries = [];
-  for (const r of slice) {
-    let name = r.userId;
-    try {
-      const m = await guild.members.fetch(r.userId);
-      name = safeName(m?.displayName || m?.user?.username || r.userId);
-    } catch {}
-    entries.push({ name, score: r.score });
-  }
-
-  const tag = eventKey === "bleach" ? `${E_BLEACH} Bleach` : `${E_JJK} Jujutsu Kaisen`;
-  const currency = eventKey === "bleach" ? E_REIATSU : E_CE;
-
-  const lines = entries.length
-    ? entries.map((e, i) => {
-        const rank = p * PER_PAGE + i + 1;
-        return `**#${rank}** — ${safeName(e.name)}: **${currency} ${e.score}**`;
-      }).join("\n")
-    : "_No data yet._";
-
-  const embed = new EmbedBuilder()
-    .setColor(0x7b2cff)
-    .setTitle(`🏆 ${tag} Leaderboard`)
-    .setDescription(lines)
-    .setFooter({ text: `Page ${p + 1}/${totalPages} • Total players: ${total}` });
-
-  return { embed, components: leaderboardNav(eventKey, p, totalPages) };
-}
-
 module.exports = async function handleButtons(interaction) {
   try { await interaction.deferUpdate(); } catch {}
 
@@ -78,16 +36,6 @@ module.exports = async function handleButtons(interaction) {
   if (!channel || !channel.isTextBased()) return;
 
   const cid = interaction.customId;
-
-  /* ===================== LEADERBOARD NAV BUTTONS ===================== */
-  if (cid.startsWith(`${CID.LB_NAV}:`)) {
-    const parts = cid.split(":"); // lb_nav:<eventKey>:<page>
-    const eventKey = parts[1];
-    const page = Number(parts[2] || 0);
-
-    const { embed, components } = await buildLeaderboardMessage(interaction.guild, eventKey, page);
-    return interaction.update({ embeds: [embed], components });
-  }
 
   // Boss join
   if (cid === CID.BOSS_JOIN) {
@@ -144,6 +92,7 @@ module.exports = async function handleButtons(interaction) {
   // Boss action buttons
   if (cid.startsWith("boss_action:")) {
     const parts = cid.split(":");
+    // boss_action:<bossId>:<roundIndex>:<token>:<kind>:<payload?>
     const bossId = parts[1];
     const roundIndex = Number(parts[2]);
     const token = parts[3];
@@ -208,7 +157,7 @@ module.exports = async function handleButtons(interaction) {
     }
   }
 
-  // Mob attack
+  // Mob attack / exorcise
   if (cid.startsWith(`${CID.MOB_ATTACK}:`)) {
     const eventKey = cid.split(":")[1];
     const state = mobByChannel.get(channel.id);
@@ -235,11 +184,14 @@ module.exports = async function handleButtons(interaction) {
       }).catch(() => {});
     }
 
-    await interaction.followUp({ content: "✅ Action registered!", ephemeral: true }).catch(() => {});
+    await interaction.followUp({
+      content: eventKey === "jjk" ? "🪬 Exorcise registered!" : "⚔️ Attack registered!",
+      ephemeral: true
+    }).catch(() => {});
     return;
   }
 
-  // Shop buys
+  // Shop buys (unchanged)
   if (cid.startsWith("buy_")) {
     const p = await getPlayer(interaction.user.id);
 
