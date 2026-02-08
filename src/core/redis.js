@@ -1,14 +1,25 @@
+// src/core/redis.js
 const { createClient } = require("redis");
 
-async function makeRedis() {
+let redis;
+
+async function initRedis() {
+  if (redis) return redis;
   const url = process.env.REDIS_URL;
-  if (!url) throw new Error("Missing REDIS_URL in Railway Variables");
-
-  const client = createClient({ url });
-  client.on("error", (e) => console.error("Redis error:", e));
-
-  if (!client.isOpen) await client.connect();
-  return client;
+  if (!url) {
+    console.error("❌ Missing REDIS_URL in Railway variables.");
+    process.exit(1);
+  }
+  redis = createClient({ url });
+  redis.on("error", (err) => console.error("Redis error:", err));
+  await redis.connect();
+  console.log("✅ Redis connected");
+  return redis;
 }
 
-module.exports = { makeRedis };
+function getRedis() {
+  if (!redis) throw new Error("Redis is not initialized. Call initRedis() first.");
+  return redis;
+}
+
+module.exports = { initRedis, getRedis };
