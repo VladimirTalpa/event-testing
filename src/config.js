@@ -1,9 +1,9 @@
 // src/config.js
 
 /* ===================== CHANNEL LOCKS ===================== */
-// ✅ BLEACH auto spawns only here
+// ✅ BLEACH spawns only here
 const BLEACH_CHANNEL_ID = "1469757595031179314";
-// ✅ JJK auto spawns only here
+// ✅ JJK spawns only here
 const JJK_CHANNEL_ID = "1469757629390651686";
 
 /* ===================== ROLES / PERMS ===================== */
@@ -17,14 +17,14 @@ const COLOR = 0x7b2cff;
 
 const E_VASTO = "<:event:1469832084418727979>";
 const E_ULQ = "<:event:1469831975446511648>";
-const E_GRIMJOW = "<:event:1469831949857325097>"; // now used (Grimmjow)
+const E_GRIMJOW = "<:event:1469831949857325097>"; // optional / unused before
 const E_REIATSU = "<:event:1469821285079978045>";
 const E_CE = "<:event:1469821211872727040>";
 const E_DRAKO = "<:event:1469812070542217389>";
 
 const E_MEMBERS = "👥";
 
-// ✅ NEW: event logo emojis (your IDs)
+// ✅ Event logos (your IDs)
 const E_BLEACH = "<:bleach:1470018874408964119>";
 const E_JJK = "<:jjk:1470018845245968434>";
 
@@ -45,7 +45,6 @@ const DAILY_BOOSTER = 200;
 /* ===================== DROPS / ROLES ===================== */
 const VASTO_DROP_ROLE_ID = "1467426528584405103"; // 2.5%
 const ULQ_DROP_ROLE_ID = "1469573731301986367";   // 3%
-const GRIMMJOW_DROP_ROLE_ID = "1469831066628919439"; // ✅ new boss role
 
 const DROP_ROBUX_CHANCE_REAL_BASE = 0.005;
 const DROP_ROBUX_CHANCE_DISPLAY = 0.025;
@@ -101,7 +100,6 @@ module.exports = {
 
   VASTO_DROP_ROLE_ID,
   ULQ_DROP_ROLE_ID,
-  GRIMMJOW_DROP_ROLE_ID,
 
   DROP_ROBUX_CHANCE_REAL_BASE,
   DROP_ROBUX_CHANCE_DISPLAY,
