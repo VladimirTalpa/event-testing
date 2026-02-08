@@ -1,5 +1,8 @@
-const cfg = require("../config");
-const { getRedis } = require("./redis");
+// src/core/players.js
+const { initRedis, getRedis } = require("./redis");
+
+const REDIS_PLAYERS_KEY = "events:players";
+const REDIS_FALLBACK_KEYS = ["players", "playerData", "users"];
 
 function normalizePlayer(raw = {}) {
   const ownedRoles = Array.isArray(raw.ownedRoles)
@@ -11,8 +14,6 @@ function normalizePlayer(raw = {}) {
 
   const bleachItems = bleach.items && typeof bleach.items === "object" ? bleach.items : {};
   const jjkItems = jjk.items && typeof jjk.items === "object" ? jjk.items : {};
-
-  const jjkMats = jjk.materials && typeof jjk.materials === "object" ? jjk.materials : {};
 
   return {
     drako: Number.isFinite(raw.drako) ? raw.drako : 0,
@@ -47,28 +48,24 @@ function normalizePlayer(raw = {}) {
         reverse_talisman: !!jjkItems.reverse_talisman,
         binding_vow_seal: !!jjkItems.binding_vow_seal,
       },
-      materials: {
-        cursed_shard: Number.isFinite(jjkMats.cursed_shard) ? jjkMats.cursed_shard : 0,
-      },
     },
   };
 }
 
 async function getPlayer(userId) {
-  const redis = await getRedis();
+  await initRedis();
+  const redis = getRedis();
 
-  // primary
-  let raw = await redis.hGet(cfg.REDIS_PLAYERS_KEY, userId);
+  let raw = await redis.hGet(REDIS_PLAYERS_KEY, userId);
 
-  // fallback keys migrate
   if (!raw) {
-    for (const k of cfg.REDIS_FALLBACK_KEYS) {
+    for (const k of REDIS_FALLBACK_KEYS) {
       const oldRaw = await redis.hGet(k, userId);
       if (oldRaw) {
         raw = oldRaw;
         try {
           const migrated = normalizePlayer(JSON.parse(oldRaw));
-          await redis.hSet(cfg.REDIS_PLAYERS_KEY, userId, JSON.stringify(migrated));
+          await redis.hSet(REDIS_PLAYERS_KEY, userId, JSON.stringify(migrated));
         } catch {}
         break;
       }
@@ -77,7 +74,7 @@ async function getPlayer(userId) {
 
   if (!raw) {
     const fresh = normalizePlayer({});
-    await redis.hSet(cfg.REDIS_PLAYERS_KEY, userId, JSON.stringify(fresh));
+    await redis.hSet(REDIS_PLAYERS_KEY, userId, JSON.stringify(fresh));
     return fresh;
   }
 
@@ -85,21 +82,23 @@ async function getPlayer(userId) {
     return normalizePlayer(JSON.parse(raw));
   } catch {
     const fresh = normalizePlayer({});
-    await redis.hSet(cfg.REDIS_PLAYERS_KEY, userId, JSON.stringify(fresh));
+    await redis.hSet(REDIS_PLAYERS_KEY, userId, JSON.stringify(fresh));
     return fresh;
   }
 }
 
 async function setPlayer(userId, obj) {
-  const redis = await getRedis();
+  await initRedis();
+  const redis = getRedis();
   const p = normalizePlayer(obj);
-  await redis.hSet(cfg.REDIS_PLAYERS_KEY, userId, JSON.stringify(p));
+  await redis.hSet(REDIS_PLAYERS_KEY, userId, JSON.stringify(p));
   return p;
 }
 
 async function getTopPlayers(eventKey, limit = 10) {
-  const redis = await getRedis();
-  const all = await redis.hGetAll(cfg.REDIS_PLAYERS_KEY);
+  await initRedis();
+  const redis = getRedis();
+  const all = await redis.hGetAll(REDIS_PLAYERS_KEY);
 
   const rows = Object.entries(all).map(([userId, json]) => {
     let p = {};
@@ -116,4 +115,10 @@ async function getTopPlayers(eventKey, limit = 10) {
   return rows.slice(0, limit);
 }
 
-module.exports = { getPlayer, setPlayer, getTopPlayers, normalizePlayer };
+module.exports = {
+  normalizePlayer,
+  getPlayer,
+  setPlayer,
+  getTopPlayers,
+  REDIS_PLAYERS_KEY,
+};
