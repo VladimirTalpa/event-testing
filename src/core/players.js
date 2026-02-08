@@ -15,9 +15,7 @@ function normalizePlayer(raw = {}) {
   const bleachItems = bleach.items && typeof bleach.items === "object" ? bleach.items : {};
   const jjkItems = jjk.items && typeof jjk.items === "object" ? jjk.items : {};
 
-  // ✅ NEW: materials (for future crafting)
-  const jjkMaterials =
-    jjk.materials && typeof jjk.materials === "object" ? jjk.materials : {};
+  const jjkMaterials = jjk.materials && typeof jjk.materials === "object" ? jjk.materials : {};
 
   return {
     drako: Number.isFinite(raw.drako) ? raw.drako : 0,
@@ -45,17 +43,18 @@ function normalizePlayer(raw = {}) {
     jjk: {
       cursedEnergy: Number.isFinite(jjk.cursedEnergy) ? jjk.cursedEnergy : 0,
       survivalBonus: Number.isFinite(jjk.survivalBonus) ? jjk.survivalBonus : 0,
+
+      // ✅ materials for future crafting
+      materials: {
+        cursed_shard: Number.isFinite(jjkMaterials.cursed_shard) ? jjkMaterials.cursed_shard : 0,
+      },
+
       items: {
         black_flash_manual: !!jjkItems.black_flash_manual,
         domain_charm: !!jjkItems.domain_charm,
         cursed_tool: !!jjkItems.cursed_tool,
         reverse_talisman: !!jjkItems.reverse_talisman,
         binding_vow_seal: !!jjkItems.binding_vow_seal,
-      },
-
-      // ✅ NEW: crafting materials
-      materials: {
-        cursed_shard: Number.isFinite(jjkMaterials.cursed_shard) ? jjkMaterials.cursed_shard : 0,
       },
     },
   };
