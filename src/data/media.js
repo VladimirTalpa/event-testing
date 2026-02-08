@@ -53,22 +53,46 @@ const ULQ_VICTORY_MEDIA =
 const ULQ_DEFEAT_MEDIA =
   "https://media.discordapp.net/attachments/1405973335979851877/1469843317087797279/Your_paragraph_text_33.gif?ex=698921c3&is=6987d043&hm=a9a78cb6e341b7d27c4d94b4f1c29c248811d77b206ad4ea7b6f7571fceabd2f&=";
 
+// Grimmjow gifs
+const GRIM_SPAWN_MEDIA =
+  "https://media.discordapp.net/attachments/1405973335979851877/1469843123160088636/Your_paragraph_text_20.gif?ex=69892194&is=6987d014&hm=f4f9a53a32821a59c255ab38ca2785aee18654acfb13fad1220324fc93b31431&=";
+
+const GRIM_R1 =
+  "https://media.discordapp.net/attachments/1405973335979851877/1469843137181651024/Your_paragraph_text_21.gif?ex=69892198&is=6987d018&hm=4852cd95f921b0d65021bb4569e695eca88078b0b75c31072e307163190e702f&=";
+
+const GRIM_R2 =
+  "https://media.discordapp.net/attachments/1405973335979851877/1469843163945504899/Your_paragraph_text_23.gif?ex=6989219e&is=6987d01e&hm=2ac5fdbc70879714bf44c2c107d643cb61b67f79b7e27dbea0fb2a30c7feb861&=";
+
+const GRIM_VICTORY_MEDIA =
+  "https://media.discordapp.net/attachments/1405973335979851877/1469843182920532062/Your_paragraph_text_24.gif?ex=698921a3&is=6987d023&hm=7156f4b3cddeb4dc24e79afd243b5967c6ea239b53c1fdb75e6a3ca271546ece&=";
+
+const GRIM_DEFEAT_MEDIA =
+  "https://media.discordapp.net/attachments/1405973335979851877/1469843151152746668/Your_paragraph_text_22.gif?ex=6989219b&is=6987d01b&hm=0482ac0a77dc9e0d047b55951c7708d71badbda4d9cc3b6f906d3e445e780dcc&=";
+
 // Bleach mob (Hollow)
 const HOLLOW_MEDIA =
   "https://media.discordapp.net/attachments/1405973335979851877/1467508068303638540/Your_paragraph_text_10.gif?ex=6980a2e4&is=697f5164&hm=451cc0ec6edd18799593cf138549ddb86934217f6bee1e6364814d23153ead78&=";
 
 /* ===================== JJK MEDIA ===================== */
-/* You didn't give a mob gif, so it's still a placeholder (safe). */
-const CURSED_SPIRIT_MEDIA = HOLLOW_MEDIA;
+const JJK_BOSS_SPAWN_MEDIA =
+  "https://media.discordapp.net/attachments/1405973335979851877/1470019091216597002/Your_paragraph_text_39.gif?ex=6989c576&is=698873f6&hm=202a603d2f90e20a5cc05442be5725288cbee9f3148115b34e1e38a502b92c8b&=";
 
-/* Legacy placeholders (kept for compatibility; bosses now override in bosses.js) */
-const JJK_BOSS_SPAWN_MEDIA = CURSED_SPIRIT_MEDIA;
-const JJK_BOSS_R1 = JJK_BOSS_SPAWN_MEDIA;
-const JJK_BOSS_R2 = JJK_BOSS_SPAWN_MEDIA;
-const JJK_BOSS_R3 = JJK_BOSS_SPAWN_MEDIA;
-const JJK_BOSS_R4 = JJK_BOSS_SPAWN_MEDIA;
-const JJK_BOSS_VICTORY_MEDIA = JJK_BOSS_SPAWN_MEDIA;
-const JJK_BOSS_DEFEAT_MEDIA = JJK_BOSS_SPAWN_MEDIA;
+const JJK_BOSS_R1 =
+  "https://media.discordapp.net/attachments/1405973335979851877/1470019102163730637/Your_paragraph_text_38.gif?ex=6989c579&is=698873f9&hm=15c50afadae2c1ae772b207479ee483d014be35850f95ecc41172fb8d70ab9ea&=";
+
+const JJK_BOSS_R2 =
+  "https://media.discordapp.net/attachments/1405973335979851877/1470019117309235418/Your_paragraph_text_37.gif?ex=6989c57d&is=698873fd&hm=d844521a54938743ea9dddb3787cc0cc9e13405ee0bd053012a234caaeb25115&=";
+
+const JJK_BOSS_R3 =
+  "https://media.discordapp.net/attachments/1405973335979851877/1470019129867239526/Your_paragraph_text_36.gif?ex=6989c580&is=69887400&hm=7793353f116000d95fb393f34a41586e9fe7300005d00cd8862e34226041c766&=";
+
+const JJK_BOSS_VICTORY_MEDIA =
+  "https://media.discordapp.net/attachments/1405973335979851877/1470019159818637446/Your_paragraph_text_34.gif?ex=6989c587&is=69887407&hm=99b7163d50ac6f03bdfb132a1f38716d9f331a4e3fb395a033db8bbaaa4c5bed&=";
+
+const JJK_BOSS_DEFEAT_MEDIA =
+  "https://media.discordapp.net/attachments/1405973335979851877/1470019147839701177/Your_paragraph_text_35.gif?ex=6989c584&is=69887404&hm=366ad3f129479258f8d56f37c4ba5c3a7fd15e9767a79435f78e81e3f5a132d5&=";
+
+const CURSED_SPIRIT_MEDIA = JJK_BOSS_SPAWN_MEDIA;
 
 module.exports = {
   VASTO_SPAWN_MEDIA,
@@ -90,16 +114,19 @@ module.exports = {
   ULQ_VICTORY_MEDIA,
   ULQ_DEFEAT_MEDIA,
 
+  GRIM_SPAWN_MEDIA,
+  GRIM_R1,
+  GRIM_R2,
+  GRIM_VICTORY_MEDIA,
+  GRIM_DEFEAT_MEDIA,
+
   HOLLOW_MEDIA,
 
-  CURSED_SPIRIT_MEDIA,
-
-  // compatibility exports
   JJK_BOSS_SPAWN_MEDIA,
   JJK_BOSS_R1,
   JJK_BOSS_R2,
   JJK_BOSS_R3,
-  JJK_BOSS_R4,
   JJK_BOSS_VICTORY_MEDIA,
   JJK_BOSS_DEFEAT_MEDIA,
+  CURSED_SPIRIT_MEDIA,
 };
