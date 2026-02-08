@@ -22,9 +22,10 @@ const BLEACH_CHANNEL_ID = "1469757595031179314";
 const JJK_CHANNEL_ID = "1469757629390651686";
 
 /* ===================== ROLES / PERMS ===================== */
+// Roles that can manually spawn / admin add (keep your IDs)
 const EVENT_ROLE_IDS = ["1259865441405501571", "1287879457025163325"];
 
-// Ping roles on spawn
+// Ping roles on spawn (keep your IDs)
 const PING_BOSS_ROLE_ID = "1467575062826586205";
 const PING_HOLLOW_ROLE_ID = "1467575020275368131";
 
@@ -34,88 +35,105 @@ const BOOSTER_ROLE_ID = "1267266564961341501";
 /* ===================== THEME / EMOJIS ===================== */
 const COLOR = 0x7b2cff;
 
-// (оставил твои текущие, чтобы ничего не ломать)
+// ✅ Your requested emojis (IDs)
+const E_VASTO = "<:event:1469832084418727979>";
+const E_ULQ = "<:event:1469831975446511648>";
+const E_GRIMJOW = "<:event:1469831949857325097>"; // not used yet
+const E_REIATSU = "<:event:1469821285079978045>";
+const E_CE = "<:event:1469821211872727040>";
+const E_DRAKO = "<:event:1469812070542217389>";
+
+const E_MEMBERS = "👥";
 const E_BLEACH = "🌀";
-const E_REIATSU = "<:event:1467497975101128724>";
-const E_VASTO = "<:event:1467502793869885563>";
-const E_MEMBERS = "<:event:1467501718630568118>";
-
 const E_JJK = "🟣";
-const E_CURSED = "🟪";
-const E_CE = "🟣";
-
-const E_DRAKO = "🪙";
 
 /* ===================== ECONOMY RATES ===================== */
 const DRAKO_RATE_BLEACH = 47; // 47 Reiatsu -> 1 Drako
-const DRAKO_RATE_JJK = 19;    // 19 Cursed Energy -> 1 Drako
+const DRAKO_RATE_JJK = 19; // 19 Cursed Energy -> 1 Drako
 // ❌ NO REVERSE exchange anywhere
 
 /* ===================== COMMON GAME CONFIG ===================== */
-// ✅ cooldown BEFORE every boss round
-const ROUND_PREP_MS = 10 * 1000;
-
+const ROUND_COOLDOWN_MS = 10 * 1000;
 const MAX_HITS = 2;
 
-/* ===================== DAILY (BLEACH) ===================== */
+// Daily (Bleach only)
 const DAILY_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const DAILY_NORMAL = 100;
 const DAILY_BOOSTER = 200;
 
-/* ===================== BLEACH MEDIA ===================== */
+/* ===================== BLEACH MEDIA (YOUR NEW LINKS) ===================== */
 const VASTO_SPAWN_MEDIA =
-  "https://media.discordapp.net/attachments/1405973335979851877/1467277181955604572/Your_paragraph_text_4.gif?ex=6980749c&is=697f231c&hm=d06365f2194faceee52207192f81db418aa5a485aaa498f154553dc5e62f6d79&=";
+  "https://media.discordapp.net/attachments/1405973335979851877/1469842057219674194/Your_paragraph_text_13.gif?ex=69892096&is=6987cf16&hm=c31783bb0a9a57c197a3faf8d9314fb2a1d4621d424c8961bfcb2c0f0c753ef3&=";
 
 const VASTO_R1 =
-  "https://media.discordapp.net/attachments/1405973335979851877/1467276870784520326/Your_paragraph_text_3.gif?ex=69807452&is=697f22d2&hm=893ba1888e2ea579e71f442f158cfc25e06ed5371b59c978dd1afae3f61d480f&=";
-const VASTO_R2 = VASTO_R1;
+  "https://media.discordapp.net/attachments/1405973335979851877/1469842005583462514/Your_paragraph_text_16.gif?ex=6989208a&is=6987cf0a&hm=f9a4c88976d44e3581b82d55c01fdefb03f1c7401697c8a663cf6aeeff68e8c3&=";
+
+const VASTO_R2 =
+  "https://media.discordapp.net/attachments/1405973335979851877/1469842043227341068/Your_paragraph_text_14.gif?ex=69892093&is=6987cf13&hm=117ea0c95417384a7b790f746a774d0778b9348257fd8ee7422ed8c4e908dd9a&=";
+
 const VASTO_R3 =
-  "https://media.discordapp.net/attachments/1405973335979851877/1467276903160483995/Your_paragraph_text_1.gif?ex=6980745a&is=697f22da&hm=52decaeaf342973a4930a1d7a0f09ac5fb38358650e5607c40e9c821d7596a88&=";
+  "https://media.discordapp.net/attachments/1405973335979851877/1469842024172884138/Your_paragraph_text_15.gif?ex=6989208e&is=6987cf0e&hm=ba70c2e8435df2b8aefb26205c5c0fc23386895da4837e5fcae10eb8fdd03d19&=";
+
 const VASTO_R4 =
-  "https://media.discordapp.net/attachments/1405973335979851877/1467276984257220795/Your_paragraph_text_6.gif?ex=6980746d&is=697f22ed&hm=2a22d2df088318c7bfb1ddcb1601caea0ea248a19e6db909f741895b769ce7bb&=";
+  "https://media.discordapp.net/attachments/1405973335979851877/1469842068024066068/Your_paragraph_text_12.gif?ex=69892099&is=6987cf19&hm=e1080c7bddf29f2e6edc23f9a083189bde2d417ea9ffb9d81e4b5dcd218227cc&=";
+
+const VASTO_R5 =
+  "https://media.discordapp.net/attachments/1405973335979851877/1469841986705166347/Your_paragraph_text_18.gif?ex=69892085&is=6987cf05&hm=3b1a1520ace36d0ab11d4a443bed1f1321488192657b464da15ffb11d4f72700&=";
 
 const VASTO_VICTORY_MEDIA =
-  "https://media.discordapp.net/attachments/1405973335979851877/1467278760901345313/Your_paragraph_text_7.gif?ex=69807615&is=697f2495&hm=b6f4546141fb8a52e480992b5c029cd1c675072df0e71b1f3ed50ebee65b01eb&=";
+  "https://media.discordapp.net/attachments/1405973335979851877/1469841996616040511/Your_paragraph_text_17.gif?ex=69892088&is=6987cf08&hm=c5adfce5d6fff70c659a87a43d9b1be1b56fdbd52031de45f6c15962306cf37f&=";
 
 const VASTO_DEFEAT_MEDIA =
-  "https://media.discordapp.net/attachments/1405973335979851877/1467276974589218941/Your_paragraph_text_5.gif?ex=6980746b&is=697f22eb&hm=4f8a5f7867d5366e2a473a6d84a13e051544ebc5c56bee5dc34a4ae727c00f20&=";
+  "https://media.discordapp.net/attachments/1405973335979851877/1469842262208020632/Your_paragraph_text_19.gif?ex=698920c7&is=6987cf47&hm=243b0dea5d8bec6a78a4efc223fa07e8e3656c4c301ca7521395bc935ef73b7b&=";
 
-// Ulquiorra placeholders (replace later)
-const ULQ_SPAWN_MEDIA = VASTO_SPAWN_MEDIA;
-const ULQ_R1 = VASTO_R1;
-const ULQ_R2 = VASTO_R2;
-const ULQ_R3 = VASTO_R3;
-const ULQ_R4 = VASTO_R4;
-const ULQ_R5 = VASTO_R4;
-const ULQ_R6 = VASTO_R4;
-const ULQ_R7 = VASTO_R4;
-const ULQ_VICTORY_MEDIA = VASTO_VICTORY_MEDIA;
-const ULQ_DEFEAT_MEDIA = VASTO_DEFEAT_MEDIA;
+// Ulquiorra gifs
+const ULQ_SPAWN_MEDIA =
+  "https://media.discordapp.net/attachments/1405973335979851877/1469843198812618782/Your_paragraph_text_25.gif?ex=698921a6&is=6987d026&hm=8ab0b38b1fafd210a7cbf589f54b37ce4c4e7117e5141a63d6d150e32f71096c&=";
+
+const ULQ_R1 =
+  "https://media.discordapp.net/attachments/1405973335979851877/1469843217058103556/Your_paragraph_text_26.gif?ex=698921ab&is=6987d02b&hm=4499f79869465416007ef21580b08fdd8c6a8f597521ec484e22c023d3867586&=";
+
+const ULQ_R2 =
+  "https://media.discordapp.net/attachments/1405973335979851877/1469843235986866196/Your_paragraph_text_27.gif?ex=698921af&is=6987d02f&hm=d73e433123104264fb7797e32267d4af89dc7887fb2efdea42a41e578fc85bf4&=";
+
+const ULQ_R3 =
+  "https://media.discordapp.net/attachments/1405973335979851877/1469843247999353004/Your_paragraph_text_28.gif?ex=698921b2&is=6987d032&hm=03afda58f47e27975d3b6f5ee7a4af654e3bcc9ff89c8fc7488f3e905509dcbf&=";
+
+const ULQ_R4 =
+  "https://media.discordapp.net/attachments/1405973335979851877/1469843261139980308/Your_paragraph_text_29.gif?ex=698921b5&is=6987d035&hm=63d6429d4d618c3682ef4665c3b494200ccb031d4f450c38539ee8cde319a1ac&=";
+
+const ULQ_R5 =
+  "https://media.discordapp.net/attachments/1405973335979851877/1469843274737914123/Your_paragraph_text_30.gif?ex=698921b9&is=6987d039&hm=6274a0db6b1866c2d134fd4b9f200b68e968e97fd2ceb9ca7312c7a8cae804af&=";
+
+const ULQ_R6 =
+  "https://media.discordapp.net/attachments/1405973335979851877/1469843288277127219/Your_paragraph_text_31.gif?ex=698921bc&is=6987d03c&hm=88e3096454d50f1268761b18320c8d12a23d80cc49ff7c93240e3d7f553e4d6e&=";
+
+const ULQ_VICTORY_MEDIA =
+  "https://media.discordapp.net/attachments/1405973335979851877/1469843303930527929/Your_paragraph_text_32.gif?ex=698921c0&is=6987d040&hm=2ad405fd31cd5be31faebe491f651ff5a1bb88a9816eebf0b6aa823808592df8&=";
+
+const ULQ_DEFEAT_MEDIA =
+  "https://media.discordapp.net/attachments/1405973335979851877/1469843317087797279/Your_paragraph_text_33.gif?ex=698921c3&is=6987d043&hm=a9a78cb6e341b7d27c4d94b4f1c29c248811d77b206ad4ea7b6f7571fceabd2f&=";
 
 // Bleach mob (Hollow)
 const HOLLOW_MEDIA =
   "https://media.discordapp.net/attachments/1405973335979851877/1467508068303638540/Your_paragraph_text_10.gif?ex=6980a2e4&is=697f5164&hm=451cc0ec6edd18799593cf138549ddb86934217f6bee1e6364814d23153ead78&=";
 
-/* ===================== JJK MEDIA (placeholders) ===================== */
-const JJK_BOSS_SPAWN_MEDIA =
-  "https://media.discordapp.net/attachments/1405973335979851877/1467508068303638540/Your_paragraph_text_10.gif";
+/* ===================== JJK MEDIA (placeholders - keep/change later) ===================== */
+const JJK_BOSS_SPAWN_MEDIA = HOLLOW_MEDIA;
 const JJK_BOSS_R1 = JJK_BOSS_SPAWN_MEDIA;
 const JJK_BOSS_R2 = JJK_BOSS_SPAWN_MEDIA;
 const JJK_BOSS_R3 = JJK_BOSS_SPAWN_MEDIA;
 const JJK_BOSS_R4 = JJK_BOSS_SPAWN_MEDIA;
 const JJK_BOSS_VICTORY_MEDIA = JJK_BOSS_SPAWN_MEDIA;
 const JJK_BOSS_DEFEAT_MEDIA = JJK_BOSS_SPAWN_MEDIA;
-
 const CURSED_SPIRIT_MEDIA = JJK_BOSS_SPAWN_MEDIA;
 
 /* ===================== DROPS / ROLES ===================== */
-const BLEACH_BOSS_DROP_ROLE_ID = "1467426528584405103";
-const JJK_BOSS_DROP_ROLE_ID = null;
+const VASTO_DROP_ROLE_ID = "1467426528584405103"; // 2.5%
+const ULQ_DROP_ROLE_ID = "1469573731301986367"; // 3%
 
-const DROP_ROLE_CHANCE_BASE = 0.05;
-const DROP_ROLE_CHANCE_CAP = 0.12;
-const DROP_ROBUX_CHANCE_REAL_BASE = 0.005;
-const DROP_ROBUX_CHANCE_DISPLAY = 0.025;
+const DROP_ROBUX_CHANCE_REAL_BASE = 0.005; // real chance
+const DROP_ROBUX_CHANCE_DISPLAY = 0.025; // shown chance
 const DROP_ROBUX_CHANCE_CAP = 0.01;
 const ROBUX_CLAIM_TEXT = "To claim: contact **daez063**.";
 
@@ -138,6 +156,9 @@ const JJK_BONUS_MAX = 30;
 
 /* ===================== REDIS ===================== */
 const REDIS_PLAYERS_KEY = "events:players";
+// If you used an older key before, put it here so deploy won't look like "reset"
+const REDIS_FALLBACK_KEYS = ["players", "playerData", "users"];
+
 let redis;
 
 async function initRedis() {
@@ -154,20 +175,11 @@ async function initRedis() {
   return redis;
 }
 
-/* ===================== HELPERS ===================== */
-function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
-function safeName(name) { return String(name || "Unknown").replace(/@/g, "").replace(/#/g, "＃"); }
-function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
-
-function hasEventRole(member) {
-  if (!member?.roles?.cache) return false;
-  return EVENT_ROLE_IDS.some((id) => member.roles.cache.has(id));
-}
-function hasBoosterRole(member) { return !!member?.roles?.cache?.has(BOOSTER_ROLE_ID); }
-
 /* ===================== PLAYER SCHEMA ===================== */
 function normalizePlayer(raw = {}) {
-  const ownedRoles = Array.isArray(raw.ownedRoles) ? raw.ownedRoles.filter(Boolean).map(String) : [];
+  const ownedRoles = Array.isArray(raw.ownedRoles)
+    ? raw.ownedRoles.filter(Boolean).map(String)
+    : [];
 
   const bleach = raw.bleach && typeof raw.bleach === "object" ? raw.bleach : {};
   const jjk = raw.jjk && typeof raw.jjk === "object" ? raw.jjk : {};
@@ -180,9 +192,15 @@ function normalizePlayer(raw = {}) {
     ownedRoles: [...new Set(ownedRoles)],
 
     bleach: {
-      reiatsu: Number.isFinite(bleach.reiatsu) ? bleach.reiatsu : (Number.isFinite(raw.reiatsu) ? raw.reiatsu : 0),
-      survivalBonus: Number.isFinite(bleach.survivalBonus) ? bleach.survivalBonus : (Number.isFinite(raw.survivalBonus) ? raw.survivalBonus : 0),
-      lastDaily: Number.isFinite(bleach.lastDaily) ? bleach.lastDaily : (Number.isFinite(raw.lastDaily) ? raw.lastDaily : 0),
+      reiatsu: Number.isFinite(bleach.reiatsu)
+        ? bleach.reiatsu
+        : (Number.isFinite(raw.reiatsu) ? raw.reiatsu : 0),
+      survivalBonus: Number.isFinite(bleach.survivalBonus)
+        ? bleach.survivalBonus
+        : (Number.isFinite(raw.survivalBonus) ? raw.survivalBonus : 0),
+      lastDaily: Number.isFinite(bleach.lastDaily)
+        ? bleach.lastDaily
+        : (Number.isFinite(raw.lastDaily) ? raw.lastDaily : 0),
       items: {
         zanpakuto_basic: !!bleachItems.zanpakuto_basic,
         hollow_mask_fragment: !!bleachItems.hollow_mask_fragment,
@@ -208,12 +226,31 @@ function normalizePlayer(raw = {}) {
 
 async function getPlayer(userId) {
   await initRedis();
-  const raw = await redis.hGet(REDIS_PLAYERS_KEY, userId);
+
+  // 1) primary
+  let raw = await redis.hGet(REDIS_PLAYERS_KEY, userId);
+
+  // 2) fallback keys (migrate if found)
+  if (!raw) {
+    for (const k of REDIS_FALLBACK_KEYS) {
+      const oldRaw = await redis.hGet(k, userId);
+      if (oldRaw) {
+        raw = oldRaw;
+        try {
+          const migrated = normalizePlayer(JSON.parse(oldRaw));
+          await redis.hSet(REDIS_PLAYERS_KEY, userId, JSON.stringify(migrated));
+        } catch {}
+        break;
+      }
+    }
+  }
+
   if (!raw) {
     const fresh = normalizePlayer({});
     await redis.hSet(REDIS_PLAYERS_KEY, userId, JSON.stringify(fresh));
     return fresh;
   }
+
   try {
     return normalizePlayer(JSON.parse(raw));
   } catch {
@@ -236,7 +273,9 @@ async function getTopPlayers(eventKey, limit = 10) {
 
   const rows = Object.entries(all).map(([userId, json]) => {
     let p = {};
-    try { p = normalizePlayer(JSON.parse(json)); } catch {}
+    try {
+      p = normalizePlayer(JSON.parse(json));
+    } catch {}
 
     let score = 0;
     if (eventKey === "bleach") score = p.bleach?.reiatsu || 0;
@@ -251,22 +290,32 @@ async function getTopPlayers(eventKey, limit = 10) {
 
 /* ===================== SHOPS ===================== */
 const BLEACH_SHOP_ITEMS = [
-  { key: "zanpakuto_basic", name: "Zanpakutō (basic)", price: 350, desc: `+4% survive vs Bleach bosses • +5% drop luck` },
+  { key: "zanpakuto_basic", name: "Zanpakutō (Basic)", price: 350, desc: `+4% survive vs Bleach bosses • +5% drop luck` },
   { key: "hollow_mask_fragment", name: "Hollow Mask Fragment", price: 900, desc: `+7% survive vs Bleach bosses • +10% drop luck` },
   { key: "soul_reaper_cloak", name: "Soul Reaper Cloak", price: 1200, desc: `+9% survive vs Bleach bosses • +6% drop luck` },
   { key: "reiatsu_amplifier", name: "Reiatsu Amplifier", price: 1500, desc: `${E_REIATSU} +25% Reiatsu rewards • +2% survive vs Bleach bosses` },
-  { key: "cosmetic_role", name: "Sousuke Aizen role", price: 6000, desc: "Cosmetic Discord role (no stats).", roleId: SHOP_COSMETIC_ROLE_ID },
+  { key: "cosmetic_role", name: "Sōsuke Aizen Role", price: 6000, desc: "Cosmetic Discord role (no stats).", roleId: SHOP_COSMETIC_ROLE_ID },
 ];
 
 const JJK_SHOP_ITEMS = [
   { key: "black_flash_manual", name: "Black Flash Manual", price: 260, desc: `${E_CE} +20% Cursed Energy rewards • +2% survive vs Special Grade` },
-  { key: "domain_charm", name: "Domain Expansion Charm", price: 520, desc: `+8% survive vs Special Grade • +4% mob hit chance (hidden)` },
+  { key: "domain_charm", name: "Domain Expansion Charm", price: 520, desc: `+8% survive vs Special Grade • +4% mob hit chance` },
   { key: "cursed_tool", name: "Cursed Tool: Split-Soul Edge", price: 740, desc: `+10% survive vs Special Grade • +8% drop luck (JJK)` },
-  { key: "reverse_talisman", name: "Reverse Technique Talisman", price: 980, desc: `Once per boss fight: ignore first hit (soft shield)` },
+  { key: "reverse_talisman", name: "Reverse Technique Talisman", price: 980, desc: `Once per boss fight: ignore your first hit (soft shield)` },
   { key: "binding_vow_seal", name: "Binding Vow Seal", price: 1200, desc: `+15% survive vs Special Grade • -10% rewards (tradeoff)` },
 ];
 
-/* ===== Bonuses per event ===== */
+/* ===== helpers ===== */
+function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
+function safeName(name) { return String(name || "Unknown").replace(/@/g, "").replace(/#/g, "＃"); }
+function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
+
+function hasEventRole(member) {
+  if (!member?.roles?.cache) return false;
+  return EVENT_ROLE_IDS.some((id) => member.roles.cache.has(id));
+}
+function hasBoosterRole(member) { return !!member?.roles?.cache?.has(BOOSTER_ROLE_ID); }
+
 function ensureOwnedRole(player, roleId) {
   if (!roleId) return;
   const id = String(roleId);
@@ -304,7 +353,7 @@ function calcJjkSurvivalBonus(items) {
 function calcJjkCEMultiplier(items) {
   let mult = 1.0;
   if (items.black_flash_manual) mult *= 1.20;
-  if (items.binding_vow_seal) mult *= 0.90; // tradeoff
+  if (items.binding_vow_seal) mult *= 0.90;
   return mult;
 }
 function calcJjkDropLuckMultiplier(items) {
@@ -323,7 +372,7 @@ async function tryGiveRole(guild, userId, roleId) {
   try {
     const botMember = await guild.members.fetchMe();
     if (!botMember.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
-      return { ok: false, reason: "Bot has no Manage Roles permission." };
+      return { ok: false, reason: "Bot lacks Manage Roles permission." };
     }
     const role = guild.roles.cache.get(roleId);
     if (!role) return { ok: false, reason: "Role not found." };
@@ -336,12 +385,11 @@ async function tryGiveRole(guild, userId, roleId) {
     return { ok: false, reason: "Discord rejected role add (permissions/hierarchy)." };
   }
 }
-
 async function tryRemoveRole(guild, userId, roleId) {
   try {
     const botMember = await guild.members.fetchMe();
     if (!botMember.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
-      return { ok: false, reason: "Bot has no Manage Roles permission." };
+      return { ok: false, reason: "Bot lacks Manage Roles permission." };
     }
     const role = guild.roles.cache.get(roleId);
     if (!role) return { ok: false, reason: "Role not found." };
@@ -363,7 +411,11 @@ function wardrobeEmbed(guild, player) {
   return new EmbedBuilder()
     .setColor(COLOR)
     .setTitle("🧥 Wardrobe")
-    .setDescription(`Saved roles never disappear.\nSelect a role to **equip/unequip**.\n\n${lines}`);
+    .setDescription(
+      "Saved roles never disappear.\n" +
+      "Select a role to **equip/unequip**.\n\n" +
+      lines
+    );
 }
 
 function wardrobeComponents(guild, member, player) {
@@ -394,19 +446,68 @@ const BOSSES = {
     event: "bleach",
     id: "vasto",
     name: "Vasto Lorde",
+    icon: E_VASTO,
     difficulty: "Hard",
     joinMs: 2 * 60 * 1000,
     baseChance: 0.30,
-    winReward: 200,
-    hitReward: 15,
+    winReward: 200, // paid only on victory
+    hitReward: 15,  // banked per success, paid only on victory
+    roleDropChance: 0.025,
+    roleDropId: VASTO_DROP_ROLE_ID,
+
     spawnMedia: VASTO_SPAWN_MEDIA,
     victoryMedia: VASTO_VICTORY_MEDIA,
     defeatMedia: VASTO_DEFEAT_MEDIA,
+
     rounds: [
-      { type: "pressure", title: "Round 1 — Reiatsu Wave", intro: "A massive Reiatsu wave floods the area.", media: VASTO_R1 },
-      { type: "pressure", title: "Round 2 — Berserk Pressure", intro: "The pressure intensifies. Hold your ground.", media: VASTO_R2 },
-      { type: "attack", title: "Round 3 — Weakened Opening", intro: "Vasto is weakened. Strike now.", media: VASTO_R3 },
-      { type: "finisher", title: "Round 4 — Final (Finisher)", intro: "Final chance! Press **FINISHER** in time.", windowMs: 5000, buttonLabel: "Finisher", buttonEmoji: "⚔️", media: VASTO_R4 },
+      {
+        type: "pressure",
+        title: "Round 1 — Reiatsu Wave",
+        intro:
+          "Vasto Lorde releases a massive wave of Reiatsu.\n" +
+          "Withstand it to bank Reiatsu. Fail and you take a hit (1/2).",
+        media: VASTO_R1,
+      },
+      {
+        type: "pressure",
+        title: "Round 2 — Frenzy Pressure",
+        intro:
+          "Vasto Lorde enters a frenzy — the pressure intensifies.\n" +
+          "Withstand it to bank Reiatsu. Fail and you take a hit.",
+        media: VASTO_R2,
+      },
+      {
+        type: "coop_block",
+        title: "Round 3 — Cooperative Block",
+        intro:
+          "Vasto Lorde is charging a devastating attack.\n" +
+          "To survive, **4 players** must press **Block** within **5 seconds**.",
+        windowMs: 5000,
+        requiredPresses: 4,
+        buttonLabel: "Block",
+        buttonEmoji: "🛡️",
+        media: VASTO_R3,
+      },
+      {
+        type: "attack",
+        title: "Round 4 — Counterattack",
+        intro:
+          "Vasto Lorde is weakened — counterattack!\n" +
+          "Success banks Reiatsu. Failure = a hit.",
+        media: VASTO_R4,
+      },
+      {
+        type: "finisher",
+        title: "Round 5 — Finisher",
+        intro:
+          "Vasto Lorde has taken heavy damage — finish it!\n" +
+          "Press **Finisher** within **10 seconds**.\n" +
+          "If you do not press, you take a hit.",
+        windowMs: 10 * 1000,
+        buttonLabel: "Finisher",
+        buttonEmoji: "⚔️",
+        media: VASTO_R5,
+      },
     ],
   },
 
@@ -414,48 +515,110 @@ const BOSSES = {
     event: "bleach",
     id: "ulquiorra",
     name: "Ulquiorra",
+    icon: E_ULQ,
     difficulty: "Extreme",
     joinMs: 3 * 60 * 1000,
     baseChance: 0.20,
-    winReward: 450,
-    hitReward: 20,
+    winReward: 500,
+    hitReward: 25,
+    roleDropChance: 0.03,
+    roleDropId: ULQ_DROP_ROLE_ID,
+
     spawnMedia: ULQ_SPAWN_MEDIA,
     victoryMedia: ULQ_VICTORY_MEDIA,
     defeatMedia: ULQ_DEFEAT_MEDIA,
+
     rounds: [
-      { type: "pressure", title: "Round 1 — Reiatsu Pressure", intro: "Ulquiorra releases crushing Reiatsu pressure.", media: ULQ_R1 },
-      { type: "defend", title: "Round 2 — Defense", intro: "A lethal strike is coming. Press **HOLD**!", windowMs: 2000, buttonLabel: "Hold", buttonEmoji: "🛡️", media: ULQ_R2 },
-      { type: "defend", title: "Round 3 — Defense", intro: "Second strike. Press **HOLD** again!", windowMs: 2000, buttonLabel: "Hold", buttonEmoji: "🛡️", media: ULQ_R3 },
-      { type: "attack", title: "Round 4 — Transformation", intro: "Ulquiorra transforms. Survive the pressure.", media: ULQ_R4 },
-      { type: "attack", title: "Round 5 — Rampage", intro: "Unstable rampage. Keep fighting.", media: ULQ_R5 },
-      { type: "attack", title: "Round 6 — Critical", intro: "Critical damage dealt. Push through.", media: ULQ_R6 },
-      { type: "attack", title: "Round 7 — Final", intro: "Last chance. End it.", media: ULQ_R7 },
+      {
+        type: "coop_block",
+        title: "Round 1 — Cooperative Block",
+        intro:
+          "Ulquiorra launches a powerful attack.\n" +
+          "To survive, **4 players** must press **Block** within **5 seconds**.",
+        windowMs: 5000,
+        requiredPresses: 4,
+        buttonLabel: "Block",
+        buttonEmoji: "🛡️",
+        media: ULQ_R1,
+      },
+      {
+        type: "combo_defense",
+        title: "Round 2 — Combo Defense (QTE)",
+        intro:
+          "Ulquiorra attacks again — Combo Defense!\n" +
+          "Press the buttons in the **correct order** within **5 seconds**.\n" +
+          "Mistake or timeout = a hit.",
+        windowMs: 5000,
+        media: ULQ_R2,
+      },
+      {
+        type: "pressure",
+        title: "Round 3 — Transformation Pressure",
+        intro:
+          "Ulquiorra transforms — Reiatsu pressure becomes insane.\n" +
+          "Withstand it to avoid a hit.",
+        media: ULQ_R3,
+      },
+      {
+        type: "pressure",
+        title: "Round 4 — Suffocating Pressure",
+        intro:
+          "The pressure intensifies even further.\n" +
+          "Withstand it to avoid a hit.",
+        media: ULQ_R4,
+      },
+      {
+        type: "quick_block",
+        title: "Round 5 — Quick Block (2s)",
+        intro:
+          "Ulquiorra prepares a lethal strike!\n" +
+          "You have **2 seconds** to press **Block**.\n" +
+          "Block in time to survive and counterattack (banked reward).",
+        windowMs: 2000,
+        buttonLabel: "Block",
+        buttonEmoji: "🛡️",
+        media: ULQ_R5,
+      },
+      {
+        type: "group_final",
+        title: "Round 6 — Final Push",
+        intro:
+          "Ulquiorra is weakened — your final attack can decide everything.\n" +
+          "**At least 3 players** must succeed the roll.\n" +
+          "If fewer than 3 succeed — **everyone loses**.",
+        requiredWins: 3,
+        media: ULQ_R6,
+      },
     ],
   },
 
-  // ===== JJK =====
+  // ===== JJK (kept from your previous version; you can change gifs/text later) =====
   specialgrade: {
     event: "jjk",
     id: "specialgrade",
     name: "Special Grade Curse",
+    icon: E_JJK,
     difficulty: "Deadly",
     joinMs: 2 * 60 * 1000,
     baseChance: 0.30,
     winReward: 200,
     hitReward: 15,
+    roleDropChance: 0.0,
+    roleDropId: null,
+
     spawnMedia: JJK_BOSS_SPAWN_MEDIA,
     victoryMedia: JJK_BOSS_VICTORY_MEDIA,
     defeatMedia: JJK_BOSS_DEFEAT_MEDIA,
+
     rounds: [
-      { type: "pressure", title: "Round 1 — Cursed Pressure", intro: "The curse radiates overwhelming pressure.", media: JJK_BOSS_R1 },
-      { type: "pressure", title: "Round 2 — Malice Surge", intro: "The aura grows violent. Resist it.", media: JJK_BOSS_R2 },
+      { type: "pressure", title: "Round 1 — Cursed Pressure", intro: "Overwhelming cursed pressure floods the area.", media: JJK_BOSS_R1 },
+      { type: "pressure", title: "Round 2 — Malice Surge", intro: "The aura turns violent. Resist it.", media: JJK_BOSS_R2 },
       { type: "attack", title: "Round 3 — Opening", intro: "A gap appears. Strike the core.", media: JJK_BOSS_R3 },
-      { type: "finisher", title: "Round 4 — Exorcism Window", intro: "Finish it! Press **EXORCISE** in time.", windowMs: 5000, buttonLabel: "Exorcise", buttonEmoji: "🪬", media: JJK_BOSS_R4 },
+      { type: "finisher", title: "Round 4 — Exorcism Window", intro: "Finish it! Press **Exorcise** in time.", windowMs: 5000, buttonLabel: "Exorcise", buttonEmoji: "🪬", media: JJK_BOSS_R4 },
     ],
   },
 };
 
-/* ===================== ✅ FIXED MOBS (NO BROKEN TOKENS) ===================== */
 const MOBS = {
   bleach: {
     name: "Hollow",
@@ -465,7 +628,7 @@ const MOBS = {
     bonusPerKill: BLEACH_BONUS_PER_KILL,
     bonusMax: BLEACH_BONUS_MAX,
     media: HOLLOW_MEDIA,
-    emoji: "👁️",
+    icon: "👁️",
     currencyEmoji: E_REIATSU,
   },
   jjk: {
@@ -476,32 +639,32 @@ const MOBS = {
     bonusPerKill: JJK_BONUS_PER_KILL,
     bonusMax: JJK_BONUS_MAX,
     media: CURSED_SPIRIT_MEDIA,
-    emoji: "🕳️",
+    icon: "🕳️",
     currencyEmoji: E_CE,
   },
 };
 
-/* ===================== EMBEDS ===================== */
+/* ===================== EMBEDS (ENGLISH) ===================== */
 function bossSpawnEmbed(def, channelName, joinedCount, fightersText) {
   const eventTag = def.event === "bleach" ? `${E_BLEACH} BLEACH` : `${E_JJK} JJK`;
   const currency = def.event === "bleach" ? E_REIATSU : E_CE;
 
   return new EmbedBuilder()
     .setColor(COLOR)
-    .setTitle(`${eventTag} — ${def.name} Appeared!`)
+    .setTitle(`${eventTag} — ${def.icon} ${def.name} Appeared!`)
     .setDescription(
       `**Difficulty:** ${def.difficulty}\n` +
       `⏳ **Join time:** ${Math.round(def.joinMs / 60000)} minutes\n` +
-      `Click **🗡 Join Battle** to participate.`
+      `Press **🗡 Join Battle** to participate.`
     )
     .addFields(
       { name: `${E_MEMBERS} Fighters`, value: fightersText, inline: false },
-      { name: `${E_MEMBERS} Joined`, value: `\`${joinedCount}\``, inline: true },
-      { name: `${currency} Rewards`, value: `\`${def.winReward} win • +${def.hitReward}/success (banked)\``, inline: true },
+      { name: `Joined`, value: `\`${joinedCount}\``, inline: true },
+      { name: `${currency} Rewards`, value: `\`${def.winReward} on win • +${def.hitReward}/success (banked)\``, inline: true },
       { name: `📌 Channel`, value: `\`#${channelName}\``, inline: true }
     )
     .setImage(def.spawnMedia)
-    .setFooter({ text: `Boss • ${def.rounds.length} rounds • 2 hits = out` });
+    .setFooter({ text: `Boss • ${def.rounds.length} rounds • ${MAX_HITS} hits = eliminated` });
 }
 
 function bossRoundEmbed(def, roundIndex, aliveCount) {
@@ -510,7 +673,7 @@ function bossRoundEmbed(def, roundIndex, aliveCount) {
 
   return new EmbedBuilder()
     .setColor(COLOR)
-    .setTitle(`${eventTag} — ${def.name} • ${r.title}`)
+    .setTitle(`${eventTag} — ${def.icon} ${def.name} • ${r.title}`)
     .setDescription(r.intro)
     .addFields({ name: `${E_MEMBERS} Alive fighters`, value: `\`${aliveCount}\``, inline: true })
     .setImage(r.media || def.spawnMedia)
@@ -521,10 +684,10 @@ function bossVictoryEmbed(def, survivorsCount) {
   return new EmbedBuilder()
     .setColor(0x2ecc71)
     .setTitle(`✅ ${def.name} Defeated!`)
-    .setDescription(`Rewards granted to survivors.`)
+    .setDescription("Rewards granted to survivors.")
     .addFields(
       { name: `${E_MEMBERS} Survivors`, value: `\`${survivorsCount}\``, inline: true },
-      { name: `🎭 Drops`, value: `\`role • ${(DROP_ROBUX_CHANCE_DISPLAY * 100).toFixed(1)}% 100 Robux\``, inline: true }
+      { name: `🎭 Drops`, value: `Role + Robux (display ${(DROP_ROBUX_CHANCE_DISPLAY * 100).toFixed(1)}%)`, inline: true }
     )
     .setImage(def.victoryMedia);
 }
@@ -543,24 +706,128 @@ function mobEmbed(eventKey, joinedCount) {
 
   return new EmbedBuilder()
     .setColor(COLOR)
-    .setTitle(`${eventTag} — ${mob.emoji} ${mob.name} Appeared!`)
+    .setTitle(`${eventTag} — ${mob.icon} ${mob.name} Appeared!`)
     .setDescription(
       [
-        `⏳ **Time: 2 minutes**`,
-        `🎲 50/50 chance to hit`,
-        `${mob.currencyEmoji} Hit: **${mob.hitReward}** • Miss: **${mob.missReward}**`,
-        `If defeated: hitters gain +${mob.bonusPerKill}% boss bonus (max ${mob.bonusMax}%).`,
+        `⏳ **Time:** 2 minutes`,
+        `🎲 **Hit chance:** 50%`,
+        `${mob.currencyEmoji} **Hit:** ${mob.hitReward} • **Miss:** ${mob.missReward}`,
+        `If you hit: +${mob.bonusPerKill}% boss bonus (max ${mob.bonusMax}%).`,
       ].join("\n")
     )
     .addFields({ name: `${E_MEMBERS} Attackers`, value: `\`${joinedCount}\``, inline: true })
     .setImage(mob.media);
 }
 
-/* ===================== UI COMPONENTS ===================== */
+function inventoryEmbed(eventKey, player) {
+  if (eventKey === "bleach") {
+    const inv = player.bleach.items;
+    const itemBonus = calcBleachSurvivalBonus(inv);
+    const mult = calcBleachReiatsuMultiplier(inv);
+
+    return new EmbedBuilder()
+      .setColor(COLOR)
+      .setTitle(`${E_BLEACH} Bleach — Inventory`)
+      .setDescription(
+        [
+          `${E_REIATSU} Reiatsu: **${player.bleach.reiatsu}**`,
+          `${E_DRAKO} Drako Coin: **${player.drako}**`,
+          `🔁 Drako rate: **${DRAKO_RATE_BLEACH} ${E_REIATSU} = 1 ${E_DRAKO}** (one-way)`,
+          "",
+          `⭐ Boss bonus (mob kills): **${player.bleach.survivalBonus}% / ${BLEACH_BONUS_MAX}%**`,
+          `🛡 Item survival bonus: **${itemBonus}%**`,
+          `🍀 Drop luck: **x${calcBleachDropLuckMultiplier(inv).toFixed(2)}**`,
+          `💰 Reward multiplier: **x${mult.toFixed(2)}**`,
+          "",
+          `• Zanpakutō: ${inv.zanpakuto_basic ? "✅" : "❌"}`,
+          `• Mask Fragment: ${inv.hollow_mask_fragment ? "✅" : "❌"}`,
+          `• Cloak: ${inv.soul_reaper_cloak ? "✅" : "❌"}`,
+          `• Amplifier: ${inv.reiatsu_amplifier ? "✅" : "❌"}`,
+          `• Aizen role: ${inv.cosmetic_role ? "✅" : "❌"}`,
+          "",
+          `🧥 Wardrobe saved roles: **${player.ownedRoles.length}**`,
+        ].join("\n")
+      );
+  }
+
+  const inv = player.jjk.items;
+  const itemBonus = calcJjkSurvivalBonus(inv);
+  const mult = calcJjkCEMultiplier(inv);
+
+  return new EmbedBuilder()
+    .setColor(COLOR)
+    .setTitle(`${E_JJK} Jujutsu Kaisen — Inventory`)
+    .setDescription(
+      [
+        `${E_CE} Cursed Energy: **${player.jjk.cursedEnergy}**`,
+        `${E_DRAKO} Drako Coin: **${player.drako}**`,
+        `🔁 Drako rate: **${DRAKO_RATE_JJK} ${E_CE} = 1 ${E_DRAKO}** (one-way)`,
+        "",
+        `⭐ Boss bonus (mob kills): **${player.jjk.survivalBonus}% / ${JJK_BONUS_MAX}%**`,
+        `🛡 Item survival bonus: **${itemBonus}%**`,
+        `🍀 Drop luck: **x${calcJjkDropLuckMultiplier(inv).toFixed(2)}**`,
+        `💰 Reward multiplier: **x${mult.toFixed(2)}**`,
+        "",
+        `• Black Flash Manual: ${inv.black_flash_manual ? "✅" : "❌"}`,
+        `• Domain Charm: ${inv.domain_charm ? "✅" : "❌"}`,
+        `• Cursed Tool: ${inv.cursed_tool ? "✅" : "❌"}`,
+        `• Reverse Talisman: ${inv.reverse_talisman ? "✅" : "❌"}`,
+        `• Binding Vow Seal: ${inv.binding_vow_seal ? "✅" : "❌"}`,
+        "",
+        `🧥 Wardrobe saved roles: **${player.ownedRoles.length}**`,
+      ].join("\n")
+    );
+}
+
+function shopEmbed(eventKey, player) {
+  if (eventKey === "bleach") {
+    const inv = player.bleach.items;
+    const lines = BLEACH_SHOP_ITEMS.map((it) => {
+      const owned = inv[it.key] ? "✅ Owned" : `${E_REIATSU} ${it.price} Reiatsu`;
+      return `**${it.name}** — ${owned}\n> ${it.desc}`;
+    });
+
+    return new EmbedBuilder()
+      .setColor(COLOR)
+      .setTitle(`${E_BLEACH} Bleach — Shop`)
+      .setDescription(lines.join("\n\n"))
+      .addFields(
+        { name: `${E_REIATSU} Your Reiatsu`, value: `\`${player.bleach.reiatsu}\``, inline: true },
+        { name: `${E_DRAKO} Your Drako`, value: `\`${player.drako}\``, inline: true },
+        { name: `🔁 Drako rate`, value: `\`${DRAKO_RATE_BLEACH} Reiatsu = 1 Drako (one-way)\``, inline: false }
+      );
+  }
+
+  const inv = player.jjk.items;
+  const lines = JJK_SHOP_ITEMS.map((it) => {
+    const owned = inv[it.key] ? "✅ Owned" : `${E_CE} ${it.price} Cursed Energy`;
+    return `**${it.name}** — ${owned}\n> ${it.desc}`;
+  });
+
+  return new EmbedBuilder()
+    .setColor(COLOR)
+    .setTitle(`${E_JJK} Jujutsu Kaisen — Shop`)
+    .setDescription(lines.join("\n\n"))
+    .addFields(
+      { name: `${E_CE} Your Cursed Energy`, value: `\`${player.jjk.cursedEnergy}\``, inline: true },
+      { name: `${E_DRAKO} Your Drako`, value: `\`${player.drako}\``, inline: true },
+      { name: `🔁 Drako rate`, value: `\`${DRAKO_RATE_JJK} Cursed Energy = 1 Drako (one-way)\``, inline: false }
+    );
+}
+
+function leaderboardEmbed(eventKey, entries) {
+  const tag = eventKey === "bleach" ? `${E_BLEACH} Bleach` : `${E_JJK} JJK`;
+  const currency = eventKey === "bleach" ? E_REIATSU : E_CE;
+  const lines = entries.map((e, i) => `**#${i + 1}** — ${safeName(e.name)}: **${currency} ${e.score}**`);
+  return new EmbedBuilder().setColor(COLOR).setTitle(`🏆 ${tag} Leaderboard`).setDescription(lines.join("\n") || "No data yet.");
+}
+
+/* ===================== COMPONENTS ===================== */
 const CID = {
   BOSS_JOIN: "boss_join",
   BOSS_RULES: "boss_rules",
-  MOB_ATTACK: "mob_attack", // mob_attack:<eventKey>
+  BOSS_ACTION: "boss_action", // boss_action:<bossId>:<roundIndex>:<token>:<kind>:<payload?>
+  MOB_ATTACK: "mob_attack",   // mob_attack:<eventKey>
 };
 
 function bossButtons(disabled = false) {
@@ -572,10 +839,23 @@ function bossButtons(disabled = false) {
   ];
 }
 
-function actionButtonRow(customId, label, emoji, disabled = false) {
+function singleActionRow(customId, label, emoji, disabled = false) {
   return [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(customId).setLabel(label).setEmoji(emoji).setStyle(ButtonStyle.Danger).setDisabled(disabled)
+    ),
+  ];
+}
+
+function comboDefenseRows(token, bossId, roundIndex) {
+  // 4 colored buttons
+  const mk = (kind) => `boss_action:${bossId}:${roundIndex}:${token}:combo:${kind}`;
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(mk("red")).setLabel("Red").setEmoji("🔴").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(mk("blue")).setLabel("Blue").setEmoji("🔵").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(mk("green")).setLabel("Green").setEmoji("🟢").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(mk("yellow")).setLabel("Yellow").setEmoji("🟡").setStyle(ButtonStyle.Secondary)
     ),
   ];
 }
@@ -593,7 +873,35 @@ function mobButtons(eventKey, disabled = false) {
   ];
 }
 
-/* ===================== STATE ===================== */
+function shopButtons(eventKey, player) {
+  if (eventKey === "bleach") {
+    const inv = player.bleach.items;
+    const row1 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("buy_bleach_zanpakuto_basic").setLabel("Buy Zanpakutō").setStyle(ButtonStyle.Secondary).setDisabled(inv.zanpakuto_basic),
+      new ButtonBuilder().setCustomId("buy_bleach_hollow_mask_fragment").setLabel("Buy Mask Fragment").setStyle(ButtonStyle.Secondary).setDisabled(inv.hollow_mask_fragment),
+      new ButtonBuilder().setCustomId("buy_bleach_soul_reaper_cloak").setLabel("Buy Cloak").setStyle(ButtonStyle.Secondary).setDisabled(inv.soul_reaper_cloak)
+    );
+    const row2 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("buy_bleach_reiatsu_amplifier").setLabel("Buy Amplifier").setStyle(ButtonStyle.Secondary).setDisabled(inv.reiatsu_amplifier),
+      new ButtonBuilder().setCustomId("buy_bleach_cosmetic_role").setLabel("Buy Aizen role").setStyle(ButtonStyle.Danger).setDisabled(inv.cosmetic_role)
+    );
+    return [row1, row2];
+  }
+
+  const inv = player.jjk.items;
+  const row1 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId("buy_jjk_black_flash_manual").setLabel("Buy Black Flash").setStyle(ButtonStyle.Secondary).setDisabled(inv.black_flash_manual),
+    new ButtonBuilder().setCustomId("buy_jjk_domain_charm").setLabel("Buy Domain Charm").setStyle(ButtonStyle.Secondary).setDisabled(inv.domain_charm),
+    new ButtonBuilder().setCustomId("buy_jjk_cursed_tool").setLabel("Buy Cursed Tool").setStyle(ButtonStyle.Secondary).setDisabled(inv.cursed_tool)
+  );
+  const row2 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId("buy_jjk_reverse_talisman").setLabel("Buy Reverse Talisman").setStyle(ButtonStyle.Secondary).setDisabled(inv.reverse_talisman),
+    new ButtonBuilder().setCustomId("buy_jjk_binding_vow_seal").setLabel("Buy Binding Vow").setStyle(ButtonStyle.Danger).setDisabled(inv.binding_vow_seal)
+  );
+  return [row1, row2];
+}
+
+/* ===================== RUNTIME STATE ===================== */
 const bossByChannel = new Map(); // channelId -> boss state
 const mobByChannel = new Map();  // channelId -> mob state
 
@@ -604,7 +912,7 @@ function isAllowedSpawnChannel(eventKey, channelId) {
   return false;
 }
 
-/* ===================== BOSS CORE ===================== */
+/* ===================== BOSS CORE HELPERS ===================== */
 function computeSurviveChance(eventKey, player, baseChance) {
   if (eventKey === "bleach") {
     const itemBonus = calcBleachSurvivalBonus(player.bleach.items);
@@ -619,12 +927,10 @@ function computeSurviveChance(eventKey, player, baseChance) {
 function getEventCurrencyEmoji(eventKey) {
   return eventKey === "bleach" ? E_REIATSU : E_CE;
 }
-
 function getEventMultiplier(eventKey, player) {
   if (eventKey === "bleach") return calcBleachReiatsuMultiplier(player.bleach.items);
   return calcJjkCEMultiplier(player.jjk.items);
 }
-
 function getEventDropMult(eventKey, player) {
   if (eventKey === "bleach") return calcBleachDropLuckMultiplier(player.bleach.items);
   return calcJjkDropLuckMultiplier(player.jjk.items);
@@ -632,7 +938,9 @@ function getEventDropMult(eventKey, player) {
 
 async function updateBossSpawnMessage(channel, boss) {
   const fighters = [...boss.participants.values()];
-  const fightersText = fighters.length ? fighters.map((p) => safeName(p.displayName)).join(", ").slice(0, 1000) : "`No fighters yet`";
+  const fightersText = fighters.length
+    ? fighters.map((p) => safeName(p.displayName)).join(", ").slice(0, 1000)
+    : "`No fighters yet`";
 
   const msg = await channel.messages.fetch(boss.messageId).catch(() => null);
   if (!msg) return;
@@ -654,12 +962,41 @@ async function applyHit(uid, boss, channel, reasonText) {
   if (!st) return;
   st.hits++;
   const name = safeName(st.displayName);
-  await channel.send(`💥 **${name}** ${reasonText} (${st.hits}/${MAX_HITS})`).catch(() => {});
+  await channel.send(`💥 **${name}** ${reasonText} (**${st.hits}/${MAX_HITS}**)`).catch(() => {});
   if (st.hits >= MAX_HITS) await channel.send(`☠️ **${name}** was eliminated.`).catch(() => {});
 }
 
 function bankSuccess(uid, boss, amount) {
   boss.hitBank.set(uid, (boss.hitBank.get(uid) || 0) + amount);
+}
+
+/* ===== Boss action state formats =====
+boss.activeAction = {
+  token,
+  roundIndex,
+  mode: "press" | "coop" | "combo",
+  pressed: Set<uid>,                 // for press/coop/finisher/quickblock
+  requiredPresses?: number,          // coop requirement
+  comboSeq?: string[],               // ["red","blue","green","yellow"] (random)
+  comboProgress?: Map<uid, number>,  // next index they must press
+  comboFailed?: Set<uid>,            // already failed, ignore presses
+};
+*/
+
+function randomComboSeq() {
+  const colors = ["red", "blue", "green", "yellow"];
+  // random length 4
+  const seq = [];
+  for (let i = 0; i < 4; i++) {
+    seq.push(colors[Math.floor(Math.random() * colors.length)]);
+  }
+  return seq;
+}
+function comboToEmoji(c) {
+  if (c === "red") return "🔴";
+  if (c === "blue") return "🔵";
+  if (c === "green") return "🟢";
+  return "🟡";
 }
 
 async function runBoss(channel, boss) {
@@ -677,16 +1014,10 @@ async function runBoss(channel, boss) {
       alive = aliveIds(boss);
       if (!alive.length) break;
 
-      // ✅ cooldown BEFORE each round (your request)
-      await channel.send(`⏳ Next round starts in **${Math.round(ROUND_PREP_MS / 1000)}s**...`).catch(() => {});
-      await sleep(ROUND_PREP_MS);
-
-      alive = aliveIds(boss);
-      if (!alive.length) break;
-
       const r = boss.def.rounds[i];
       await channel.send({ embeds: [bossRoundEmbed(boss.def, i, alive.length)] }).catch(() => {});
 
+      // ===== standard pressure / attack =====
       if (r.type === "pressure" || r.type === "attack") {
         for (const uid of alive) {
           const player = await getPlayer(uid);
@@ -694,41 +1025,105 @@ async function runBoss(channel, boss) {
           const ok = Math.random() < chance;
 
           if (!ok) {
-            await applyHit(uid, boss, channel, `failed to withstand **${boss.def.name}**!`);
+            await applyHit(uid, boss, channel, `couldn't withstand **${boss.def.name}**!`);
           } else {
             const mult = getEventMultiplier(boss.def.event, player);
             const add = Math.floor(boss.def.hitReward * mult);
             bankSuccess(uid, boss, add);
 
             const nm = safeName(boss.participants.get(uid)?.displayName);
-            await channel.send(`⚔️ **${nm}** succeeded! (+${getEventCurrencyEmoji(boss.def.event)} ${add} banked)`).catch(() => {});
+            await channel.send(`✅ **${nm}** succeeded! (+${getEventCurrencyEmoji(boss.def.event)} ${add} banked)`).catch(() => {});
           }
           await sleep(250);
+        }
+
+        if (i < boss.def.rounds.length - 1) {
+          await channel.send(`⏳ Next round in **${Math.round(ROUND_COOLDOWN_MS / 1000)}s**...`).catch(() => {});
+          await sleep(ROUND_COOLDOWN_MS);
         }
         continue;
       }
 
-      if (r.type === "defend" || r.type === "finisher") {
+      // ===== COOP BLOCK =====
+      if (r.type === "coop_block") {
         const token = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
-        boss.activeAction = { token, roundIndex: i, pressed: new Set() };
+        boss.activeAction = {
+          token,
+          roundIndex: i,
+          mode: "coop",
+          pressed: new Set(),
+          requiredPresses: r.requiredPresses || 4,
+        };
 
-        const customId = `boss_action:${boss.def.id}:${i}:${token}`;
+        const customId = `boss_action:${boss.def.id}:${i}:${token}:press:block`;
         const msg = await channel.send({
           content:
-            r.type === "finisher"
-              ? `⚠️ **${r.buttonLabel.toUpperCase()} WINDOW: ${Math.round(r.windowMs / 1000)}s** — press **${r.buttonLabel}**!`
-              : `🛡️ **DEFENSE WINDOW: ${Math.round(r.windowMs / 1000)}s** — press **${r.buttonLabel}**!`,
-          components: actionButtonRow(customId, r.buttonLabel, r.buttonEmoji, false),
+            `🛡️ **COOP BLOCK WINDOW: ${Math.round((r.windowMs || 5000) / 1000)}s**\n` +
+            `Requirement: **${boss.activeAction.requiredPresses} different players** must press **Block**.`,
+          components: singleActionRow(customId, r.buttonLabel || "Block", r.buttonEmoji || "🛡️", false),
         }).catch(() => null);
 
-        await sleep(r.windowMs);
+        await sleep(r.windowMs || 5000);
 
-        if (msg?.id) await msg.edit({ components: actionButtonRow(customId, r.buttonLabel, r.buttonEmoji, true) }).catch(() => {});
+        if (msg?.id) await msg.edit({ components: singleActionRow(customId, r.buttonLabel || "Block", r.buttonEmoji || "🛡️", true) }).catch(() => {});
+
+        const pressed = boss.activeAction?.token === token ? boss.activeAction.pressed : new Set();
+        const req = boss.activeAction?.requiredPresses || 4;
+        boss.activeAction = null;
+
+        const nowAlive = aliveIds(boss);
+        const success = pressed.size >= req;
+
+        if (!success) {
+          await channel.send(`❌ Not enough blocks (${pressed.size}/${req}). Everyone takes a hit!`).catch(() => {});
+          for (const uid of nowAlive) {
+            await applyHit(uid, boss, channel, `failed to block in time!`);
+            await sleep(140);
+          }
+        } else {
+          await channel.send(`✅ Block succeeded (${pressed.size}/${req}). Pressers counterattacked!`).catch(() => {});
+          // reward: only pressers get banked hit reward; non-pressers survive but no bank
+          for (const uid of nowAlive) {
+            if (pressed.has(uid)) {
+              const player = await getPlayer(uid);
+              const mult = getEventMultiplier(boss.def.event, player);
+              const add = Math.floor(boss.def.hitReward * mult);
+              bankSuccess(uid, boss, add);
+            }
+          }
+        }
+
+        if (i < boss.def.rounds.length - 1) {
+          await channel.send(`⏳ Next round in **${Math.round(ROUND_COOLDOWN_MS / 1000)}s**...`).catch(() => {});
+          await sleep(ROUND_COOLDOWN_MS);
+        }
+        continue;
+      }
+
+      // ===== QUICK BLOCK / FINISHER (single press) =====
+      if (r.type === "quick_block" || r.type === "finisher") {
+        const token = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+        boss.activeAction = { token, roundIndex: i, mode: "press", pressed: new Set() };
+
+        const label = r.buttonLabel || (r.type === "finisher" ? "Finisher" : "Block");
+        const emoji = r.buttonEmoji || (r.type === "finisher" ? "⚔️" : "🛡️");
+        const customId = `boss_action:${boss.def.id}:${i}:${token}:press:${r.type}`;
+
+        const msg = await channel.send({
+          content:
+            `⚠️ **${label.toUpperCase()} WINDOW: ${Math.round((r.windowMs || 5000) / 1000)}s** — press **${label}**!`,
+          components: singleActionRow(customId, label, emoji, false),
+        }).catch(() => null);
+
+        await sleep(r.windowMs || 5000);
+
+        if (msg?.id) await msg.edit({ components: singleActionRow(customId, label, emoji, true) }).catch(() => {});
 
         const pressed = boss.activeAction?.token === token ? boss.activeAction.pressed : new Set();
         boss.activeAction = null;
 
         const nowAlive = aliveIds(boss);
+
         for (const uid of nowAlive) {
           const player = await getPlayer(uid);
           const isJjk = boss.def.event === "jjk";
@@ -738,10 +1133,8 @@ async function runBoss(channel, boss) {
             const mult = getEventMultiplier(boss.def.event, player);
             const add = Math.floor(boss.def.hitReward * mult);
             bankSuccess(uid, boss, add);
-
-            const nm = safeName(boss.participants.get(uid)?.displayName);
-            await channel.send(`✅ **${nm}** succeeded! (+${getEventCurrencyEmoji(boss.def.event)} ${add} banked)`).catch(() => {});
           } else {
+            // reverse shield works once per fight
             if (hasReverse && !boss.reverseUsed.has(uid)) {
               boss.reverseUsed.add(uid);
               const nm = safeName(boss.participants.get(uid)?.displayName);
@@ -750,13 +1143,139 @@ async function runBoss(channel, boss) {
               await applyHit(uid, boss, channel, `was too slow!`);
             }
           }
-          await sleep(220);
+          await sleep(170);
         }
 
-        if (r.type === "finisher") break;
+        if (i < boss.def.rounds.length - 1) {
+          await channel.send(`⏳ Next round in **${Math.round(ROUND_COOLDOWN_MS / 1000)}s**...`).catch(() => {});
+          await sleep(ROUND_COOLDOWN_MS);
+        }
+        continue;
+      }
+
+      // ===== COMBO DEFENSE (sequence) =====
+      if (r.type === "combo_defense") {
+        const token = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+        const seq = randomComboSeq();
+
+        boss.activeAction = {
+          token,
+          roundIndex: i,
+          mode: "combo",
+          comboSeq: seq,
+          comboProgress: new Map(),
+          comboFailed: new Set(),
+        };
+
+        const seqText = seq.map(comboToEmoji).join(" ");
+
+        const msg = await channel.send({
+          content:
+            `🎮 **COMBO DEFENSE (QTE)** — You have **${Math.round((r.windowMs || 5000) / 1000)}s**\n` +
+            `Press in order: ${seqText}\n` +
+            `Mistake or timeout = a hit.`,
+          components: comboDefenseRows(token, boss.def.id, i),
+        }).catch(() => null);
+
+        await sleep(r.windowMs || 5000);
+
+        // disable all buttons
+        if (msg?.id) {
+          const disabledRows = comboDefenseRows(token, boss.def.id, i).map((row) => {
+            row.components.forEach((b) => b.setDisabled(true));
+            return row;
+          });
+          await msg.edit({ components: disabledRows }).catch(() => {});
+        }
+
+        const action = boss.activeAction;
+        boss.activeAction = null;
+
+        const nowAlive = aliveIds(boss);
+
+        for (const uid of nowAlive) {
+          const player = await getPlayer(uid);
+          const isJjk = boss.def.event === "jjk";
+          const hasReverse = isJjk && player.jjk.items.reverse_talisman;
+
+          const prog = action?.comboProgress?.get(uid) ?? 0;
+          const failed = action?.comboFailed?.has(uid);
+          const completed = !failed && prog >= 4;
+
+          if (completed) {
+            const mult = getEventMultiplier(boss.def.event, player);
+            const add = Math.floor(boss.def.hitReward * mult);
+            bankSuccess(uid, boss, add);
+          } else {
+            if (hasReverse && !boss.reverseUsed.has(uid)) {
+              boss.reverseUsed.add(uid);
+              const nm = safeName(boss.participants.get(uid)?.displayName);
+              await channel.send(`✨ **${nm}** was saved by Reverse Technique! (ignored 1 hit)`).catch(() => {});
+            } else {
+              await applyHit(uid, boss, channel, `failed the Combo Defense!`);
+            }
+          }
+          await sleep(170);
+        }
+
+        if (i < boss.def.rounds.length - 1) {
+          await channel.send(`⏳ Next round in **${Math.round(ROUND_COOLDOWN_MS / 1000)}s**...`).catch(() => {});
+          await sleep(ROUND_COOLDOWN_MS);
+        }
+        continue;
+      }
+
+      // ===== GROUP FINAL (>= requiredWins must succeed) =====
+      if (r.type === "group_final") {
+        const nowAlive = aliveIds(boss);
+        const required = r.requiredWins || 3;
+
+        // roll each alive by their survival chance
+        let wins = 0;
+        const winners = new Set();
+
+        for (const uid of nowAlive) {
+          const player = await getPlayer(uid);
+          const chance = computeSurviveChance(boss.def.event, player, boss.def.baseChance);
+          const ok = Math.random() < chance;
+          if (ok) {
+            wins++;
+            winners.add(uid);
+          }
+        }
+
+        if (wins < required) {
+          await channel.send(`❌ Not enough successful final hits (${wins}/${required}). **Everyone loses.**`).catch(() => {});
+          for (const uid of nowAlive) {
+            await applyHit(uid, boss, channel, `was overwhelmed in the final push!`);
+            // force eliminate quickly
+            const st = boss.participants.get(uid);
+            if (st) st.hits = MAX_HITS;
+            await sleep(100);
+          }
+        } else {
+          await channel.send(`✅ Final push succeeded! (${wins}/${required}) Winners dealt the decisive blow.`).catch(() => {});
+          for (const uid of nowAlive) {
+            if (winners.has(uid)) {
+              const player = await getPlayer(uid);
+              const mult = getEventMultiplier(boss.def.event, player);
+              const add = Math.floor(boss.def.hitReward * mult);
+              bankSuccess(uid, boss, add);
+            } else {
+              // survived but did not land the final hit -> still alive, no bank
+            }
+          }
+        }
+
+        if (i < boss.def.rounds.length - 1) {
+          await channel.send(`⏳ Next round in **${Math.round(ROUND_COOLDOWN_MS / 1000)}s**...`).catch(() => {});
+          await sleep(ROUND_COOLDOWN_MS);
+        }
+        continue;
       }
     }
 
+    // ===== RESULT =====
     const survivors = aliveIds(boss);
     if (!survivors.length) {
       await channel.send({ embeds: [bossDefeatEmbed(boss.def)] }).catch(() => {});
@@ -779,18 +1298,24 @@ async function runBoss(channel, boss) {
 
       lines.push(`• <@${uid}> +${getEventCurrencyEmoji(boss.def.event)} ${win} (Win) +${getEventCurrencyEmoji(boss.def.event)} ${hits} (Bank)`);
 
+      // Role drop (fixed chance per boss, but scaled slightly by drop luck)
       const luckMult = getEventDropMult(boss.def.event, player);
-      const roleChance = Math.min(DROP_ROLE_CHANCE_CAP, DROP_ROLE_CHANCE_BASE * luckMult);
-      const dropRole = boss.def.event === "bleach" ? BLEACH_BOSS_DROP_ROLE_ID : JJK_BOSS_DROP_ROLE_ID;
+      const baseChance = boss.def.roleDropChance || 0;
+      const chance = Math.min(0.12, baseChance * luckMult);
 
-      if (dropRole && Math.random() < roleChance) {
-        ensureOwnedRole(player, dropRole);
+      if (boss.def.roleDropId && Math.random() < chance) {
+        ensureOwnedRole(player, boss.def.roleDropId);
         await setPlayer(uid, player);
 
-        const res = await tryGiveRole(channel.guild, uid, dropRole);
-        lines.push(res.ok ? `🎭 <@${uid}> obtained a **Boss role**!` : `⚠️ <@${uid}> won role but bot couldn't assign: ${res.reason} (saved to wardrobe)`);
+        const res = await tryGiveRole(channel.guild, uid, boss.def.roleDropId);
+        lines.push(
+          res.ok
+            ? `🎭 <@${uid}> obtained a **Boss role**!`
+            : `⚠️ <@${uid}> won a role but bot couldn't assign: ${res.reason} (saved to wardrobe)`
+        );
       }
 
+      // Robux drop
       const robuxChance = Math.min(DROP_ROBUX_CHANCE_CAP, DROP_ROBUX_CHANCE_REAL_BASE * luckMult);
       if (Math.random() < robuxChance) {
         lines.push(`🎁 <@${uid}> won **100 Robux** (${(DROP_ROBUX_CHANCE_DISPLAY * 100).toFixed(1)}%) — ${ROBUX_CLAIM_TEXT}`);
@@ -826,7 +1351,7 @@ async function spawnBoss(channel, bossId, withPing = true) {
     participants: new Map(),
     hitBank: new Map(),
     activeAction: null,
-    reverseUsed: new Set(),
+    reverseUsed: new Set(), // for JJK reverse talisman
   };
 
   const msg = await channel.send({
@@ -885,6 +1410,7 @@ async function spawnMob(channel, eventKey, withPing = true) {
 
       if (hit) {
         anyHit = true;
+
         if (eventKey === "bleach") {
           player.bleach.reiatsu += mob.hitReward;
           player.bleach.survivalBonus = Math.min(mob.bonusMax, player.bleach.survivalBonus + mob.bonusPerKill);
@@ -938,7 +1464,7 @@ client.once(Events.ClientReady, async () => {
 /* ===================== INTERACTIONS ===================== */
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
-    // SLASH
+    /* ---------- SLASH ---------- */
     if (interaction.isChatInputCommand()) {
       const channel = interaction.channel;
       if (!channel || !channel.isTextBased()) {
@@ -961,11 +1487,135 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (interaction.commandName === "inventory") {
         const eventKey = interaction.options.getString("event", true);
         const p = await getPlayer(interaction.user.id);
-        // (оставляю как у тебя было: embed внутри твоей старой версии — если надо, верну твой полный inventory embed следующим шагом)
+        return interaction.reply({ embeds: [inventoryEmbed(eventKey, p)], ephemeral: true });
+      }
+
+      if (interaction.commandName === "shop") {
+        const eventKey = interaction.options.getString("event", true);
+        const p = await getPlayer(interaction.user.id);
         return interaction.reply({
-          content: `✅ Inventory opened for **${eventKey}** (your existing embed logic can stay here).`,
-          ephemeral: true
+          embeds: [shopEmbed(eventKey, p)],
+          components: shopButtons(eventKey, p),
+          ephemeral: true,
         });
+      }
+
+      if (interaction.commandName === "leaderboard") {
+        const eventKey = interaction.options.getString("event", true);
+        const rows = await getTopPlayers(eventKey, 10);
+        const entries = [];
+
+        for (const r of rows) {
+          let name = r.userId;
+          try {
+            const m = await interaction.guild.members.fetch(r.userId);
+            name = safeName(m?.displayName || m?.user?.username || r.userId);
+          } catch {}
+          entries.push({ name, score: r.score });
+        }
+
+        return interaction.reply({ embeds: [leaderboardEmbed(eventKey, entries)], ephemeral: false });
+      }
+
+      if (interaction.commandName === "dailyclaim") {
+        const p = await getPlayer(interaction.user.id);
+        const now = Date.now();
+
+        if (now - p.bleach.lastDaily < DAILY_COOLDOWN_MS) {
+          const hrs = Math.ceil((DAILY_COOLDOWN_MS - (now - p.bleach.lastDaily)) / 3600000);
+          return interaction.reply({ content: `⏳ Come back in **${hrs}h**.`, ephemeral: true });
+        }
+
+        const amount = hasBoosterRole(interaction.member) ? DAILY_BOOSTER : DAILY_NORMAL;
+        p.bleach.reiatsu += amount;
+        p.bleach.lastDaily = now;
+
+        await setPlayer(interaction.user.id, p);
+        return interaction.reply({ content: `🎁 You claimed **${E_REIATSU} ${amount} Reiatsu**!`, ephemeral: false });
+      }
+
+      if (interaction.commandName === "give_reatsu") {
+        const target = interaction.options.getUser("user", true);
+        const amount = interaction.options.getInteger("amount", true);
+
+        if (amount < 50) return interaction.reply({ content: `❌ Minimum transfer is ${E_REIATSU} 50.`, ephemeral: true });
+        if (target.bot) return interaction.reply({ content: "❌ You can't transfer to a bot.", ephemeral: true });
+        if (target.id === interaction.user.id) return interaction.reply({ content: "❌ You can't transfer to yourself.", ephemeral: true });
+
+        const sender = await getPlayer(interaction.user.id);
+        const receiver = await getPlayer(target.id);
+
+        if (sender.bleach.reiatsu < amount) {
+          return interaction.reply({ content: `❌ Not enough Reiatsu. You have ${sender.bleach.reiatsu}.`, ephemeral: true });
+        }
+
+        sender.bleach.reiatsu -= amount;
+        receiver.bleach.reiatsu += amount;
+
+        await setPlayer(interaction.user.id, sender);
+        await setPlayer(target.id, receiver);
+
+        return interaction.reply({
+          content: `${E_REIATSU} **${safeName(interaction.user.username)}** sent **${amount} Reiatsu** to **${safeName(target.username)}**.`,
+          ephemeral: false,
+        });
+      }
+
+      if (interaction.commandName === "exchange_drako") {
+        const eventKey = interaction.options.getString("event", true);
+        const drakoWanted = interaction.options.getInteger("drako", true);
+
+        const rate = eventKey === "bleach" ? DRAKO_RATE_BLEACH : DRAKO_RATE_JJK;
+        const cost = drakoWanted * rate;
+        const currencyEmoji = eventKey === "bleach" ? E_REIATSU : E_CE;
+
+        const p = await getPlayer(interaction.user.id);
+
+        if (eventKey === "bleach") {
+          if (p.bleach.reiatsu < cost) {
+            return interaction.reply({
+              content:
+                `❌ Need ${currencyEmoji} **${cost}** to buy ${E_DRAKO} **${drakoWanted} Drako**.\n` +
+                `Rate: **${rate} ${currencyEmoji} = 1 ${E_DRAKO}** (one-way)\n` +
+                `You have ${currencyEmoji} **${p.bleach.reiatsu}**.`,
+              ephemeral: true,
+            });
+          }
+          p.bleach.reiatsu -= cost;
+          p.drako += drakoWanted;
+          await setPlayer(interaction.user.id, p);
+
+          return interaction.reply({
+            content:
+              `✅ Exchanged ${currencyEmoji} **${cost}** → ${E_DRAKO} **${drakoWanted} Drako**.\n` +
+              `Rate: **${rate} ${currencyEmoji} = 1 ${E_DRAKO}** (one-way)\n` +
+              `Now: ${currencyEmoji} **${p.bleach.reiatsu}** • ${E_DRAKO} **${p.drako}**\n` +
+              `⚠️ Drako cannot be exchanged back.`,
+            ephemeral: false,
+          });
+        } else {
+          if (p.jjk.cursedEnergy < cost) {
+            return interaction.reply({
+              content:
+                `❌ Need ${currencyEmoji} **${cost}** to buy ${E_DRAKO} **${drakoWanted} Drako**.\n` +
+                `Rate: **${rate} ${currencyEmoji} = 1 ${E_DRAKO}** (one-way)\n` +
+                `You have ${currencyEmoji} **${p.jjk.cursedEnergy}**.`,
+              ephemeral: true,
+            });
+          }
+          p.jjk.cursedEnergy -= cost;
+          p.drako += drakoWanted;
+          await setPlayer(interaction.user.id, p);
+
+          return interaction.reply({
+            content:
+              `✅ Exchanged ${currencyEmoji} **${cost}** → ${E_DRAKO} **${drakoWanted} Drako**.\n` +
+              `Rate: **${rate} ${currencyEmoji} = 1 ${E_DRAKO}** (one-way)\n` +
+              `Now: ${currencyEmoji} **${p.jjk.cursedEnergy}** • ${E_DRAKO} **${p.drako}**\n` +
+              `⚠️ Drako cannot be exchanged back.`,
+            ephemeral: false,
+          });
+        }
       }
 
       if (interaction.commandName === "spawnboss") {
@@ -1004,64 +1654,75 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return;
       }
 
-      if (interaction.commandName === "exchange_drako") {
-        const eventKey = interaction.options.getString("event", true);
-        const drakoWanted = interaction.options.getInteger("drako", true);
-        const rate = eventKey === "bleach" ? DRAKO_RATE_BLEACH : DRAKO_RATE_JJK;
-        const cost = drakoWanted * rate;
-
+      if (interaction.commandName === "wardrobe") {
         const p = await getPlayer(interaction.user.id);
+        const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+        if (!member) return interaction.reply({ content: "❌ Can't read your member data.", ephemeral: true });
 
-        if (eventKey === "bleach") {
-          if (p.bleach.reiatsu < cost) {
-            return interaction.reply({
-              content: `❌ Need ${E_REIATSU} **${cost}** to buy ${E_DRAKO} **${drakoWanted} Drako**. You have ${E_REIATSU} **${p.bleach.reiatsu}**.`,
-              ephemeral: true,
-            });
-          }
-          p.bleach.reiatsu -= cost;
-          p.drako += drakoWanted;
-          await setPlayer(interaction.user.id, p);
-
-          return interaction.reply({
-            content:
-              `✅ Exchanged ${E_REIATSU} **${cost}** → ${E_DRAKO} **${drakoWanted} Drako**.\n` +
-              `Rate: **${DRAKO_RATE_BLEACH} Reiatsu = 1 Drako Coin**\n` +
-              `⚠️ Drako cannot be exchanged back.`,
-            ephemeral: false,
-          });
-        } else {
-          if (p.jjk.cursedEnergy < cost) {
-            return interaction.reply({
-              content: `❌ Need ${E_CE} **${cost}** to buy ${E_DRAKO} **${drakoWanted} Drako**. You have ${E_CE} **${p.jjk.cursedEnergy}**.`,
-              ephemeral: true,
-            });
-          }
-          p.jjk.cursedEnergy -= cost;
-          p.drako += drakoWanted;
-          await setPlayer(interaction.user.id, p);
-
-          return interaction.reply({
-            content:
-              `✅ Exchanged ${E_CE} **${cost}** → ${E_DRAKO} **${drakoWanted} Drako**.\n` +
-              `Rate: **${DRAKO_RATE_JJK} Cursed Energy = 1 Drako Coin**\n` +
-              `⚠️ Drako cannot be exchanged back.`,
-            ephemeral: false,
-          });
-        }
+        return interaction.reply({
+          embeds: [wardrobeEmbed(interaction.guild, p)],
+          components: wardrobeComponents(interaction.guild, member, p),
+          ephemeral: true,
+        });
       }
 
-      // (остальные команды ты можешь оставить как у тебя было — этот файл сейчас именно чтобы бот СНОВА ЗАПУСКАЛСЯ без крашей)
+      if (interaction.commandName === "adminadd") {
+        const allowed = interaction.member?.roles?.cache?.has("1259865441405501571");
+        if (!allowed) return interaction.reply({ content: "⛔ No permission.", ephemeral: true });
+
+        const currency = interaction.options.getString("currency", true);
+        const amount = interaction.options.getInteger("amount", true);
+        const target = interaction.options.getUser("user") || interaction.user;
+
+        const p = await getPlayer(target.id);
+
+        if (currency === "drako") p.drako += amount;
+        if (currency === "reiatsu") p.bleach.reiatsu += amount;
+        if (currency === "cursed_energy") p.jjk.cursedEnergy += amount;
+
+        await setPlayer(target.id, p);
+
+        return interaction.reply({
+          content:
+            `✅ Added **${amount}** to <@${target.id}>.\n` +
+            `${E_REIATSU} Reiatsu: **${p.bleach.reiatsu}** • ${E_CE} CE: **${p.jjk.cursedEnergy}** • ${E_DRAKO} Drako: **${p.drako}**`,
+          ephemeral: false,
+        });
+      }
     }
 
-    // SELECT MENU
+    /* ---------- SELECT MENU (WARDROBE) ---------- */
     if (interaction.isStringSelectMenu()) {
       if (interaction.customId !== "wardrobe_select") return;
-      // твой wardrobe код можешь оставить как был
-      return interaction.reply({ content: "Wardrobe handler is OK.", ephemeral: true });
+
+      const roleId = interaction.values?.[0];
+      if (!roleId) return;
+
+      const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+      if (!member) return interaction.reply({ content: "❌ Can't read your member data.", ephemeral: true });
+
+      const p = await getPlayer(interaction.user.id);
+      if (!p.ownedRoles.includes(String(roleId))) {
+        return interaction.reply({ content: "❌ This role is not in your wardrobe.", ephemeral: true });
+      }
+
+      const has = member.roles.cache.has(roleId);
+      if (has) {
+        const res = await tryRemoveRole(interaction.guild, interaction.user.id, roleId);
+        if (!res.ok) return interaction.reply({ content: `⚠️ Can't remove role: ${res.reason}`, ephemeral: true });
+      } else {
+        const res = await tryGiveRole(interaction.guild, interaction.user.id, roleId);
+        if (!res.ok) return interaction.reply({ content: `⚠️ Can't assign role: ${res.reason}`, ephemeral: true });
+      }
+
+      const updatedMember = await interaction.guild.members.fetch(interaction.user.id).catch(() => member);
+      return interaction.update({
+        embeds: [wardrobeEmbed(interaction.guild, p)],
+        components: wardrobeComponents(interaction.guild, updatedMember, p),
+      });
     }
 
-    // BUTTONS
+    /* ---------- BUTTONS ---------- */
     if (interaction.isButton()) {
       try { await interaction.deferUpdate(); } catch {}
 
@@ -1070,6 +1731,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       const cid = interaction.customId;
 
+      // Boss join
       if (cid === CID.BOSS_JOIN) {
         const boss = bossByChannel.get(channel.id);
         if (!boss || !boss.joining) {
@@ -1089,6 +1751,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return;
       }
 
+      // Boss rules
       if (cid === CID.BOSS_RULES) {
         const boss = bossByChannel.get(channel.id);
         const def = boss?.def;
@@ -1097,19 +1760,23 @@ client.on(Events.InteractionCreate, async (interaction) => {
         const txt = def
           ? `**${def.name}** • Difficulty: **${def.difficulty}** • Rounds: **${def.rounds.length}**\n` +
             `Win: **${cur} ${def.winReward}**\n` +
-            `Success per round: **+${cur} ${def.hitReward}** (banked)\n` +
-            `2 hits = eliminated`
-          : `2 hits = eliminated.`;
+            `Success per round: **+${cur} ${def.hitReward}** (banked, paid only on victory)\n` +
+            `${MAX_HITS} hits = eliminated`
+          : `${MAX_HITS} hits = eliminated.`;
 
         await interaction.followUp({ content: txt, ephemeral: true }).catch(() => {});
         return;
       }
 
+      // Boss action (press/coop/combo)
       if (cid.startsWith("boss_action:")) {
         const parts = cid.split(":");
+        // boss_action:<bossId>:<roundIndex>:<token>:<kind>:<payload?>
         const bossId = parts[1];
         const roundIndex = Number(parts[2]);
         const token = parts[3];
+        const kind = parts[4]; // "press" or "combo"
+        const payload = parts[5]; // e.g. "block" or combo color
 
         const boss = bossByChannel.get(channel.id);
         if (!boss || boss.def.id !== bossId) {
@@ -1127,16 +1794,51 @@ client.on(Events.InteractionCreate, async (interaction) => {
           await interaction.followUp({ content: "❌ You are not in the fight.", ephemeral: true }).catch(() => {});
           return;
         }
-        if (boss.activeAction.pressed.has(uid)) {
-          await interaction.followUp({ content: "✅ Already pressed.", ephemeral: true }).catch(() => {});
+
+        // press/coop
+        if (kind === "press") {
+          if (boss.activeAction.pressed.has(uid)) {
+            await interaction.followUp({ content: "✅ Already pressed.", ephemeral: true }).catch(() => {});
+            return;
+          }
+          boss.activeAction.pressed.add(uid);
+          await interaction.followUp({ content: "✅ Registered!", ephemeral: true }).catch(() => {});
           return;
         }
 
-        boss.activeAction.pressed.add(uid);
-        await interaction.followUp({ content: "✅ Registered!", ephemeral: true }).catch(() => {});
-        return;
+        // combo
+        if (kind === "combo") {
+          if (boss.activeAction.mode !== "combo") {
+            await interaction.followUp({ content: "❌ Not a combo phase.", ephemeral: true }).catch(() => {});
+            return;
+          }
+          if (boss.activeAction.comboFailed.has(uid)) {
+            await interaction.followUp({ content: "❌ You already failed this combo.", ephemeral: true }).catch(() => {});
+            return;
+          }
+          const seq = boss.activeAction.comboSeq || [];
+          const prog = boss.activeAction.comboProgress.get(uid) || 0;
+          const expected = seq[prog];
+
+          if (payload !== expected) {
+            boss.activeAction.comboFailed.add(uid);
+            await interaction.followUp({ content: "❌ Wrong button! (you will take a hit when the timer ends)", ephemeral: true }).catch(() => {});
+            return;
+          }
+
+          const next = prog + 1;
+          boss.activeAction.comboProgress.set(uid, next);
+
+          if (next >= 4) {
+            await interaction.followUp({ content: "✅ Combo completed!", ephemeral: true }).catch(() => {});
+          } else {
+            await interaction.followUp({ content: `✅ Good! (${next}/4)`, ephemeral: true }).catch(() => {});
+          }
+          return;
+        }
       }
 
+      // Mob attack
       if (cid.startsWith(`${CID.MOB_ATTACK}:`)) {
         const eventKey = cid.split(":")[1];
         const state = mobByChannel.get(channel.id);
@@ -1163,6 +1865,94 @@ client.on(Events.InteractionCreate, async (interaction) => {
         }
 
         await interaction.followUp({ content: "⚔️ Attack registered!", ephemeral: true }).catch(() => {});
+        return;
+      }
+
+      // Shop buys
+      if (cid.startsWith("buy_")) {
+        const p = await getPlayer(interaction.user.id);
+
+        const bleachMap = {
+          buy_bleach_zanpakuto_basic: "zanpakuto_basic",
+          buy_bleach_hollow_mask_fragment: "hollow_mask_fragment",
+          buy_bleach_soul_reaper_cloak: "soul_reaper_cloak",
+          buy_bleach_reiatsu_amplifier: "reiatsu_amplifier",
+          buy_bleach_cosmetic_role: "cosmetic_role",
+        };
+
+        const jjkMap = {
+          buy_jjk_black_flash_manual: "black_flash_manual",
+          buy_jjk_domain_charm: "domain_charm",
+          buy_jjk_cursed_tool: "cursed_tool",
+          buy_jjk_reverse_talisman: "reverse_talisman",
+          buy_jjk_binding_vow_seal: "binding_vow_seal",
+        };
+
+        let eventKey = null;
+        let key = null;
+
+        if (bleachMap[cid]) { eventKey = "bleach"; key = bleachMap[cid]; }
+        if (jjkMap[cid]) { eventKey = "jjk"; key = jjkMap[cid]; }
+
+        if (!eventKey || !key) {
+          await interaction.followUp({ content: "❌ Unknown item.", ephemeral: true }).catch(() => {});
+          return;
+        }
+
+        const itemList = eventKey === "bleach" ? BLEACH_SHOP_ITEMS : JJK_SHOP_ITEMS;
+        const item = itemList.find((x) => x.key === key);
+        if (!item) {
+          await interaction.followUp({ content: "❌ Unknown item.", ephemeral: true }).catch(() => {});
+          return;
+        }
+
+        const inv = eventKey === "bleach" ? p.bleach.items : p.jjk.items;
+        if (inv[key]) {
+          await interaction.followUp({ content: "✅ You already own this item.", ephemeral: true }).catch(() => {});
+          return;
+        }
+
+        if (eventKey === "bleach") {
+          if (p.bleach.reiatsu < item.price) {
+            await interaction.followUp({ content: `❌ Need ${E_REIATSU} ${item.price}.`, ephemeral: true }).catch(() => {});
+            return;
+          }
+          p.bleach.reiatsu -= item.price;
+          p.bleach.items[key] = true;
+        } else {
+          if (p.jjk.cursedEnergy < item.price) {
+            await interaction.followUp({ content: `❌ Need ${E_CE} ${item.price}.`, ephemeral: true }).catch(() => {});
+            return;
+          }
+          p.jjk.cursedEnergy -= item.price;
+          p.jjk.items[key] = true;
+        }
+
+        if (item.roleId) {
+          ensureOwnedRole(p, item.roleId);
+          const res = await tryGiveRole(interaction.guild, interaction.user.id, item.roleId);
+          if (!res.ok) {
+            await interaction.followUp({
+              content: `⚠️ Bought role, but bot couldn't assign: ${res.reason} (saved to wardrobe)`,
+              ephemeral: true
+            }).catch(() => {});
+          }
+        }
+
+        await setPlayer(interaction.user.id, p);
+
+        const msgId = interaction.message?.id;
+        if (msgId) {
+          const msg = await channel.messages.fetch(msgId).catch(() => null);
+          if (msg) {
+            await msg.edit({
+              embeds: [shopEmbed(eventKey, p)],
+              components: shopButtons(eventKey, p),
+            }).catch(() => {});
+          }
+        }
+
+        await interaction.followUp({ content: "✅ Purchased!", ephemeral: true }).catch(() => {});
         return;
       }
     }
