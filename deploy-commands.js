@@ -24,6 +24,7 @@ const EVENT_CHOICES = [
 const BOSS_CHOICES = [
   { name: "Vasto Lorde (Bleach)", value: "vasto" },
   { name: "Ulquiorra (Bleach)", value: "ulquiorra" },
+  { name: "Grimmjow (Bleach)", value: "grimmjow" },
   { name: "Mahoraga (JJK)", value: "mahoraga" },
   { name: "Special Grade Curse (JJK)", value: "specialgrade" },
 ];
