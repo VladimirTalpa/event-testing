@@ -17,65 +17,20 @@ const {
 
   BLEACH_BONUS_MAX,
   JJK_BONUS_MAX,
-
-  E_BLEACH,
-  E_JJK,
 } = require("../config");
 
 const { getPlayer, setPlayer, getTopPlayers } = require("../core/players");
 const { safeName } = require("../core/utils");
-const { hasEventRole, hasBoosterRole, shopButtons, wardrobeComponents, leaderboardNav } = require("../ui/components");
-const { inventoryEmbed, shopEmbed, wardrobeEmbed } = require("../ui/embeds");
+const { hasEventRole, hasBoosterRole, shopButtons, wardrobeComponents } = require("../ui/components");
+const { inventoryEmbed, shopEmbed, leaderboardEmbed, wardrobeEmbed } = require("../ui/embeds");
 
 const { spawnBoss } = require("../events/boss");
 const { spawnMob } = require("../events/mob");
-const { EmbedBuilder } = require("discord.js");
 
-/* ===================== LEADERBOARD HELPERS ===================== */
-async function buildLeaderboard(interaction, eventKey, page = 0) {
-  const PER_PAGE = 10;
-  const rows = await getTopPlayers(eventKey, 9999);
-
-  const total = rows.length;
-  const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
-  const p = Math.max(0, Math.min(page, totalPages - 1));
-
-  const slice = rows.slice(p * PER_PAGE, p * PER_PAGE + PER_PAGE);
-
-  const entries = [];
-  for (const r of slice) {
-    let name = r.userId;
-    try {
-      const m = await interaction.guild.members.fetch(r.userId);
-      name = safeName(m?.displayName || m?.user?.username || r.userId);
-    } catch {}
-    entries.push({ name, score: r.score });
-  }
-
-  const tag = eventKey === "bleach" ? `${E_BLEACH} Bleach` : `${E_JJK} Jujutsu Kaisen`;
-  const currency = eventKey === "bleach" ? E_REIATSU : E_CE;
-
-  const lines = entries.length
-    ? entries.map((e, i) => {
-        const rank = p * PER_PAGE + i + 1;
-        return `**#${rank}** — ${safeName(e.name)}: **${currency} ${e.score}**`;
-      }).join("\n")
-    : "_No data yet._";
-
-  const embed = new EmbedBuilder()
-    .setColor(0x7b2cff)
-    .setTitle(`🏆 ${tag} Leaderboard`)
-    .setDescription(lines)
-    .setFooter({ text: `Page ${p + 1}/${totalPages} • Total players: ${total}` });
-
-  return { embed, components: leaderboardNav(eventKey, p, totalPages) };
-}
-
-async function getEventChannel(guild, eventKey) {
-  const id = eventKey === "bleach" ? BLEACH_CHANNEL_ID : JJK_CHANNEL_ID;
-  const ch = await guild.channels.fetch(id).catch(() => null);
-  if (!ch || !ch.isTextBased()) return null;
-  return ch;
+function isAllowedSpawnChannel(eventKey, channelId) {
+  if (eventKey === "bleach") return channelId === BLEACH_CHANNEL_ID;
+  if (eventKey === "jjk") return channelId === JJK_CHANNEL_ID;
+  return false;
 }
 
 module.exports = async function handleSlash(interaction) {
@@ -115,8 +70,20 @@ module.exports = async function handleSlash(interaction) {
 
   if (interaction.commandName === "leaderboard") {
     const eventKey = interaction.options.getString("event", true);
-    const { embed, components } = await buildLeaderboard(interaction, eventKey, 0);
-    return interaction.reply({ embeds: [embed], components, ephemeral: false });
+    const rows = await getTopPlayers(eventKey, 10);
+
+    const entries = [];
+    for (const r of rows) {
+      let name = r.userId;
+      try {
+        const m = await interaction.guild.members.fetch(r.userId);
+        name = safeName(m?.displayName || m?.user?.username || r.userId);
+      } catch {}
+      entries.push({ name, score: r.score });
+    }
+
+    // ✅ без pagination, без leaderboardNav — значит не упадёт
+    return interaction.reply({ embeds: [leaderboardEmbed(eventKey, entries)], ephemeral: false });
   }
 
   if (interaction.commandName === "dailyclaim") {
@@ -136,29 +103,49 @@ module.exports = async function handleSlash(interaction) {
     return interaction.reply({ content: `🎁 You claimed **${E_REIATSU} ${amount} Reiatsu**!`, ephemeral: false });
   }
 
-  if (interaction.commandName === "give_reatsu") {
+  // ✅ NEW: /give
+  if (interaction.commandName === "give") {
     const target = interaction.options.getUser("user", true);
     const amount = interaction.options.getInteger("amount", true);
+    const currency = interaction.options.getString("currency", true);
 
-    if (amount < 50) return interaction.reply({ content: `❌ Minimum transfer is ${E_REIATSU} 50.`, ephemeral: true });
     if (target.bot) return interaction.reply({ content: "❌ You can't transfer to a bot.", ephemeral: true });
     if (target.id === interaction.user.id) return interaction.reply({ content: "❌ You can't transfer to yourself.", ephemeral: true });
+
+    // если хочешь минимум 50 только для reiatsu — оставил как раньше
+    if (currency === "reiatsu" && amount < 50) {
+      return interaction.reply({ content: `❌ Minimum transfer is ${E_REIATSU} 50.`, ephemeral: true });
+    }
 
     const sender = await getPlayer(interaction.user.id);
     const receiver = await getPlayer(target.id);
 
-    if (sender.bleach.reiatsu < amount) {
-      return interaction.reply({ content: `❌ Not enough Reiatsu. You have ${sender.bleach.reiatsu}.`, ephemeral: true });
+    const emoji = currency === "reiatsu" ? E_REIATSU : currency === "cursed_energy" ? E_CE : E_DRAKO;
+
+    const getBal = (p) => {
+      if (currency === "reiatsu") return p.bleach.reiatsu;
+      if (currency === "cursed_energy") return p.jjk.cursedEnergy;
+      return p.drako;
+    };
+    const setBal = (p, v) => {
+      if (currency === "reiatsu") p.bleach.reiatsu = v;
+      else if (currency === "cursed_energy") p.jjk.cursedEnergy = v;
+      else p.drako = v;
+    };
+
+    const sBal = getBal(sender);
+    if (sBal < amount) {
+      return interaction.reply({ content: `❌ Not enough balance. You have ${emoji} **${sBal}**.`, ephemeral: true });
     }
 
-    sender.bleach.reiatsu -= amount;
-    receiver.bleach.reiatsu += amount;
+    setBal(sender, sBal - amount);
+    setBal(receiver, getBal(receiver) + amount);
 
     await setPlayer(interaction.user.id, sender);
     await setPlayer(target.id, receiver);
 
     return interaction.reply({
-      content: `${E_REIATSU} **${safeName(interaction.user.username)}** sent **${amount} Reiatsu** to **${safeName(target.username)}**.`,
+      content: `${emoji} **${safeName(interaction.user.username)}** sent **${amount}** to **${safeName(target.username)}**.`,
       ephemeral: false,
     });
   }
@@ -220,7 +207,6 @@ module.exports = async function handleSlash(interaction) {
     }
   }
 
-  // ✅ Spawn boss from ANY chat -> boss appears in correct event channel
   if (interaction.commandName === "spawnboss") {
     if (!hasEventRole(interaction.member)) {
       return interaction.reply({ content: "⛔ You don’t have the required role.", ephemeral: true });
@@ -230,21 +216,16 @@ module.exports = async function handleSlash(interaction) {
     const def = BOSSES[bossId];
     if (!def) return interaction.reply({ content: "❌ Unknown boss.", ephemeral: true });
 
-    const targetChannel = await getEventChannel(interaction.guild, def.event);
-    if (!targetChannel) {
-      return interaction.reply({ content: "❌ Event channel not found or not text-based.", ephemeral: true });
+    if (!isAllowedSpawnChannel(def.event, channel.id)) {
+      const needed = def.event === "bleach" ? `<#${BLEACH_CHANNEL_ID}>` : `<#${JJK_CHANNEL_ID}>`;
+      return interaction.reply({ content: `❌ This boss can only be spawned in ${needed}.`, ephemeral: true });
     }
 
-    await interaction.reply({
-      content: `✅ Spawned **${def.name}** in <#${targetChannel.id}>.`,
-      ephemeral: true,
-    });
-
-    await spawnBoss(targetChannel, bossId, true);
+    await interaction.reply({ content: `✅ Spawned **${def.name}**.`, ephemeral: true });
+    await spawnBoss(channel, bossId, true);
     return;
   }
 
-  // ✅ Spawn mob from ANY chat -> mob appears in correct event channel
   if (interaction.commandName === "spawnmob") {
     if (!hasEventRole(interaction.member)) {
       return interaction.reply({ content: "⛔ You don’t have the required role.", ephemeral: true });
@@ -253,21 +234,13 @@ module.exports = async function handleSlash(interaction) {
     const eventKey = interaction.options.getString("event", true);
     if (!MOBS[eventKey]) return interaction.reply({ content: "❌ Unknown event.", ephemeral: true });
 
-    const targetChannel = await getEventChannel(interaction.guild, eventKey);
-    if (!targetChannel) {
-      return interaction.reply({ content: "❌ Event channel not found or not text-based.", ephemeral: true });
+    if (!isAllowedSpawnChannel(eventKey, channel.id)) {
+      const needed = eventKey === "bleach" ? `<#${BLEACH_CHANNEL_ID}>` : `<#${JJK_CHANNEL_ID}>`;
+      return interaction.reply({ content: `❌ This mob can only be spawned in ${needed}.`, ephemeral: true });
     }
 
-    await interaction.reply({
-      content: `✅ Mob spawned (${eventKey}) in <#${targetChannel.id}>.`,
-      ephemeral: true,
-    });
-
-    await spawnMob(targetChannel, eventKey, {
-      bleachChannelId: BLEACH_CHANNEL_ID,
-      jjkChannelId: JJK_CHANNEL_ID,
-      withPing: true,
-    });
+    await interaction.reply({ content: `✅ Mob spawned (${eventKey}).`, ephemeral: true });
+    await spawnMob(channel, eventKey, { bleachChannelId: BLEACH_CHANNEL_ID, jjkChannelId: JJK_CHANNEL_ID, withPing: true });
     return;
   }
 
