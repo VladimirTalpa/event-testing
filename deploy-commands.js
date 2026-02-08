@@ -10,25 +10,15 @@ const commands = [
     .setName("spawnboss")
     .setDescription("Spawn a Bleach boss (staff only)")
     .addStringOption(opt =>
-      opt
-        .setName("boss")
-        .setDescription("Choose boss")
-        .setRequired(true)
-        .addChoices(
-          { name: "Vasto Lorde", value: "vasto" },
-          { name: "Ulquiorra", value: "ulquiorra" }
-        )
+      opt.setName("boss").setDescription("Choose boss").setRequired(true).addChoices(
+        { name: "Vasto Lorde", value: "vasto" },
+        { name: "Ulquiorra", value: "ulquiorra" }
+      )
     ),
-
   new SlashCommandBuilder()
     .setName("reatsu")
     .setDescription("Check Reiatsu balance")
-    .addUserOption(opt =>
-      opt
-        .setName("user")
-        .setDescription("User to check")
-        .setRequired(false)
-    ),
+    .addUserOption(opt => opt.setName("user").setDescription("User to check").setRequired(false)),
 ].map(c => c.toJSON());
 
 const rest = new REST({ version: "10" }).setToken(TOKEN);
@@ -36,10 +26,7 @@ const rest = new REST({ version: "10" }).setToken(TOKEN);
 (async () => {
   try {
     console.log("🔄 Deploying slash commands...");
-    await rest.put(
-      Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
-      { body: commands }
-    );
+    await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: commands });
     console.log("✅ Slash commands successfully deployed!");
   } catch (error) {
     console.error("❌ Failed to deploy commands:", error);
