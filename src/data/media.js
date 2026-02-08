@@ -1,192 +1,100 @@
-const { E_VASTO, E_REIATSU, BOSS_ROUNDS, BOSS_SURVIVE_HIT_REIATSU } = require("../config");
-const { hollowEmbed, shopEmbed } = require("../embeds");
-const { hollowButtons, shopButtons, clashButtons } = require("../components");
-const { handleClashButton } = require("../events/clash");
-const { PermissionsBitField } = require("discord.js");
+// src/data/media.js
 
-async function editMessageSafe(channel, messageId, payload) {
-  const msg = await channel.messages.fetch(messageId).catch(() => null);
-  if (!msg) return null;
-  await msg.edit(payload).catch(() => {});
-  return msg;
-}
+/* ===================== BLEACH MEDIA ===================== */
+const VASTO_SPAWN_MEDIA =
+  "https://media.discordapp.net/attachments/1405973335979851877/1469842057219674194/Your_paragraph_text_13.gif?ex=69892096&is=6987cf16&hm=c31783bb0a9a57c197a3faf8d9314fb2a1d4621d424c8961bfcb2c0f0c753ef3&=";
 
-async function tryGiveRole(guild, userId, roleId) {
-  try {
-    const botMember = await guild.members.fetchMe();
-    if (!botMember.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
-      return { ok: false, reason: "Bot has no Manage Roles permission." };
-    }
-    const role = guild.roles.cache.get(roleId);
-    if (!role) return { ok: false, reason: "Role not found." };
-    const botTop = botMember.roles.highest?.position ?? 0;
-    if (botTop <= role.position) return { ok: false, reason: "Bot role is below target role (hierarchy)." };
-    const member = await guild.members.fetch(userId);
-    await member.roles.add(roleId);
-    return { ok: true };
-  } catch {
-    return { ok: false, reason: "Discord rejected role add (permissions/hierarchy)." };
-  }
-}
+const VASTO_R1 =
+  "https://media.discordapp.net/attachments/1405973335979851877/1469842005583462514/Your_paragraph_text_16.gif?ex=6989208a&is=6987cf0a&hm=f9a4c88976d44e3581b82d55c01fdefb03f1c7401697c8a663cf6aeeff68e8c3&=";
 
-function safeName(name) { return String(name || "Unknown").replace(/@/g, "").replace(/#/g, "＃"); }
+const VASTO_R2 =
+  "https://media.discordapp.net/attachments/1405973335979851877/1469842043227341068/Your_paragraph_text_14.gif?ex=69892093&is=6987cf13&hm=117ea0c95417384a7b790f746a774d0778b9348257fd8ee7422ed8c4e908dd9a&=";
 
-/* === same shop logic as slash handler === */
-const SHOP_ITEMS = [
-  { key: "zanpakuto_basic", name: "Zanpakutō (basic)", price: 350, desc: `+4% survive vs bosses • +5% drop luck` },
-  { key: "hollow_mask_fragment", name: "Hollow Mask Fragment", price: 900, desc: `+7% survive vs bosses • +10% drop luck` },
-  { key: "soul_reaper_cloak", name: "Soul Reaper Cloak", price: 1200, desc: `+9% survive vs bosses • +6% drop luck` },
-  { key: "reiatsu_amplifier", name: "Reiatsu Amplifier", price: 1500, desc: `${E_REIATSU} +25% Reiatsu rewards • +2% survive vs bosses` },
-  { key: "cosmetic_role", name: "Sousuke Aizen role", price: 6000, desc: "Cosmetic Discord role (no stats).", roleId: require("../config").SHOP_COSMETIC_ROLE_ID },
-];
+const VASTO_R3 =
+  "https://media.discordapp.net/attachments/1405973335979851877/1469842024172884138/Your_paragraph_text_15.gif?ex=6989208e&is=6987cf0e&hm=ba70c2e8435df2b8aefb26205c5c0fc23386895da4837e5fcae10eb8fdd03d19&=";
 
-function calcDropLuckMultiplier(items) {
-  let mult = 1.0;
-  if (items.zanpakuto_basic) mult += 0.05;
-  if (items.hollow_mask_fragment) mult += 0.10;
-  if (items.soul_reaper_cloak) mult += 0.06;
-  return mult;
-}
+const VASTO_R4 =
+  "https://media.discordapp.net/attachments/1405973335979851877/1469842068024066068/Your_paragraph_text_12.gif?ex=69892099&is=6987cf19&hm=e1080c7bddf29f2e6edc23f9a083189bde2d417ea9ffb9d81e4b5dcd218227cc&=";
 
-async function handleButtons(interaction, state) {
-  const channel = interaction.channel;
-  if (!channel || !channel.isTextBased()) return;
+const VASTO_R5 =
+  "https://media.discordapp.net/attachments/1405973335979851877/1469841986705166347/Your_paragraph_text_18.gif?ex=69892085&is=6987cf05&hm=3b1a1520ace36d0ab11d4a443bed1f1321488192657b464da15ffb11d4f72700&=";
 
-  const players = state.players;
-  const cid = interaction.customId;
+const VASTO_VICTORY_MEDIA =
+  "https://media.discordapp.net/attachments/1405973335979851877/1469841996616040511/Your_paragraph_text_17.gif?ex=69892088&is=6987cf08&hm=c5adfce5d6fff70c659a87a43d9b1be1b56fdbd52031de45f6c15962306cf37f&=";
 
-  // Always defer safely
-  try { await interaction.deferUpdate(); } catch {}
+const VASTO_DEFEAT_MEDIA =
+  "https://media.discordapp.net/attachments/1405973335979851877/1469842262208020632/Your_paragraph_text_19.gif?ex=698920c7&is=6987cf47&hm=243b0dea5d8bec6a78a4efc223fa07e8e3656c4c301ca7521395bc935ef73b7b&=";
 
-  // Boss join
-  if (cid === "boss_join") {
-    const boss = state.bossByChannel.get(channel.id);
-    if (!boss || !boss.joining) {
-      await interaction.followUp({ content: "❌ No active boss join.", ephemeral: true }).catch(() => {});
-      return;
-    }
+// Ulquiorra gifs
+const ULQ_SPAWN_MEDIA =
+  "https://media.discordapp.net/attachments/1405973335979851877/1469843198812618782/Your_paragraph_text_25.gif?ex=698921a6&is=6987d026&hm=8ab0b38b1fafd210a7cbf589f54b37ce4c4e7117e5141a63d6d150e32f71096c&=";
 
-    const uid = interaction.user.id;
-    if (boss.participants.has(uid)) {
-      await interaction.followUp({ content: "⚠️ You already joined.", ephemeral: true }).catch(() => {});
-      return;
-    }
+const ULQ_R1 =
+  "https://media.discordapp.net/attachments/1405973335979851877/1469843217058103556/Your_paragraph_text_26.gif?ex=698921ab&is=6987d02b&hm=4499f79869465416007ef21580b08fdd8c6a8f597521ec484e22c023d3867586&=";
 
-    boss.participants.set(uid, {
-      hits: 0,
-      displayName: interaction.member?.displayName || interaction.user.username,
-    });
+const ULQ_R2 =
+  "https://media.discordapp.net/attachments/1405973335979851877/1469843235986866196/Your_paragraph_text_27.gif?ex=698921af&is=6987d02f&hm=d73e433123104264fb7797e32267d4af89dc7887fb2efdea42a41e578fc85bf4&=";
 
-    // update spawn message
-    const fighters = [...boss.participants.values()];
-    const fightersText = fighters.length
-      ? fighters.map((p) => safeName(p.displayName)).join(", ").slice(0, 1000)
-      : "`No fighters yet`";
+const ULQ_R3 =
+  "https://media.discordapp.net/attachments/1405973335979851877/1469843247999353004/Your_paragraph_text_28.gif?ex=698921b2&is=6987d032&hm=03afda58f47e27975d3b6f5ee7a4af654e3bcc9ff89c8fc7488f3e905509dcbf&=";
 
-    await editMessageSafe(channel, boss.messageId, {
-      embeds: [require("../embeds").bossSpawnEmbed(boss.cfg, channel.name, fighters.length, fightersText)],
-      components: require("../components").bossButtons(false),
-    });
+const ULQ_R4 =
+  "https://media.discordapp.net/attachments/1405973335979851877/1469843261139980308/Your_paragraph_text_29.gif?ex=698921b5&is=6987d035&hm=63d6429d4d618c3682ef4665c3b494200ccb031d4f450c38539ee8cde319a1ac&=";
 
-    await interaction.followUp({ content: "✅ Joined the boss fight.", ephemeral: true }).catch(() => {});
-    return;
-  }
+const ULQ_R5 =
+  "https://media.discordapp.net/attachments/1405973335979851877/1469843274737914123/Your_paragraph_text_30.gif?ex=698921b9&is=6987d039&hm=6274a0db6b1866c2d134fd4b9f200b68e968e97fd2ceb9ca7312c7a8cae804af&=";
 
-  // Boss rules
-  if (cid === "boss_rules") {
-    const boss = state.bossByChannel.get(channel.id);
-    const bossName = boss?.cfg?.name || "Boss";
+const ULQ_R6 =
+  "https://media.discordapp.net/attachments/1405973335979851877/1469843288277127219/Your_paragraph_text_31.gif?ex=698921bc&is=6987d03c&hm=88e3096454d50f1268761b18320c8d12a23d80cc49ff7c93240e3d7f553e4d6e&=";
 
-    await interaction.followUp({
-      content:
-        `${E_VASTO} Boss: ${BOSS_ROUNDS} rounds • 2 hits = defeat • Cooldown 10s\n` +
-        `${E_REIATSU} You gain +${BOSS_SURVIVE_HIT_REIATSU} Reiatsu per successful round hit\n` +
-        `📌 Current: **${bossName}**`,
-      ephemeral: true,
-    }).catch(() => {});
-    return;
-  }
+const ULQ_VICTORY_MEDIA =
+  "https://media.discordapp.net/attachments/1405973335979851877/1469843303930527929/Your_paragraph_text_32.gif?ex=698921c0&is=6987d040&hm=2ad405fd31cd5be31faebe491f651ff5a1bb88a9816eebf0b6aa823808592df8&=";
 
-  // Hollow attack
-  if (cid === "hollow_attack") {
-    const hollow = state.hollowByChannel.get(channel.id);
-    if (!hollow || hollow.resolved) {
-      await interaction.followUp({ content: "❌ No active Hollow event.", ephemeral: true }).catch(() => {});
-      return;
-    }
+const ULQ_DEFEAT_MEDIA =
+  "https://media.discordapp.net/attachments/1405973335979851877/1469843317087797279/Your_paragraph_text_33.gif?ex=698921c3&is=6987d043&hm=a9a78cb6e341b7d27c4d94b4f1c29c248811d77b206ad4ea7b6f7571fceabd2f&=";
 
-    const uid = interaction.user.id;
-    if (hollow.attackers.has(uid)) {
-      await interaction.followUp({ content: "⚠️ You already attacked.", ephemeral: true }).catch(() => {});
-      return;
-    }
+// Bleach mob (Hollow)
+const HOLLOW_MEDIA =
+  "https://media.discordapp.net/attachments/1405973335979851877/1467508068303638540/Your_paragraph_text_10.gif?ex=6980a2e4&is=697f5164&hm=451cc0ec6edd18799593cf138549ddb86934217f6bee1e6364814d23153ead78&=";
 
-    hollow.attackers.set(uid, { displayName: interaction.member?.displayName || interaction.user.username });
+/* ===================== JJK MEDIA (placeholders) ===================== */
+const JJK_BOSS_SPAWN_MEDIA = HOLLOW_MEDIA;
+const JJK_BOSS_R1 = JJK_BOSS_SPAWN_MEDIA;
+const JJK_BOSS_R2 = JJK_BOSS_SPAWN_MEDIA;
+const JJK_BOSS_R3 = JJK_BOSS_SPAWN_MEDIA;
+const JJK_BOSS_R4 = JJK_BOSS_SPAWN_MEDIA;
+const JJK_BOSS_VICTORY_MEDIA = JJK_BOSS_SPAWN_MEDIA;
+const JJK_BOSS_DEFEAT_MEDIA = JJK_BOSS_SPAWN_MEDIA;
+const CURSED_SPIRIT_MEDIA = JJK_BOSS_SPAWN_MEDIA;
 
-    await editMessageSafe(channel, hollow.messageId, {
-      embeds: [hollowEmbed(hollow.attackers.size)],
-      components: hollowButtons(false),
-    });
+module.exports = {
+  VASTO_SPAWN_MEDIA,
+  VASTO_R1,
+  VASTO_R2,
+  VASTO_R3,
+  VASTO_R4,
+  VASTO_R5,
+  VASTO_VICTORY_MEDIA,
+  VASTO_DEFEAT_MEDIA,
 
-    await interaction.followUp({ content: "⚔️ Attack registered!", ephemeral: true }).catch(() => {});
-    return;
-  }
+  ULQ_SPAWN_MEDIA,
+  ULQ_R1,
+  ULQ_R2,
+  ULQ_R3,
+  ULQ_R4,
+  ULQ_R5,
+  ULQ_R6,
+  ULQ_VICTORY_MEDIA,
+  ULQ_DEFEAT_MEDIA,
 
-  // Shop buy
-  if (cid.startsWith("buy_")) {
-    const map = {
-      buy_zanpakuto_basic: "zanpakuto_basic",
-      buy_hollow_mask_fragment: "hollow_mask_fragment",
-      buy_soul_reaper_cloak: "soul_reaper_cloak",
-      buy_reiatsu_amplifier: "reiatsu_amplifier",
-      buy_cosmetic_role: "cosmetic_role",
-    };
+  HOLLOW_MEDIA,
 
-    const key = map[cid];
-    const item = SHOP_ITEMS.find((x) => x.key === key);
-    if (!key || !item) {
-      await interaction.followUp({ content: "❌ Unknown item.", ephemeral: true }).catch(() => {});
-      return;
-    }
-
-    const player = await players.get(interaction.user.id);
-
-    if (player.items[key]) {
-      await interaction.followUp({ content: "✅ You already own this item.", ephemeral: true }).catch(() => {});
-      return;
-    }
-    if (player.reiatsu < item.price) {
-      await interaction.followUp({ content: `❌ Not enough Reiatsu. Need ${E_REIATSU} ${item.price}.`, ephemeral: true }).catch(() => {});
-      return;
-    }
-
-    player.reiatsu -= item.price;
-    player.items[key] = true;
-    await players.set(interaction.user.id, player);
-
-    if (item.roleId) {
-      const res = await tryGiveRole(interaction.guild, interaction.user.id, item.roleId);
-      if (!res.ok) {
-        await interaction.followUp({ content: `⚠️ Bought role, but bot couldn't assign it: ${res.reason}`, ephemeral: true }).catch(() => {});
-      }
-    }
-
-    const msgId = interaction.message?.id;
-    if (msgId) {
-      await editMessageSafe(channel, msgId, {
-        embeds: [shopEmbed(player, SHOP_ITEMS, calcDropLuckMultiplier)],
-        components: shopButtons(player),
-      });
-    }
-
-    await interaction.followUp({ content: "✅ Purchased!", ephemeral: true }).catch(() => {});
-    return;
-  }
-
-  // Clash buttons
-  if (cid === "clash_accept" || cid === "clash_decline") {
-    return handleClashButton(interaction, state, players);
-  }
-}
-
-module.exports = { handleButtons };
+  JJK_BOSS_SPAWN_MEDIA,
+  JJK_BOSS_R1,
+  JJK_BOSS_R2,
+  JJK_BOSS_R3,
+  JJK_BOSS_R4,
+  JJK_BOSS_VICTORY_MEDIA,
+  JJK_BOSS_DEFEAT_MEDIA,
+  CURSED_SPIRIT_MEDIA,
+};
