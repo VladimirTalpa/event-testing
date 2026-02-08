@@ -147,6 +147,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
       const r = boss.def.rounds[i];
       await channel.send({ embeds: [bossRoundEmbed(boss.def, i, alive.length)] }).catch(() => {});
 
+      // ===== BASIC ROLLS =====
       if (r.type === "pressure" || r.type === "attack") {
         for (const uid of alive) {
           const player = await getPlayer(uid);
@@ -173,6 +174,60 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         continue;
       }
 
+      // ===== NEW: MULTI PRESS (Grimmjow R1) =====
+      if (r.type === "multi_press") {
+        const token = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+        boss.activeAction = {
+          token,
+          roundIndex: i,
+          mode: "multi_press",
+          pressCount: new Map(), // uid -> count
+          requiredPresses: r.requiredPresses || 3,
+        };
+
+        const customId = `boss_action:${boss.def.id}:${i}:${token}:press:multi`;
+        const label = r.buttonLabel || "Block";
+        const emoji = r.buttonEmoji || "🛡️";
+
+        const msg = await channel.send({
+          content:
+            `🛡️ **MULTI BLOCK WINDOW: ${Math.round((r.windowMs || 15000) / 1000)}s**\n` +
+            `Each player must press **${label}** **${boss.activeAction.requiredPresses} times**.`,
+          components: singleActionRow(customId, label, emoji, false),
+        }).catch(() => null);
+
+        await sleep(r.windowMs || 15000);
+
+        if (msg?.id) await msg.edit({ components: singleActionRow(customId, label, emoji, true) }).catch(() => {});
+
+        const action = boss.activeAction?.token === token ? boss.activeAction : null;
+        boss.activeAction = null;
+
+        const nowAlive = aliveIds(boss);
+        for (const uid of nowAlive) {
+          const player = await getPlayer(uid);
+          const cnt = action?.pressCount?.get(uid) ?? 0;
+
+          if (cnt >= (action?.requiredPresses || 3)) {
+            const mult = getEventMultiplier(boss.def.event, player);
+            const add = Math.floor(boss.def.hitReward * mult);
+            bankSuccess(uid, boss, add);
+            const nm = safeName(boss.participants.get(uid)?.displayName);
+            await channel.send(`✅ **${nm}** blocked enough! (${cnt}) (+${add} banked)`).catch(() => {});
+          } else {
+            await applyHit(uid, boss, channel, `didn't block enough times (${cnt}/${action?.requiredPresses || 3})!`);
+          }
+          await sleep(160);
+        }
+
+        if (i < boss.def.rounds.length - 1) {
+          await channel.send(`⏳ Next round in **${Math.round(ROUND_COOLDOWN_MS / 1000)}s**...`).catch(() => {});
+          await sleep(ROUND_COOLDOWN_MS);
+        }
+        continue;
+      }
+
+      // ===== COOP BLOCK =====
       if (r.type === "coop_block") {
         const token = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
         boss.activeAction = {
@@ -227,6 +282,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         continue;
       }
 
+      // ===== QUICK BLOCK / FINISHER =====
       if (r.type === "quick_block" || r.type === "finisher") {
         const token = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
         boss.activeAction = { token, roundIndex: i, mode: "press", pressed: new Set() };
@@ -277,6 +333,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         continue;
       }
 
+      // ===== COMBO DEFENSE =====
       if (r.type === "combo_defense") {
         const token = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
         const seq = randomComboSeq();
@@ -347,6 +404,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         continue;
       }
 
+      // ===== GROUP FINAL =====
       if (r.type === "group_final") {
         const nowAlive = aliveIds(boss);
         const required = r.requiredWins || 3;
@@ -405,18 +463,13 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
       const total = win + hits;
 
       if (boss.def.event === "bleach") player.bleach.reiatsu += total;
-      else player.jjk.cursedEnergy += total;
+      else {
+        player.jjk.cursedEnergy += total;
 
-      // ✅ materials (for future crafting)
-      if (boss.def.event === "jjk" && Array.isArray(boss.def.materialDrops) && boss.def.materialDrops.length) {
-        for (const drop of boss.def.materialDrops) {
-          const key = drop?.key;
-          const amt = Number.isFinite(drop?.amount) ? drop.amount : 1;
-          if (!key) continue;
-          if (!player.jjk.materials) player.jjk.materials = { cursed_shard: 0 };
-          player.jjk.materials[key] = (player.jjk.materials[key] || 0) + amt;
-          lines.push(`🧩 <@${uid}> +**${amt}x ${key}**`);
-        }
+        // ✅ Special Grade: give cursed shard material
+        player.jjk.materials = player.jjk.materials || { cursed_shard: 0 };
+        player.jjk.materials.cursed_shard = (player.jjk.materials.cursed_shard || 0) + 1;
+        lines.push(`🧩 <@${uid}> obtained **Cursed Shard** (+1)`);
       }
 
       await setPlayer(uid, player);
@@ -439,7 +492,6 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         );
       }
 
-      // Robux (keep as-is)
       const robuxChance = Math.min(DROP_ROBUX_CHANCE_CAP, DROP_ROBUX_CHANCE_REAL_BASE * luckMult);
       if (Math.random() < robuxChance) {
         lines.push(`🎁 <@${uid}> won **100 Robux** — ${ROBUX_CLAIM_TEXT}`);
