@@ -13,7 +13,6 @@ function isAllowedSpawnChannel(eventKey, channelId, bleachId, jjkId) {
   return false;
 }
 
-// helper duplicated from embeds logic
 function calcJjkCEMultiplier(items) {
   let mult = 1.0;
   if (items.black_flash_manual) mult *= 1.20;
@@ -70,15 +69,20 @@ async function spawnMob(channel, eventKey, opts) {
         anyHit = true;
 
         if (eventKey === "bleach") {
+          // ✅ BLEACH: отдельно
           player.bleach.reiatsu += mob.hitReward;
           player.bleach.survivalBonus = Math.min(mob.bonusMax, player.bleach.survivalBonus + mob.bonusPerKill);
-          lines.push(`⚔️ **${name}** hit! +${mob.currencyEmoji} ${mob.hitReward} • bonus +${mob.bonusPerKill}%`);
+
+          lines.push(`⚔️ **${name}** hit! +${mob.currencyEmoji} ${mob.hitReward} • bonus +${mob.bonusPerKill}% (Bleach)`);
         } else {
+          // ✅ JJK: отдельно
           const mult = calcJjkCEMultiplier(player.jjk.items);
           const add = Math.floor(mob.hitReward * mult);
+
           player.jjk.cursedEnergy += add;
           player.jjk.survivalBonus = Math.min(mob.bonusMax, player.jjk.survivalBonus + mob.bonusPerKill);
-          lines.push(`🪬 **${name}** exorcised it! +${mob.currencyEmoji} ${add} • bonus +${mob.bonusPerKill}%`);
+
+          lines.push(`⚔️ **${name}** exorcised it! +${mob.currencyEmoji} ${add} • bonus +${mob.bonusPerKill}% (JJK)`);
         }
       } else {
         if (eventKey === "bleach") {
@@ -95,16 +99,15 @@ async function spawnMob(channel, eventKey, opts) {
       await setPlayer(uid, player);
     }
 
-    await channel.messages.fetch(still.messageId).then((m) => m.edit({ components: mobButtons(eventKey, true) })).catch(() => {});
+    await channel.messages
+      .fetch(still.messageId)
+      .then((m) => m.edit({ components: mobButtons(eventKey, true) }))
+      .catch(() => {});
 
     if (!still.attackers.size) {
-      await channel.send(eventKey === "jjk" ? "💨 The spirit vanished… nobody exorcised." : "💨 It disappeared… nobody attacked.").catch(() => {});
+      await channel.send("💨 It disappeared… nobody attacked.").catch(() => {});
     } else {
-      if (eventKey === "jjk") {
-        await channel.send(anyHit ? "✅ **Spirit exorcised!**" : "❌ It escaped…").catch(() => {});
-      } else {
-        await channel.send(anyHit ? "✅ **Mob defeated!**" : "❌ It escaped…").catch(() => {});
-      }
+      await channel.send(anyHit ? "✅ **Mob defeated!**" : "❌ It escaped…").catch(() => {});
       await channel.send(lines.join("\n").slice(0, 1900)).catch(() => {});
     }
 
