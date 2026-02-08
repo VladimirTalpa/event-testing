@@ -58,7 +58,7 @@ function mobButtons(eventKey, disabled = false) {
       new ButtonBuilder()
         .setCustomId(`${CID.MOB_ATTACK}:${eventKey}`)
         .setLabel(eventKey === "bleach" ? "Attack Hollow" : "Exorcise Spirit")
-        .setEmoji(eventKey === "bleach" ? "⚔️" : "🪬")
+        .setEmoji("⚔️")
         .setStyle(ButtonStyle.Primary)
         .setDisabled(disabled)
     ),
