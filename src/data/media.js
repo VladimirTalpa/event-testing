@@ -92,6 +92,43 @@ const JJK_SG_VICTORY_MEDIA =
 const JJK_SG_DEFEAT_MEDIA =
   "https://media.discordapp.net/attachments/1405973335979851877/1470019147839701177/Your_paragraph_text_35.gif?ex=6989c584&is=69887404&hm=366ad3f129479258f8d56f37c4ba5c3a7fd15e9767a79435f78e81e3f5a132d5&=";
 
+/* ===================== MAHORAGA MEDIA (JJK) ===================== */
+const MAHO_TEASER =
+  "https://media.discordapp.net/attachments/1405973335979851877/1470132582409699542/Your_paragraph_text_41.gif?ex=698a2f29&is=6988dda9&hm=a04f11e8692072613e312cff91164e2119cb6670a691042e17d76f51ec75acb9&=";
+
+const MAHO_SPAWN =
+  "https://media.discordapp.net/attachments/1405973335979851877/1470132755672076429/Your_paragraph_text_42.gif?ex=698a2f52&is=6988ddd2&hm=258efd0c211001aa6a12bca7263db7c43912b83823c878e54b67c65e045e9650&=";
+
+const MAHO_R1 =
+  "https://media.discordapp.net/attachments/1405973335979851877/1470136958134255718/Your_paragraph_text_43.gif?ex=698a333c&is=6988e1bc&hm=08727465a471249b812c66d9d36d2e137648c91f018e6b7c04505a3eaa0d4fab&=";
+
+const MAHO_R2 =
+  "https://media.discordapp.net/attachments/1405973335979851877/1470137844805799948/Your_paragraph_text_44.gif?ex=698a3410&is=6988e290&hm=7e2cf508d71919f5ca4d9558b29c90a66a1fb37a3e53ef04f9d3e45702ec6c94&=";
+
+const MAHO_R3 =
+  "https://media.discordapp.net/attachments/1405973335979851877/1470137831811842149/Your_paragraph_text_45.gif?ex=698a340c&is=6988e28c&hm=890d7578e63855e19d6d62e41f9d32d707ec755e643f1c196cc76d613be27c4d&=";
+
+const MAHO_R4_AFTER =
+  "https://cdn.discordapp.com/attachments/1405973335979851877/1470139986581000405/Your_paragraph_text_46.gif?ex=698a360e&is=6988e48e&hm=ac9e806f710eb66601322a155f281557bfa2cb70d3d8abc18a272f36c7fb10be&";
+
+const MAHO_R5_WHEEL =
+  "https://media.discordapp.net/attachments/1405973335979851877/1470140447304192052/Your_paragraph_text_47.gif?ex=698a367c&is=6988e4fc&hm=e4d25be6fc9839598b687f35c92050a0e2fd7d41e597a635bd6e5fbbe62ad5ab&=";
+
+const MAHO_ADAPTED =
+  "https://media.discordapp.net/attachments/1405973335979851877/1470140476375040096/Your_paragraph_text_48.gif?ex=698a3683&is=6988e503&hm=25cb774768cf70a5ebabee6f8647ff2a31a02974d5992a1640dec6bb43640186&=";
+
+const MAHO_R6 =
+  "https://media.discordapp.net/attachments/1405973335979851877/1470142114309341358/Your_paragraph_text_49.gif?ex=698a3809&is=6988e689&hm=59f8ddd705480cd7782e0828b829916ffd1b63bc7fbb37c55ec92ae8ee6c1243&=";
+
+const MAHO_R7 =
+  "https://media.discordapp.net/attachments/1405973335979851877/1470144007240679677/Your_paragraph_text_51.gif?ex=698a39cd&is=6988e84d&hm=036dd08f07117228e678750fa298c18f8cb4179dbb76e815aae11f7789f75536&=";
+
+const MAHO_VICTORY =
+  "https://media.discordapp.net/attachments/1405973335979851877/1470144057098637433/Your_paragraph_text_50.gif?ex=698a39d9&is=6988e859&hm=a309a340f2990f2ced8afe61e9f38ab3ac4933295f79bc684680576108a54713&=";
+
+const MAHO_DEFEAT =
+  "https://media.discordapp.net/attachments/1405973335979851877/1470145622098055230/Your_paragraph_text_52.gif?ex=698a3b4e&is=6988e9ce&hm=32fcd3ec16aa05a4c14d6b92f288b61ba9b2bcd0b7c90290a15a1f4ef027790f&=";
+
 /* ===================== JJK MOB MEDIA ===================== */
 const CURSED_SPIRIT_MEDIA = JJK_SG_SPAWN_MEDIA; // used by mobs
 
@@ -131,6 +168,20 @@ module.exports = {
   JJK_SG_R3,
   JJK_SG_VICTORY_MEDIA,
   JJK_SG_DEFEAT_MEDIA,
+  
+// JJK Mahoraga
+  MAHO_TEASER,
+  MAHO_SPAWN,
+  MAHO_R1,
+  MAHO_R2,
+  MAHO_R3,
+  MAHO_R4_AFTER,
+  MAHO_R5_WHEEL,
+  MAHO_ADAPTED,
+  MAHO_R6,
+  MAHO_R7,
+  MAHO_VICTORY,
+  MAHO_DEFEAT,
 
   CURSED_SPIRIT_MEDIA,
 };
