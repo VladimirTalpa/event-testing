@@ -1,14 +1,14 @@
 // src/handlers/buttons.js
-const { bossByChannel, mobByChannel, leaderboardCache } = require("../core/state");
-const { getPlayer, setPlayer } = require("../core/players");
+const { bossByChannel, mobByChannel } = require("../core/state");
+const { getPlayer, setPlayer, getTopPlayers } = require("../core/players");
 const { safeName } = require("../core/utils");
-
-const { mobEmbed, shopEmbed, leaderboardEmbed } = require("../ui/embeds");
-const { CID, mobButtons, shopButtons } = require("../ui/components");
+const { mobEmbed, shopEmbed } = require("../ui/embeds");
+const { CID, mobButtons, shopButtons, leaderboardNav } = require("../ui/components");
 const { MOBS } = require("../data/mobs");
 const { BLEACH_SHOP_ITEMS, JJK_SHOP_ITEMS } = require("../data/shop");
+const { EmbedBuilder } = require("discord.js");
+const { E_BLEACH, E_JJK, E_REIATSU, E_CE } = require("../config");
 
-/* ================= ROLE ADD ================= */
 async function tryGiveRole(guild, userId, roleId) {
   try {
     const botMember = await guild.members.fetchMe();
@@ -31,20 +31,44 @@ function ensureOwnedRole(player, roleId) {
   if (!player.ownedRoles.includes(id)) player.ownedRoles.push(id);
 }
 
-/* ================= LEADERBOARD BUTTONS ================= */
-function lbComponents(eventKey, page, maxPage) {
-  const prevDisabled = page <= 0;
-  const nextDisabled = page >= maxPage - 1;
+/* ===================== LEADERBOARD UI ===================== */
+async function buildLeaderboardMessage(guild, eventKey, page = 0) {
+  const PER_PAGE = 10;
+  const rows = await getTopPlayers(eventKey, 9999);
 
-  return [
-    {
-      type: 1,
-      components: [
-        { type: 2, style: 2, label: "◀ Prev", custom_id: `lb:${eventKey}:${page}:prev`, disabled: prevDisabled },
-        { type: 2, style: 2, label: "Next ▶", custom_id: `lb:${eventKey}:${page}:next`, disabled: nextDisabled },
-      ],
-    },
-  ];
+  const total = rows.length;
+  const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
+  const p = Math.max(0, Math.min(page, totalPages - 1));
+
+  const slice = rows.slice(p * PER_PAGE, p * PER_PAGE + PER_PAGE);
+
+  const entries = [];
+  for (const r of slice) {
+    let name = r.userId;
+    try {
+      const m = await guild.members.fetch(r.userId);
+      name = safeName(m?.displayName || m?.user?.username || r.userId);
+    } catch {}
+    entries.push({ name, score: r.score });
+  }
+
+  const tag = eventKey === "bleach" ? `${E_BLEACH} Bleach` : `${E_JJK} Jujutsu Kaisen`;
+  const currency = eventKey === "bleach" ? E_REIATSU : E_CE;
+
+  const lines = entries.length
+    ? entries.map((e, i) => {
+        const rank = p * PER_PAGE + i + 1;
+        return `**#${rank}** — ${safeName(e.name)}: **${currency} ${e.score}**`;
+      }).join("\n")
+    : "_No data yet._";
+
+  const embed = new EmbedBuilder()
+    .setColor(0x7b2cff)
+    .setTitle(`🏆 ${tag} Leaderboard`)
+    .setDescription(lines)
+    .setFooter({ text: `Page ${p + 1}/${totalPages} • Total players: ${total}` });
+
+  return { embed, components: leaderboardNav(eventKey, p, totalPages) };
 }
 
 module.exports = async function handleButtons(interaction) {
@@ -55,42 +79,17 @@ module.exports = async function handleButtons(interaction) {
 
   const cid = interaction.customId;
 
-  /* ================= LEADERBOARD PAGE TURN ================= */
-  if (cid.startsWith("lb:")) {
-    // lb:<eventKey>:<page>:<prev|next>
-    const parts = cid.split(":");
+  /* ===================== LEADERBOARD NAV BUTTONS ===================== */
+  if (cid.startsWith(`${CID.LB_NAV}:`)) {
+    const parts = cid.split(":"); // lb_nav:<eventKey>:<page>
     const eventKey = parts[1];
     const page = Number(parts[2] || 0);
-    const dir = parts[3];
 
-    const msgId = interaction.message?.id;
-    if (!msgId) return;
-
-    const cached = leaderboardCache.get(msgId);
-    if (!cached || cached.eventKey !== eventKey) {
-      await interaction.followUp({ content: "⚠️ Leaderboard cache missing. Re-run /leaderboard.", ephemeral: true }).catch(() => {});
-      return;
-    }
-
-    const entries = cached.entries || [];
-    const pageSize = cached.pageSize || 10;
-    const maxPage = Math.max(1, Math.ceil(entries.length / pageSize));
-
-    let newPage = page;
-    if (dir === "next") newPage++;
-    if (dir === "prev") newPage--;
-    if (newPage < 0) newPage = 0;
-    if (newPage > maxPage - 1) newPage = maxPage - 1;
-
-    await interaction.message.edit({
-      embeds: [leaderboardEmbed(eventKey, entries, newPage, pageSize)],
-      components: lbComponents(eventKey, newPage, maxPage),
-    }).catch(() => {});
-
-    return;
+    const { embed, components } = await buildLeaderboardMessage(interaction.guild, eventKey, page);
+    return interaction.update({ embeds: [embed], components });
   }
 
-  /* ================= Boss join ================= */
+  // Boss join
   if (cid === CID.BOSS_JOIN) {
     const boss = bossByChannel.get(channel.id);
     if (!boss || !boss.joining) {
@@ -126,7 +125,7 @@ module.exports = async function handleButtons(interaction) {
     return;
   }
 
-  /* ================= Boss rules ================= */
+  // Boss rules
   if (cid === CID.BOSS_RULES) {
     const boss = bossByChannel.get(channel.id);
     const def = boss?.def;
@@ -134,7 +133,7 @@ module.exports = async function handleButtons(interaction) {
     const txt = def
       ? `**${def.name}** • Difficulty: **${def.difficulty}** • Rounds: **${def.rounds.length}**\n` +
         `Win: **${def.winReward}**\n` +
-        `Success per round: **+${def.hitReward}** (banked)\n` +
+        `Success per round: **+${def.hitReward}** (banked, paid only on victory)\n` +
         `2 hits = eliminated`
       : `2 hits = eliminated.`;
 
@@ -142,7 +141,7 @@ module.exports = async function handleButtons(interaction) {
     return;
   }
 
-  /* ================= Boss action ================= */
+  // Boss action buttons
   if (cid.startsWith("boss_action:")) {
     const parts = cid.split(":");
     const bossId = parts[1];
@@ -193,7 +192,7 @@ module.exports = async function handleButtons(interaction) {
 
       if (payload !== expected) {
         boss.activeAction.comboFailed.add(uid);
-        await interaction.followUp({ content: "❌ Wrong button! (hit when timer ends)", ephemeral: true }).catch(() => {});
+        await interaction.followUp({ content: "❌ Wrong button! (you will take a hit when the timer ends)", ephemeral: true }).catch(() => {});
         return;
       }
 
@@ -209,7 +208,7 @@ module.exports = async function handleButtons(interaction) {
     }
   }
 
-  /* ================= Mob attack ================= */
+  // Mob attack
   if (cid.startsWith(`${CID.MOB_ATTACK}:`)) {
     const eventKey = cid.split(":")[1];
     const state = mobByChannel.get(channel.id);
@@ -221,7 +220,7 @@ module.exports = async function handleButtons(interaction) {
 
     const uid = interaction.user.id;
     if (state.attackers.has(uid)) {
-      await interaction.followUp({ content: "⚠️ You already attacked.", ephemeral: true }).catch(() => {});
+      await interaction.followUp({ content: "⚠️ You already acted.", ephemeral: true }).catch(() => {});
       return;
     }
 
@@ -236,11 +235,11 @@ module.exports = async function handleButtons(interaction) {
       }).catch(() => {});
     }
 
-    await interaction.followUp({ content: "⚔️ Attack registered!", ephemeral: true }).catch(() => {});
+    await interaction.followUp({ content: "✅ Action registered!", ephemeral: true }).catch(() => {});
     return;
   }
 
-  /* ================= Shop buys ================= */
+  // Shop buys
   if (cid.startsWith("buy_")) {
     const p = await getPlayer(interaction.user.id);
 
