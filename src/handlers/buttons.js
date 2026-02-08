@@ -1,219 +1,235 @@
 // src/handlers/buttons.js
+
 const { bossByChannel, mobByChannel } = require("../core/state");
-const { getPlayer, setPlayer, getTopPlayers } = require("../core/players");
+const { getPlayer, setPlayer } = require("../core/players");
 const { safeName } = require("../core/utils");
-const { mobEmbed, shopEmbed, leaderboardEmbed } = require("../ui/embeds");
-const { CID, mobButtons, shopButtons, leaderboardButtons } = require("../ui/components");
+
+const {
+  mobEmbed,
+  shopEmbed,
+  wardrobeEmbed,
+  leaderboardEmbed,
+} = require("../ui/embeds");
+
+const {
+  CID,
+  mobButtons,
+  shopButtons,
+  wardrobeComponents,
+  leaderboardButtons,
+} = require("../ui/components");
+
 const { MOBS } = require("../data/mobs");
-const { BLEACH_SHOP_ITEMS, JJK_SHOP_ITEMS } = require("../data/shop");
+const {
+  BLEACH_SHOP_ITEMS,
+  JJK_SHOP_ITEMS,
+} = require("../data/shop");
+
+
+/* ===================== ROLE ===================== */
 
 async function tryGiveRole(guild, userId, roleId) {
   try {
-    const botMember = await guild.members.fetchMe();
-    if (!botMember.permissions.has("ManageRoles")) return { ok: false, reason: "Missing Manage Roles permission." };
+    const bot = await guild.members.fetchMe();
+
+    if (!bot.permissions.has("ManageRoles")) {
+      return { ok: false, reason: "No permission" };
+    }
+
     const role = guild.roles.cache.get(roleId);
-    if (!role) return { ok: false, reason: "Role not found." };
-    const botTop = botMember.roles.highest?.position ?? 0;
-    if (botTop <= role.position) return { ok: false, reason: "Bot role is below target role (hierarchy)." };
+
+    if (!role) return { ok: false, reason: "Role not found" };
+
+    if (bot.roles.highest.position <= role.position) {
+      return { ok: false, reason: "Role hierarchy" };
+    }
+
     const member = await guild.members.fetch(userId);
+
     await member.roles.add(roleId);
+
     return { ok: true };
   } catch {
-    return { ok: false, reason: "Discord rejected role add." };
+    return { ok: false, reason: "Discord error" };
   }
 }
 
-function ensureOwnedRole(player, roleId) {
-  if (!roleId) return;
-  const id = String(roleId);
-  if (!player.ownedRoles.includes(id)) player.ownedRoles.push(id);
+
+/* ===================== HELPERS ===================== */
+
+function chunk(arr, size) {
+  const out = [];
+
+  for (let i = 0; i < arr.length; i += size) {
+    out.push(arr.slice(i, i + size));
+  }
+
+  return out;
 }
 
+
+/* ===================== MAIN ===================== */
+
 module.exports = async function handleButtons(interaction) {
-  try { await interaction.deferUpdate(); } catch {}
+  try {
+    await interaction.deferUpdate();
+  } catch {}
 
   const channel = interaction.channel;
   if (!channel || !channel.isTextBased()) return;
 
   const cid = interaction.customId;
 
-  // Boss join
+
+  /* ===================== LEADERBOARD PAGES ===================== */
+
+  if (cid.startsWith("lb_")) {
+    const parts = cid.split(":");
+    // lb:event:page
+
+    const eventKey = parts[1];
+    const page = Number(parts[2]) || 0;
+
+    const rows = await require("../core/players")
+      .getTopPlayers(eventKey, 1000);
+
+    const entries = [];
+
+    for (const r of rows) {
+      let name = r.userId;
+
+      try {
+        const m =
+          await interaction.guild.members.fetch(r.userId);
+
+        name =
+          safeName(
+            m?.displayName ||
+            m?.user?.username ||
+            r.userId
+          );
+      } catch {}
+
+      entries.push({
+        name,
+        score: r.score,
+      });
+    }
+
+    const pages = chunk(entries, 10);
+    const maxPage = pages.length || 1;
+
+    const fixed = Math.max(
+      0,
+      Math.min(page, maxPage - 1)
+    );
+
+    return interaction.editReply({
+      embeds: [
+        leaderboardEmbed(
+          eventKey,
+          pages[fixed] || [],
+          fixed,
+          maxPage
+        ),
+      ],
+      components: leaderboardButtons(
+        eventKey,
+        fixed,
+        maxPage
+      ),
+    });
+  }
+
+
+  /* ===================== BOSS JOIN ===================== */
+
   if (cid === CID.BOSS_JOIN) {
     const boss = bossByChannel.get(channel.id);
+
     if (!boss || !boss.joining) {
-      await interaction.followUp({ content: "❌ No active boss join.", ephemeral: true }).catch(() => {});
-      return;
+      return interaction.followUp({
+        content: "❌ No boss.",
+        ephemeral: true,
+      });
     }
 
     const uid = interaction.user.id;
+
     if (boss.participants.has(uid)) {
-      await interaction.followUp({ content: "⚠️ You already joined.", ephemeral: true }).catch(() => {});
-      return;
+      return interaction.followUp({
+        content: "⚠️ Already joined.",
+        ephemeral: true,
+      });
     }
 
-    boss.participants.set(uid, { hits: 0, displayName: interaction.member?.displayName || interaction.user.username });
+    boss.participants.set(uid, {
+      hits: 0,
+      displayName:
+        interaction.member?.displayName ||
+        interaction.user.username,
+    });
 
-    const fighters = [...boss.participants.values()];
-    const fightersText = fighters.length
-      ? fighters.map((p) => safeName(p.displayName)).join(", ").slice(0, 1000)
-      : "`No fighters yet`";
-
-    const msg = await channel.messages.fetch(boss.messageId).catch(() => null);
-    if (msg) {
-      const { bossSpawnEmbed } = require("../ui/embeds");
-      const { bossButtons } = require("../ui/components");
-      await msg.edit({
-        embeds: [bossSpawnEmbed(boss.def, channel.name, fighters.length, fightersText)],
-        components: bossButtons(!boss.joining),
-      }).catch(() => {});
-    }
-
-    await interaction.followUp({ content: "✅ Joined the fight.", ephemeral: true }).catch(() => {});
-    return;
+    return interaction.followUp({
+      content: "✅ Joined!",
+      ephemeral: true,
+    });
   }
 
-  // Boss rules
-  if (cid === CID.BOSS_RULES) {
-    const boss = bossByChannel.get(channel.id);
-    const def = boss?.def;
 
-    const txt = def
-      ? `**${def.name}** • Difficulty: **${def.difficulty}** • Rounds: **${def.rounds.length}**\n` +
-        `Win: **${def.winReward}**\n` +
-        `Success per round: **+${def.hitReward}** (banked, paid only on victory)\n` +
-        `2 hits = eliminated`
-      : `2 hits = eliminated.`;
+  /* ===================== MOB ATTACK ===================== */
 
-    await interaction.followUp({ content: txt, ephemeral: true }).catch(() => {});
-    return;
-  }
-
-  // Boss action buttons
-  if (cid.startsWith("boss_action:")) {
-    const parts = cid.split(":");
-    // boss_action:<bossId>:<roundIndex>:<token>:<kind>:<payload?>
-    const bossId = parts[1];
-    const roundIndex = Number(parts[2]);
-    const token = parts[3];
-    const kind = parts[4]; // press/combo/multi
-    const payload = parts[5];
-
-    const boss = bossByChannel.get(channel.id);
-    if (!boss || boss.def.id !== bossId) {
-      await interaction.followUp({ content: "❌ No active boss action.", ephemeral: true }).catch(() => {});
-      return;
-    }
-    if (!boss.activeAction || boss.activeAction.token !== token || boss.activeAction.roundIndex !== roundIndex) {
-      await interaction.followUp({ content: "⌛ Too late.", ephemeral: true }).catch(() => {});
-      return;
-    }
-
-    const uid = interaction.user.id;
-    const st = boss.participants.get(uid);
-    if (!st || st.hits >= 2) {
-      await interaction.followUp({ content: "❌ You are not in the fight.", ephemeral: true }).catch(() => {});
-      return;
-    }
-
-    if (kind === "press") {
-      if (boss.activeAction.pressed.has(uid)) {
-        await interaction.followUp({ content: "✅ Already pressed.", ephemeral: true }).catch(() => {});
-        return;
-      }
-      boss.activeAction.pressed.add(uid);
-      await interaction.followUp({ content: "✅ Registered!", ephemeral: true }).catch(() => {});
-      return;
-    }
-
-    // NEW: multi press tracking per user
-    if (kind === "multi") {
-      if (boss.activeAction.mode !== "multi") {
-        await interaction.followUp({ content: "❌ Not a multi-press phase.", ephemeral: true }).catch(() => {});
-        return;
-      }
-      const slot = payload; // b1/b2/b3
-      if (!slot) {
-        await interaction.followUp({ content: "❌ Invalid button.", ephemeral: true }).catch(() => {});
-        return;
-      }
-
-      let set = boss.activeAction.perUser.get(uid);
-      if (!set) { set = new Set(); boss.activeAction.perUser.set(uid, set); }
-
-      if (set.has(slot)) {
-        await interaction.followUp({ content: "✅ Already pressed this one.", ephemeral: true }).catch(() => {});
-        return;
-      }
-
-      set.add(slot);
-      const need = boss.activeAction.neededPresses || 3;
-      await interaction.followUp({ content: `✅ Registered! (${set.size}/${need})`, ephemeral: true }).catch(() => {});
-      return;
-    }
-
-    if (kind === "combo") {
-      if (boss.activeAction.mode !== "combo") {
-        await interaction.followUp({ content: "❌ Not a combo phase.", ephemeral: true }).catch(() => {});
-        return;
-      }
-      if (boss.activeAction.comboFailed.has(uid)) {
-        await interaction.followUp({ content: "❌ You already failed this combo.", ephemeral: true }).catch(() => {});
-        return;
-      }
-      const seq = boss.activeAction.comboSeq || [];
-      const prog = boss.activeAction.comboProgress.get(uid) || 0;
-      const expected = seq[prog];
-
-      if (payload !== expected) {
-        boss.activeAction.comboFailed.add(uid);
-        await interaction.followUp({ content: "❌ Wrong button! (you will take a hit when the timer ends)", ephemeral: true }).catch(() => {});
-        return;
-      }
-
-      const next = prog + 1;
-      boss.activeAction.comboProgress.set(uid, next);
-
-      if (next >= 4) {
-        await interaction.followUp({ content: "✅ Combo completed!", ephemeral: true }).catch(() => {});
-      } else {
-        await interaction.followUp({ content: `✅ Good! (${next}/4)`, ephemeral: true }).catch(() => {});
-      }
-      return;
-    }
-  }
-
-  // Mob attack
   if (cid.startsWith(`${CID.MOB_ATTACK}:`)) {
     const eventKey = cid.split(":")[1];
+
     const state = mobByChannel.get(channel.id);
 
-    if (!state || state.resolved || state.eventKey !== eventKey) {
-      await interaction.followUp({ content: "❌ No active mob event.", ephemeral: true }).catch(() => {});
-      return;
+    if (!state || state.resolved) {
+      return interaction.followUp({
+        content: "❌ No mob.",
+        ephemeral: true,
+      });
     }
 
-    const uid = interaction.user.id;
-    if (state.attackers.has(uid)) {
-      await interaction.followUp({ content: "⚠️ You already attacked.", ephemeral: true }).catch(() => {});
-      return;
+    if (state.attackers.has(interaction.user.id)) {
+      return interaction.followUp({
+        content: "⚠️ Already attacked.",
+        ephemeral: true,
+      });
     }
 
-    state.attackers.set(uid, { displayName: interaction.member?.displayName || interaction.user.username });
+    state.attackers.set(interaction.user.id, {
+      displayName:
+        interaction.member?.displayName ||
+        interaction.user.username,
+    });
 
-    const mob = MOBS[eventKey];
-    const msg = await channel.messages.fetch(state.messageId).catch(() => null);
+    const msg = await channel.messages.fetch(
+      state.messageId
+    ).catch(() => null);
+
     if (msg) {
       await msg.edit({
-        embeds: [mobEmbed(eventKey, state.attackers.size, mob)],
+        embeds: [
+          mobEmbed(
+            eventKey,
+            state.attackers.size,
+            MOBS[eventKey]
+          ),
+        ],
         components: mobButtons(eventKey, false),
-      }).catch(() => {});
+      });
     }
 
-    await interaction.followUp({ content: eventKey === "jjk" ? "🪬 Exorcism registered!" : "⚔️ Attack registered!", ephemeral: true }).catch(() => {});
-    return;
+    return interaction.followUp({
+      content: "⚔️ Attack!",
+      ephemeral: true,
+    });
   }
 
-  // Shop buys
+
+  /* ===================== SHOP ===================== */
+
   if (cid.startsWith("buy_")) {
     const p = await getPlayer(interaction.user.id);
 
@@ -236,99 +252,82 @@ module.exports = async function handleButtons(interaction) {
     let eventKey = null;
     let key = null;
 
-    if (bleachMap[cid]) { eventKey = "bleach"; key = bleachMap[cid]; }
-    if (jjkMap[cid]) { eventKey = "jjk"; key = jjkMap[cid]; }
-
-    if (!eventKey || !key) {
-      await interaction.followUp({ content: "❌ Unknown item.", ephemeral: true }).catch(() => {});
-      return;
+    if (bleachMap[cid]) {
+      eventKey = "bleach";
+      key = bleachMap[cid];
     }
 
-    const itemList = eventKey === "bleach" ? BLEACH_SHOP_ITEMS : JJK_SHOP_ITEMS;
-    const item = itemList.find((x) => x.key === key);
-    if (!item) {
-      await interaction.followUp({ content: "❌ Unknown item.", ephemeral: true }).catch(() => {});
-      return;
+    if (jjkMap[cid]) {
+      eventKey = "jjk";
+      key = jjkMap[cid];
     }
 
-    const inv = eventKey === "bleach" ? p.bleach.items : p.jjk.items;
+    if (!key) {
+      return interaction.followUp({
+        content: "❌ Unknown item.",
+        ephemeral: true,
+      });
+    }
+
+    const items =
+      eventKey === "bleach"
+        ? BLEACH_SHOP_ITEMS
+        : JJK_SHOP_ITEMS;
+
+    const item = items.find((i) => i.key === key);
+
+    if (!item) return;
+
+    const inv =
+      eventKey === "bleach"
+        ? p.bleach.items
+        : p.jjk.items;
+
     if (inv[key]) {
-      await interaction.followUp({ content: "✅ You already own this item.", ephemeral: true }).catch(() => {});
-      return;
+      return interaction.followUp({
+        content: "✅ Already owned.",
+        ephemeral: true,
+      });
     }
-
-    const { E_REIATSU, E_CE } = require("../config");
 
     if (eventKey === "bleach") {
       if (p.bleach.reiatsu < item.price) {
-        await interaction.followUp({ content: `❌ Need ${E_REIATSU} ${item.price}.`, ephemeral: true }).catch(() => {});
-        return;
+        return interaction.followUp({
+          content: "❌ Not enough Reiatsu.",
+          ephemeral: true,
+        });
       }
+
       p.bleach.reiatsu -= item.price;
-      p.bleach.items[key] = true;
+      inv[key] = true;
     } else {
       if (p.jjk.cursedEnergy < item.price) {
-        await interaction.followUp({ content: `❌ Need ${E_CE} ${item.price}.`, ephemeral: true }).catch(() => {});
-        return;
+        return interaction.followUp({
+          content: "❌ Not enough CE.",
+          ephemeral: true,
+        });
       }
-      p.jjk.cursedEnergy -= item.price;
-      p.jjk.items[key] = true;
-    }
 
-    if (item.roleId) {
-      ensureOwnedRole(p, item.roleId);
-      const res = await tryGiveRole(interaction.guild, interaction.user.id, item.roleId);
-      if (!res.ok) {
-        await interaction.followUp({
-          content: `⚠️ Bought role, but bot couldn't assign: ${res.reason} (saved to wardrobe)`,
-          ephemeral: true
-        }).catch(() => {});
-      }
+      p.jjk.cursedEnergy -= item.price;
+      inv[key] = true;
     }
 
     await setPlayer(interaction.user.id, p);
 
-    const msgId = interaction.message?.id;
-    if (msgId) {
-      const msg = await channel.messages.fetch(msgId).catch(() => null);
-      if (msg) {
-        await msg.edit({
-          embeds: [shopEmbed(eventKey, p)],
-          components: shopButtons(eventKey, p),
-        }).catch(() => {});
-      }
+    const msg = await channel.messages.fetch(
+      interaction.message.id
+    ).catch(() => null);
+
+    if (msg) {
+      await msg.edit({
+        embeds: [shopEmbed(eventKey, p)],
+        components: shopButtons(eventKey, p),
+      });
     }
 
-    await interaction.followUp({ content: "✅ Purchased!", ephemeral: true }).catch(() => {});
-    return;
-  }
-
-  // Leaderboard pagination
-  if (cid.startsWith(`${CID.LB_PAGE}:`)) {
-    const [, eventKey, pageStr] = cid.split(":");
-    const page = Math.max(0, Number(pageStr) || 0);
-
-    const all = await getTopPlayers(eventKey, 999999);
-    const pageSize = 10;
-    const totalPages = Math.max(1, Math.ceil(all.length / pageSize));
-    const p = Math.min(page, totalPages - 1);
-
-    const slice = all.slice(p * pageSize, p * pageSize + pageSize);
-
-    const entries = [];
-    for (const r of slice) {
-      let name = r.userId;
-      try {
-        const m = await interaction.guild.members.fetch(r.userId);
-        name = safeName(m?.displayName || m?.user?.username || r.userId);
-      } catch {}
-      entries.push({ name, score: r.score });
-    }
-
-    await interaction.message.edit({
-      embeds: [leaderboardEmbed(eventKey, entries, p, totalPages)],
-      components: leaderboardButtons(eventKey, p, totalPages),
-    }).catch(() => {});
-    return;
+    return interaction.followUp({
+      content: "✅ Purchased!",
+      ephemeral: true,
+    });
   }
 };
