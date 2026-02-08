@@ -1,114 +1,126 @@
 require("dotenv").config();
 const { REST, Routes, SlashCommandBuilder } = require("discord.js");
 
-/* ===================== ENV ===================== */
 const TOKEN = process.env.DISCORD_TOKEN;
-const CLIENT_ID = process.env.CLIENT_ID; // Application ID
-const GUILD_ID = process.env.GUILD_ID;   // Server ID
+const CLIENT_ID = process.env.CLIENT_ID;
+const GUILD_ID = process.env.GUILD_ID;
 
 if (!TOKEN || !CLIENT_ID || !GUILD_ID) {
-  console.error("❌ Missing env vars. Need DISCORD_TOKEN, CLIENT_ID, GUILD_ID");
+  console.error("❌ Missing env vars. Need: DISCORD_TOKEN, CLIENT_ID, GUILD_ID");
   process.exit(1);
 }
 
-/* ===================== COMMANDS ===================== */
+const EVENT_CHOICES = [
+  { name: "Bleach", value: "bleach" },
+  { name: "Jujutsu Kaisen", value: "jjk" },
+];
+
+const BOSS_CHOICES = [
+  { name: "Vasto Lorde (Bleach)", value: "vasto" },
+  { name: "Ulquiorra (Bleach)", value: "ulquiorra" },
+  { name: "Special Grade Curse (JJK)", value: "specialgrade" },
+];
+
+const CURRENCY_CHOICES = [
+  { name: "Reiatsu (Bleach)", value: "reiatsu" },
+  { name: "Cursed Energy (JJK)", value: "cursed_energy" },
+  { name: "Drako Coin (Global)", value: "drako" },
+];
+
 const commands = [
-  // /reatsu
   new SlashCommandBuilder()
-    .setName("reatsu")
-    .setDescription("Check Reiatsu balance")
-    .addUserOption(opt =>
+    .setName("balance")
+    .setDescription("Check your balance (Reiatsu / Cursed Energy / Drako)")
+    .addUserOption((opt) =>
       opt.setName("user").setDescription("User to check").setRequired(false)
     ),
 
-  // /inventory (placeholder if your index has it; if not, keep it for later)
   new SlashCommandBuilder()
     .setName("inventory")
-    .setDescription("View your inventory and bonuses"),
+    .setDescription("View your inventory and bonuses (choose event)")
+    .addStringOption((opt) =>
+      opt.setName("event").setDescription("Which event inventory?").setRequired(true).addChoices(...EVENT_CHOICES)
+    ),
 
-  // /shop
   new SlashCommandBuilder()
     .setName("shop")
-    .setDescription("Open the shop"),
+    .setDescription("Open shop (choose event)")
+    .addStringOption((opt) =>
+      opt.setName("event").setDescription("Which shop?").setRequired(true).addChoices(...EVENT_CHOICES)
+    ),
 
-  // /leaderboard
   new SlashCommandBuilder()
     .setName("leaderboard")
-    .setDescription("View the leaderboard"),
+    .setDescription("Leaderboard (choose event currency)")
+    .addStringOption((opt) =>
+      opt.setName("event").setDescription("Which event leaderboard?").setRequired(true).addChoices(...EVENT_CHOICES)
+    ),
 
-  // /give_reatsu
   new SlashCommandBuilder()
     .setName("give_reatsu")
-    .setDescription("Transfer Reiatsu to another player")
-    .addUserOption(opt =>
+    .setDescription("Transfer Reiatsu (Bleach) to another player")
+    .addUserOption((opt) =>
       opt.setName("user").setDescription("Target player").setRequired(true)
     )
-    .addIntegerOption(opt =>
-      opt
-        .setName("amount")
-        .setDescription("Amount of Reiatsu (minimum 50)")
-        .setRequired(true)
-        .setMinValue(50)
+    .addIntegerOption((opt) =>
+      opt.setName("amount").setDescription("Amount of Reiatsu (minimum 50)").setRequired(true).setMinValue(50)
     ),
 
-  // /reatsu_clash
   new SlashCommandBuilder()
-    .setName("reatsu_clash")
-    .setDescription("Challenge another player to a Reiatsu clash (50/50)")
-    .addUserOption(opt =>
-      opt.setName("user").setDescription("Opponent").setRequired(true)
+    .setName("exchange_drako")
+    .setDescription("Buy Drako Coin using event currency (NO reverse exchange)")
+    .addStringOption((opt) =>
+      opt.setName("event").setDescription("Pay with which event currency?").setRequired(true).addChoices(...EVENT_CHOICES)
     )
-    .addIntegerOption(opt =>
-      opt
-        .setName("stake")
-        .setDescription("Reiatsu stake (minimum 50)")
-        .setRequired(true)
-        .setMinValue(50)
+    .addIntegerOption((opt) =>
+      opt.setName("drako").setDescription("How many Drako you want to buy").setRequired(true).setMinValue(1)
     ),
 
-  // /dailyclaim
   new SlashCommandBuilder()
     .setName("dailyclaim")
-    .setDescription("Claim your daily reward"),
+    .setDescription("Claim your daily Reiatsu reward (Bleach)"),
 
-  // OLD manual spawns (если хочешь оставить совместимость)
-  new SlashCommandBuilder()
-    .setName("spawn_hollow")
-    .setDescription("Manually spawn a Vasto Lorde boss event (legacy)"),
-
-  new SlashCommandBuilder()
-    .setName("spawn_hollowling")
-    .setDescription("Manually spawn a mini Hollow event (legacy)"),
-
-  // ✅ NEW: /spawnboss with boss picker
   new SlashCommandBuilder()
     .setName("spawnboss")
-    .setDescription("Spawn a Bleach boss (staff only)")
-    .addStringOption(opt =>
-      opt
-        .setName("boss")
-        .setDescription("Choose boss")
-        .setRequired(true)
-        .addChoices(
-          { name: "Vasto Lorde", value: "vasto" },
-          { name: "Ulquiorra", value: "ulquiorra" }
-        )
+    .setDescription("Spawn a boss (event staff only)")
+    .addStringOption((opt) =>
+      opt.setName("boss").setDescription("Choose boss").setRequired(true).addChoices(...BOSS_CHOICES)
     ),
-].map(cmd => cmd.toJSON());
 
-/* ===================== DEPLOY ===================== */
+  new SlashCommandBuilder()
+    .setName("spawnmob")
+    .setDescription("Spawn a mob (event staff only)")
+    .addStringOption((opt) =>
+      opt.setName("event").setDescription("Which event mob?").setRequired(true).addChoices(...EVENT_CHOICES)
+    ),
+
+  new SlashCommandBuilder()
+    .setName("wardrobe")
+    .setDescription("Open your role wardrobe (equip/unequip saved roles)"),
+
+  new SlashCommandBuilder()
+    .setName("adminadd")
+    .setDescription("Admin: add currency to a user (role required)")
+    .addStringOption((opt) =>
+      opt.setName("currency").setDescription("Which currency?").setRequired(true).addChoices(...CURRENCY_CHOICES)
+    )
+    .addIntegerOption((opt) =>
+      opt.setName("amount").setDescription("Amount to add").setRequired(true).setMinValue(1)
+    )
+    .addUserOption((opt) =>
+      opt.setName("user").setDescription("Target user (optional)").setRequired(false)
+    ),
+].map((c) => c.toJSON());
+
 const rest = new REST({ version: "10" }).setToken(TOKEN);
 
 (async () => {
   try {
     console.log("🔄 Deploying slash commands...");
-    await rest.put(
-      Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
-      { body: commands }
-    );
-    console.log(`✅ Deployed ${commands.length} commands.`);
-  } catch (error) {
-    console.error("❌ Failed to deploy commands:", error);
+    await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: commands });
+    console.log("✅ Slash commands successfully deployed!");
+  } catch (e) {
+    console.error("❌ Failed to deploy commands:", e);
     process.exit(1);
   }
 })();
