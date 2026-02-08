@@ -10,15 +10,9 @@ if (!TOKEN || !CLIENT_ID || !GUILD_ID) {
   process.exit(1);
 }
 
-const EVENT_CHOICES_PLAIN = [
+const EVENT_CHOICES = [
   { name: "Bleach", value: "bleach" },
   { name: "Jujutsu Kaisen", value: "jjk" },
-];
-
-// ✅ Only for /exchange_drako show rates
-const EVENT_CHOICES_WITH_RATE = [
-  { name: "Bleach (47 Reiatsu = 1 Drako Coin)", value: "bleach" },
-  { name: "Jujutsu Kaisen (19 Cursed Energy = 1 Drako Coin)", value: "jjk" },
 ];
 
 const BOSS_CHOICES = [
@@ -49,7 +43,7 @@ const commands = [
         .setName("event")
         .setDescription("Which event inventory?")
         .setRequired(true)
-        .addChoices(...EVENT_CHOICES_PLAIN)
+        .addChoices(...EVENT_CHOICES)
     ),
 
   new SlashCommandBuilder()
@@ -60,7 +54,7 @@ const commands = [
         .setName("event")
         .setDescription("Which shop?")
         .setRequired(true)
-        .addChoices(...EVENT_CHOICES_PLAIN)
+        .addChoices(...EVENT_CHOICES)
     ),
 
   new SlashCommandBuilder()
@@ -71,29 +65,21 @@ const commands = [
         .setName("event")
         .setDescription("Which event leaderboard?")
         .setRequired(true)
-        .addChoices(...EVENT_CHOICES_PLAIN)
+        .addChoices(...EVENT_CHOICES)
     ),
 
   new SlashCommandBuilder()
-    .setName("spawnmob")
-    .setDescription("Spawn a mob (event staff only)")
-    .addStringOption((opt) =>
+    .setName("give_reatsu")
+    .setDescription("Transfer Reiatsu (Bleach) to another player")
+    .addUserOption((opt) =>
+      opt.setName("user").setDescription("Target player").setRequired(true)
+    )
+    .addIntegerOption((opt) =>
       opt
-        .setName("event")
-        .setDescription("Which event mob?")
+        .setName("amount")
+        .setDescription("Amount of Reiatsu (minimum 50)")
         .setRequired(true)
-        .addChoices(...EVENT_CHOICES_PLAIN)
-    ),
-
-  new SlashCommandBuilder()
-    .setName("spawnboss")
-    .setDescription("Spawn a boss (event staff only)")
-    .addStringOption((opt) =>
-      opt
-        .setName("boss")
-        .setDescription("Choose boss")
-        .setRequired(true)
-        .addChoices(...BOSS_CHOICES)
+        .setMinValue(50)
     ),
 
   new SlashCommandBuilder()
@@ -104,7 +90,7 @@ const commands = [
         .setName("event")
         .setDescription("Pay with which event currency?")
         .setRequired(true)
-        .addChoices(...EVENT_CHOICES_WITH_RATE)
+        .addChoices(...EVENT_CHOICES)
     )
     .addIntegerOption((opt) =>
       opt
@@ -119,12 +105,34 @@ const commands = [
     .setDescription("Claim your daily Reiatsu reward (Bleach)"),
 
   new SlashCommandBuilder()
+    .setName("spawnboss")
+    .setDescription("Spawn a boss (event staff only)")
+    .addStringOption((opt) =>
+      opt
+        .setName("boss")
+        .setDescription("Choose boss")
+        .setRequired(true)
+        .addChoices(...BOSS_CHOICES)
+    ),
+
+  new SlashCommandBuilder()
+    .setName("spawnmob")
+    .setDescription("Spawn a mob (event staff only)")
+    .addStringOption((opt) =>
+      opt
+        .setName("event")
+        .setDescription("Which event mob?")
+        .setRequired(true)
+        .addChoices(...EVENT_CHOICES)
+    ),
+
+  new SlashCommandBuilder()
     .setName("wardrobe")
     .setDescription("Open your role wardrobe (equip/unequip saved roles)"),
 
   new SlashCommandBuilder()
     .setName("adminadd")
-    .setDescription("Admin: add currency to a user (event staff only)")
+    .setDescription("Admin: add currency to a user (role-restricted)")
     .addStringOption((opt) =>
       opt
         .setName("currency")
