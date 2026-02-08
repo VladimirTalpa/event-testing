@@ -1,13 +1,14 @@
 // src/handlers/buttons.js
 
 const { bossByChannel, mobByChannel } = require("../core/state");
-const { getPlayer, setPlayer } = require("../core/players");
+const { getPlayer, setPlayer, getTopPlayers } = require("../core/players");
+
 const { safeName } = require("../core/utils");
 
 const {
   mobEmbed,
   shopEmbed,
-  wardrobeEmbed,
+  inventoryEmbed,
   leaderboardEmbed,
 } = require("../ui/embeds");
 
@@ -15,223 +16,234 @@ const {
   CID,
   mobButtons,
   shopButtons,
-  wardrobeComponents,
-  leaderboardButtons,
 } = require("../ui/components");
 
 const { MOBS } = require("../data/mobs");
-const {
-  BLEACH_SHOP_ITEMS,
-  JJK_SHOP_ITEMS,
-} = require("../data/shop");
+const { BLEACH_SHOP_ITEMS, JJK_SHOP_ITEMS } = require("../data/shop");
 
 
-/* ===================== ROLE ===================== */
+/* ================= LEADERBOARD CACHE ================= */
+
+const leaderboardCache = new Map();
+
+
+/* ================= ROLE HELP ================= */
 
 async function tryGiveRole(guild, userId, roleId) {
+
   try {
+
     const bot = await guild.members.fetchMe();
 
-    if (!bot.permissions.has("ManageRoles")) {
-      return { ok: false, reason: "No permission" };
-    }
+    if (!bot.permissions.has("ManageRoles"))
+      return { ok: false };
 
     const role = guild.roles.cache.get(roleId);
 
-    if (!role) return { ok: false, reason: "Role not found" };
+    if (!role) return { ok: false };
 
-    if (bot.roles.highest.position <= role.position) {
-      return { ok: false, reason: "Role hierarchy" };
-    }
+    if (bot.roles.highest.position <= role.position)
+      return { ok: false };
 
     const member = await guild.members.fetch(userId);
 
     await member.roles.add(roleId);
 
     return { ok: true };
+
   } catch {
-    return { ok: false, reason: "Discord error" };
+    return { ok: false };
   }
 }
 
 
-/* ===================== HELPERS ===================== */
-
-function chunk(arr, size) {
-  const out = [];
-
-  for (let i = 0; i < arr.length; i += size) {
-    out.push(arr.slice(i, i + size));
-  }
-
-  return out;
-}
-
-
-/* ===================== MAIN ===================== */
+/* ================= MAIN ================= */
 
 module.exports = async function handleButtons(interaction) {
-  try {
-    await interaction.deferUpdate();
-  } catch {}
+
+  try { await interaction.deferUpdate(); } catch {}
 
   const channel = interaction.channel;
+
   if (!channel || !channel.isTextBased()) return;
 
-  const cid = interaction.customId;
+
+  const id = interaction.customId;
 
 
-  /* ===================== LEADERBOARD PAGES ===================== */
+  /* ================= LEADERBOARD ================= */
 
-  if (cid.startsWith("lb_")) {
-    const parts = cid.split(":");
-    // lb:event:page
+  if (id.startsWith("lb_")) {
 
-    const eventKey = parts[1];
-    const page = Number(parts[2]) || 0;
+    // lb_bleach_0_next
 
-    const rows = await require("../core/players")
-      .getTopPlayers(eventKey, 1000);
+    const parts = id.split("_");
 
-    const entries = [];
+    const event = parts[1];
+    let page = Number(parts[2]);
+    const dir = parts[3];
 
-    for (const r of rows) {
-      let name = r.userId;
 
-      try {
-        const m =
-          await interaction.guild.members.fetch(r.userId);
+    if (!leaderboardCache.has(event)) {
 
-        name =
-          safeName(
-            m?.displayName ||
-            m?.user?.username ||
-            r.userId
-          );
-      } catch {}
+      const rows = await getTopPlayers(event, 9999);
 
-      entries.push({
-        name,
-        score: r.score,
-      });
+      const fixed = [];
+
+      for (const r of rows) {
+
+        let name = r.userId;
+
+        try {
+          const m = await interaction.guild.members.fetch(r.userId);
+
+          name =
+            safeName(m.displayName || m.user.username);
+
+        } catch {}
+
+        fixed.push({
+          name,
+          score: r.score,
+        });
+      }
+
+      leaderboardCache.set(event, fixed);
     }
 
-    const pages = chunk(entries, 10);
-    const maxPage = pages.length || 1;
 
-    const fixed = Math.max(
-      0,
-      Math.min(page, maxPage - 1)
-    );
+    const list = leaderboardCache.get(event);
 
-    return interaction.editReply({
-      embeds: [
-        leaderboardEmbed(
-          eventKey,
-          pages[fixed] || [],
-          fixed,
-          maxPage
-        ),
+    if (dir === "next") page++;
+    if (dir === "prev") page--;
+
+
+    if (page < 0) page = 0;
+
+
+    const max = Math.floor((list.length - 1) / 10);
+
+    if (page > max) page = max;
+
+
+    const row = {
+
+      type: 1,
+
+      components: [
+
+        {
+          type: 2,
+          style: 2,
+          label: "◀",
+          custom_id: `lb_${event}_${page}_prev`,
+        },
+
+        {
+          type: 2,
+          style: 2,
+          label: "▶",
+          custom_id: `lb_${event}_${page}_next`,
+        },
+
       ],
-      components: leaderboardButtons(
-        eventKey,
-        fixed,
-        maxPage
-      ),
+    };
+
+
+    await interaction.editReply({
+
+      embeds: [
+        leaderboardEmbed(event, list, page),
+      ],
+
+      components: [row],
     });
+
+    return;
   }
 
 
-  /* ===================== BOSS JOIN ===================== */
+  /* ================= BOSS ================= */
 
-  if (cid === CID.BOSS_JOIN) {
+  if (id === CID.BOSS_JOIN) {
+
     const boss = bossByChannel.get(channel.id);
 
-    if (!boss || !boss.joining) {
-      return interaction.followUp({
-        content: "❌ No boss.",
-        ephemeral: true,
-      });
-    }
+    if (!boss || !boss.joining) return;
 
     const uid = interaction.user.id;
 
-    if (boss.participants.has(uid)) {
-      return interaction.followUp({
-        content: "⚠️ Already joined.",
-        ephemeral: true,
-      });
-    }
+    if (boss.participants.has(uid)) return;
+
 
     boss.participants.set(uid, {
+
       hits: 0,
+
       displayName:
         interaction.member?.displayName ||
         interaction.user.username,
     });
 
-    return interaction.followUp({
-      content: "✅ Joined!",
-      ephemeral: true,
-    });
+
+    return;
   }
 
 
-  /* ===================== MOB ATTACK ===================== */
+  /* ================= MOB ================= */
 
-  if (cid.startsWith(`${CID.MOB_ATTACK}:`)) {
-    const eventKey = cid.split(":")[1];
+  if (id.startsWith(`${CID.MOB_ATTACK}:`)) {
+
+    const event = id.split(":")[1];
 
     const state = mobByChannel.get(channel.id);
 
-    if (!state || state.resolved) {
-      return interaction.followUp({
-        content: "❌ No mob.",
-        ephemeral: true,
-      });
-    }
+    if (!state || state.resolved) return;
 
-    if (state.attackers.has(interaction.user.id)) {
-      return interaction.followUp({
-        content: "⚠️ Already attacked.",
-        ephemeral: true,
-      });
-    }
 
-    state.attackers.set(interaction.user.id, {
+    const uid = interaction.user.id;
+
+    if (state.attackers.has(uid)) return;
+
+
+    state.attackers.set(uid, {
+
       displayName:
         interaction.member?.displayName ||
         interaction.user.username,
     });
 
-    const msg = await channel.messages.fetch(
-      state.messageId
-    ).catch(() => null);
+
+    const mob = MOBS[event];
+
+
+    const msg = await channel.messages
+      .fetch(state.messageId)
+      .catch(() => null);
+
 
     if (msg) {
+
       await msg.edit({
+
         embeds: [
-          mobEmbed(
-            eventKey,
-            state.attackers.size,
-            MOBS[eventKey]
-          ),
+          mobEmbed(event, state.attackers.size, mob),
         ],
-        components: mobButtons(eventKey, false),
+
+        components: mobButtons(event, false),
       });
     }
 
-    return interaction.followUp({
-      content: "⚔️ Attack!",
-      ephemeral: true,
-    });
+    return;
   }
 
 
-  /* ===================== SHOP ===================== */
+  /* ================= SHOP ================= */
 
-  if (cid.startsWith("buy_")) {
+  if (id.startsWith("buy_")) {
+
     const p = await getPlayer(interaction.user.id);
+
 
     const bleachMap = {
       buy_bleach_zanpakuto_basic: "zanpakuto_basic",
@@ -249,85 +261,84 @@ module.exports = async function handleButtons(interaction) {
       buy_jjk_binding_vow_seal: "binding_vow_seal",
     };
 
-    let eventKey = null;
+
+    let event = null;
     let key = null;
 
-    if (bleachMap[cid]) {
-      eventKey = "bleach";
-      key = bleachMap[cid];
+
+    if (bleachMap[id]) {
+      event = "bleach";
+      key = bleachMap[id];
     }
 
-    if (jjkMap[cid]) {
-      eventKey = "jjk";
-      key = jjkMap[cid];
+    if (jjkMap[id]) {
+      event = "jjk";
+      key = jjkMap[id];
     }
 
-    if (!key) {
-      return interaction.followUp({
-        content: "❌ Unknown item.",
-        ephemeral: true,
-      });
-    }
+
+    if (!event) return;
+
 
     const items =
-      eventKey === "bleach"
+      event === "bleach"
         ? BLEACH_SHOP_ITEMS
         : JJK_SHOP_ITEMS;
 
-    const item = items.find((i) => i.key === key);
+
+    const item = items.find(i => i.key === key);
 
     if (!item) return;
 
+
     const inv =
-      eventKey === "bleach"
+      event === "bleach"
         ? p.bleach.items
         : p.jjk.items;
 
-    if (inv[key]) {
-      return interaction.followUp({
-        content: "✅ Already owned.",
-        ephemeral: true,
-      });
-    }
 
-    if (eventKey === "bleach") {
-      if (p.bleach.reiatsu < item.price) {
-        return interaction.followUp({
-          content: "❌ Not enough Reiatsu.",
-          ephemeral: true,
-        });
-      }
+    if (inv[key]) return;
+
+
+    if (event === "bleach") {
+
+      if (p.bleach.reiatsu < item.price) return;
 
       p.bleach.reiatsu -= item.price;
+
       inv[key] = true;
+
     } else {
-      if (p.jjk.cursedEnergy < item.price) {
-        return interaction.followUp({
-          content: "❌ Not enough CE.",
-          ephemeral: true,
-        });
-      }
+
+      if (p.jjk.cursedEnergy < item.price) return;
 
       p.jjk.cursedEnergy -= item.price;
+
       inv[key] = true;
     }
+
 
     await setPlayer(interaction.user.id, p);
 
-    const msg = await channel.messages.fetch(
-      interaction.message.id
-    ).catch(() => null);
+
+    const msg = await channel.messages
+      .fetch(interaction.message.id)
+      .catch(() => null);
+
 
     if (msg) {
+
       await msg.edit({
-        embeds: [shopEmbed(eventKey, p)],
-        components: shopButtons(eventKey, p),
+
+        embeds: [
+          shopEmbed(event, p),
+        ],
+
+        components: shopButtons(event, p),
       });
     }
 
-    return interaction.followUp({
-      content: "✅ Purchased!",
-      ephemeral: true,
-    });
+    return;
   }
+
 };
