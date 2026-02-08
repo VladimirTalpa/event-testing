@@ -1,4 +1,3 @@
-
 // src/handlers/slash.js
 const { BOSSES } = require("../data/bosses");
 const { MOBS } = require("../data/mobs");
@@ -22,17 +21,11 @@ const {
 
 const { getPlayer, setPlayer, getTopPlayers } = require("../core/players");
 const { safeName } = require("../core/utils");
-const { hasEventRole, hasBoosterRole, shopButtons, wardrobeComponents } = require("../ui/components");
+const { hasEventRole, hasBoosterRole, shopButtons, wardrobeComponents, leaderboardButtons } = require("../ui/components");
 const { inventoryEmbed, shopEmbed, leaderboardEmbed, wardrobeEmbed } = require("../ui/embeds");
 
 const { spawnBoss } = require("../events/boss");
 const { spawnMob } = require("../events/mob");
-
-function isAllowedSpawnChannel(eventKey, channelId) {
-  if (eventKey === "bleach") return channelId === BLEACH_CHANNEL_ID;
-  if (eventKey === "jjk") return channelId === JJK_CHANNEL_ID;
-  return false;
-}
 
 module.exports = async function handleSlash(interaction) {
   const channel = interaction.channel;
@@ -71,10 +64,16 @@ module.exports = async function handleSlash(interaction) {
 
   if (interaction.commandName === "leaderboard") {
     const eventKey = interaction.options.getString("event", true);
-    const rows = await getTopPlayers(eventKey, 10);
+    const rows = await getTopPlayers(eventKey, 999999);
+
+    const pageSize = 10;
+    const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+    const page = 0;
+
+    const slice = rows.slice(0, pageSize);
     const entries = [];
 
-    for (const r of rows) {
+    for (const r of slice) {
       let name = r.userId;
       try {
         const m = await interaction.guild.members.fetch(r.userId);
@@ -83,7 +82,11 @@ module.exports = async function handleSlash(interaction) {
       entries.push({ name, score: r.score });
     }
 
-    return interaction.reply({ embeds: [leaderboardEmbed(eventKey, entries)], ephemeral: false });
+    return interaction.reply({
+      embeds: [leaderboardEmbed(eventKey, entries, page, totalPages)],
+      components: leaderboardButtons(eventKey, page, totalPages),
+      ephemeral: false,
+    });
   }
 
   if (interaction.commandName === "dailyclaim") {
@@ -138,6 +141,10 @@ module.exports = async function handleSlash(interaction) {
     const cost = drakoWanted * rate;
     const currencyEmoji = eventKey === "bleach" ? E_REIATSU : E_CE;
 
+    const ratesLine =
+      `📊 Rates: Bleach **${DRAKO_RATE_BLEACH} ${E_REIATSU} = 1 ${E_DRAKO}** • ` +
+      `JJK **${DRAKO_RATE_JJK} ${E_CE} = 1 ${E_DRAKO}**`;
+
     const p = await getPlayer(interaction.user.id);
 
     if (eventKey === "bleach") {
@@ -146,6 +153,7 @@ module.exports = async function handleSlash(interaction) {
           content:
             `❌ Need ${currencyEmoji} **${cost}** to buy ${E_DRAKO} **${drakoWanted} Drako**.\n` +
             `Rate: **${rate} ${currencyEmoji} = 1 ${E_DRAKO}** (one-way)\n` +
+            `${ratesLine}\n` +
             `You have ${currencyEmoji} **${p.bleach.reiatsu}**.`,
           ephemeral: true,
         });
@@ -158,6 +166,7 @@ module.exports = async function handleSlash(interaction) {
         content:
           `✅ Exchanged ${currencyEmoji} **${cost}** → ${E_DRAKO} **${drakoWanted} Drako**.\n` +
           `Rate: **${rate} ${currencyEmoji} = 1 ${E_DRAKO}** (one-way)\n` +
+          `${ratesLine}\n` +
           `Now: ${currencyEmoji} **${p.bleach.reiatsu}** • ${E_DRAKO} **${p.drako}**\n` +
           `⚠️ Drako cannot be exchanged back.`,
         ephemeral: false,
@@ -168,6 +177,7 @@ module.exports = async function handleSlash(interaction) {
           content:
             `❌ Need ${currencyEmoji} **${cost}** to buy ${E_DRAKO} **${drakoWanted} Drako**.\n` +
             `Rate: **${rate} ${currencyEmoji} = 1 ${E_DRAKO}** (one-way)\n` +
+            `${ratesLine}\n` +
             `You have ${currencyEmoji} **${p.jjk.cursedEnergy}**.`,
           ephemeral: true,
         });
@@ -180,6 +190,7 @@ module.exports = async function handleSlash(interaction) {
         content:
           `✅ Exchanged ${currencyEmoji} **${cost}** → ${E_DRAKO} **${drakoWanted} Drako**.\n` +
           `Rate: **${rate} ${currencyEmoji} = 1 ${E_DRAKO}** (one-way)\n` +
+          `${ratesLine}\n` +
           `Now: ${currencyEmoji} **${p.jjk.cursedEnergy}** • ${E_DRAKO} **${p.drako}**\n` +
           `⚠️ Drako cannot be exchanged back.`,
         ephemeral: false,
@@ -196,13 +207,14 @@ module.exports = async function handleSlash(interaction) {
     const def = BOSSES[bossId];
     if (!def) return interaction.reply({ content: "❌ Unknown boss.", ephemeral: true });
 
-    if (!isAllowedSpawnChannel(def.event, channel.id)) {
-      const needed = def.event === "bleach" ? `<#${BLEACH_CHANNEL_ID}>` : `<#${JJK_CHANNEL_ID}>`;
-      return interaction.reply({ content: `❌ This boss can only be spawned in ${needed}.`, ephemeral: true });
+    const targetChannelId = def.event === "bleach" ? BLEACH_CHANNEL_ID : JJK_CHANNEL_ID;
+    const targetChannel = await interaction.guild.channels.fetch(targetChannelId).catch(() => null);
+    if (!targetChannel?.isTextBased()) {
+      return interaction.reply({ content: "❌ Target event channel not found.", ephemeral: true });
     }
 
-    await interaction.reply({ content: `✅ Spawned **${def.name}**.`, ephemeral: true });
-    await spawnBoss(channel, bossId, true);
+    await interaction.reply({ content: `✅ Spawned **${def.name}** in <#${targetChannelId}>.`, ephemeral: true });
+    await spawnBoss(targetChannel, bossId, true);
     return;
   }
 
@@ -214,13 +226,14 @@ module.exports = async function handleSlash(interaction) {
     const eventKey = interaction.options.getString("event", true);
     if (!MOBS[eventKey]) return interaction.reply({ content: "❌ Unknown event.", ephemeral: true });
 
-    if (!isAllowedSpawnChannel(eventKey, channel.id)) {
-      const needed = eventKey === "bleach" ? `<#${BLEACH_CHANNEL_ID}>` : `<#${JJK_CHANNEL_ID}>`;
-      return interaction.reply({ content: `❌ This mob can only be spawned in ${needed}.`, ephemeral: true });
+    const targetChannelId = eventKey === "bleach" ? BLEACH_CHANNEL_ID : JJK_CHANNEL_ID;
+    const targetChannel = await interaction.guild.channels.fetch(targetChannelId).catch(() => null);
+    if (!targetChannel?.isTextBased()) {
+      return interaction.reply({ content: "❌ Target event channel not found.", ephemeral: true });
     }
 
-    await interaction.reply({ content: `✅ Mob spawned (${eventKey}).`, ephemeral: true });
-    await spawnMob(channel, eventKey, { bleachChannelId: BLEACH_CHANNEL_ID, jjkChannelId: JJK_CHANNEL_ID, withPing: true });
+    await interaction.reply({ content: `✅ Mob spawned in <#${targetChannelId}>.`, ephemeral: true });
+    await spawnMob(targetChannel, eventKey, { bleachChannelId: BLEACH_CHANNEL_ID, jjkChannelId: JJK_CHANNEL_ID, withPing: true });
     return;
   }
 
