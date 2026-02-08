@@ -1,86 +1,61 @@
 // src/config.js
 
-/* ================= CHANNELS ================= */
-
+/* ===================== CHANNEL LOCKS ===================== */
+// ✅ BLEACH spawns only here
 const BLEACH_CHANNEL_ID = "1469757595031179314";
+// ✅ JJK spawns only here
 const JJK_CHANNEL_ID = "1469757629390651686";
 
-
-/* ================= ROLES ================= */
-
-const EVENT_ROLE_IDS = [
-  "1259865441405501571",
-  "1287879457025163325",
-];
-
+/* ===================== ROLES / PERMS ===================== */
+const EVENT_ROLE_IDS = ["1259865441405501571", "1287879457025163325"];
 const PING_BOSS_ROLE_ID = "1467575062826586205";
 const PING_HOLLOW_ROLE_ID = "1467575020275368131";
 const BOOSTER_ROLE_ID = "1267266564961341501";
 
-
-/* ================= UI ================= */
-
+/* ===================== THEME / EMOJIS ===================== */
 const COLOR = 0x7b2cff;
 
-
-/* ================= EVENT LOGOS ================= */
-
-const E_BLEACH = "<:bleach:1470018874408964119>";
-const E_JJK = "<:jjk:1470018845245968434>";
-
-
-/* ================= ICONS ================= */
-
-const E_VASTO = "👁️";
-const E_ULQ = "🦇";
-const E_GRIMJOW = "🐆";
-
-const E_REIATSU = "💠";
-const E_CE = "🔮";
-const E_DRAKO = "🪙";
+// Boss icons
+const E_VASTO = "<:event:1469832084418727979>";
+const E_ULQ = "<:event:1469831975446511648>";
+const E_GRIMJOW = "<:event:1469831949857325097>"; // can be unused, boss has its own icon if you want
+const E_REIATSU = "<:event:1469821285079978045>";
+const E_CE = "<:event:1469821211872727040>";
+const E_DRAKO = "<:event:1469812070542217389>";
 
 const E_MEMBERS = "👥";
 
+// ✅ NEW: event logo emojis (what you requested)
+const E_BLEACH = "<:event:1470018874408964119>";
+const E_JJK = "<:event:1470018845245968434>";
 
-/* ================= ECONOMY ================= */
-
+/* ===================== ECONOMY RATES ===================== */
 const DRAKO_RATE_BLEACH = 47;
 const DRAKO_RATE_JJK = 19;
+// ❌ NO REVERSE exchange anywhere
 
-
-/* ================= GAME ================= */
-
+/* ===================== COMMON GAME CONFIG ===================== */
 const ROUND_COOLDOWN_MS = 10 * 1000;
 const MAX_HITS = 2;
 
-
-/* ================= DAILY ================= */
-
+/* ===================== DAILY (BLEACH ONLY) ===================== */
 const DAILY_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const DAILY_NORMAL = 100;
 const DAILY_BOOSTER = 200;
 
-
-/* ================= DROPS ================= */
-
-const VASTO_DROP_ROLE_ID = "1467426528584405103";
-const ULQ_DROP_ROLE_ID = "1469573731301986367";
-const GRIMMJOW_ROLE_ID = "1469831066628919439";
+/* ===================== DROPS / ROLES ===================== */
+const VASTO_DROP_ROLE_ID = "1467426528584405103"; // 2.5%
+const ULQ_DROP_ROLE_ID = "1469573731301986367";   // 3%
 
 const DROP_ROBUX_CHANCE_REAL_BASE = 0.005;
-const DROP_ROBUX_CHANCE_CAP = 0.01;
 const DROP_ROBUX_CHANCE_DISPLAY = 0.025;
+const DROP_ROBUX_CHANCE_CAP = 0.01;
+const ROBUX_CLAIM_TEXT = "To claim: contact **daez063**.";
 
-const ROBUX_CLAIM_TEXT = "Contact **daez063** to claim.";
-
-
-/* ================= SHOP ================= */
-
+// Bleach shop cosmetic role
 const SHOP_COSMETIC_ROLE_ID = "1467438527200497768";
 
-
-/* ================= MOBS ================= */
-
+/* ===================== MOB CONFIG ===================== */
 const BLEACH_MOB_MS = 2 * 60 * 1000;
 const BLEACH_MOB_HIT = 25;
 const BLEACH_MOB_MISS = 10;
@@ -93,11 +68,7 @@ const JJK_MOB_MISS = 9;
 const JJK_BONUS_PER_KILL = 1;
 const JJK_BONUS_MAX = 30;
 
-
-/* ================= EXPORT ================= */
-
 module.exports = {
-
   BLEACH_CHANNEL_ID,
   JJK_CHANNEL_ID,
 
@@ -108,18 +79,15 @@ module.exports = {
 
   COLOR,
 
-  E_BLEACH,
-  E_JJK,
-
   E_VASTO,
   E_ULQ,
   E_GRIMJOW,
-
   E_REIATSU,
   E_CE,
   E_DRAKO,
-
   E_MEMBERS,
+  E_BLEACH,
+  E_JJK,
 
   DRAKO_RATE_BLEACH,
   DRAKO_RATE_JJK,
@@ -133,12 +101,10 @@ module.exports = {
 
   VASTO_DROP_ROLE_ID,
   ULQ_DROP_ROLE_ID,
-  GRIMMJOW_ROLE_ID,
 
   DROP_ROBUX_CHANCE_REAL_BASE,
   DROP_ROBUX_CHANCE_DISPLAY,
   DROP_ROBUX_CHANCE_CAP,
-
   ROBUX_CLAIM_TEXT,
 
   SHOP_COSMETIC_ROLE_ID,
