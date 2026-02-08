@@ -13,7 +13,6 @@ function isAllowedSpawnChannel(eventKey, channelId, bleachId, jjkId) {
   return false;
 }
 
-// small helper duplicated from embeds logic
 function calcJjkCEMultiplier(items) {
   let mult = 1.0;
   if (items.black_flash_manual) mult *= 1.20;
@@ -78,7 +77,7 @@ async function spawnMob(channel, eventKey, opts) {
           const add = Math.floor(mob.hitReward * mult);
           player.jjk.cursedEnergy += add;
           player.jjk.survivalBonus = Math.min(mob.bonusMax, player.jjk.survivalBonus + mob.bonusPerKill);
-          lines.push(`⚔️ **${name}** exorcised it! +${mob.currencyEmoji} ${add} • bonus +${mob.bonusPerKill}%`);
+          lines.push(`🪬 **${name}** exorcised it! +${mob.currencyEmoji} ${add} • bonus +${mob.bonusPerKill}%`);
         }
       } else {
         if (eventKey === "bleach") {
@@ -100,7 +99,11 @@ async function spawnMob(channel, eventKey, opts) {
     if (!still.attackers.size) {
       await channel.send("💨 It disappeared… nobody attacked.").catch(() => {});
     } else {
-      await channel.send(anyHit ? "✅ **Mob defeated!**" : "❌ It escaped…").catch(() => {});
+      if (eventKey === "jjk") {
+        await channel.send(anyHit ? "✅ **Spirit exorcised!**" : "❌ It escaped…").catch(() => {});
+      } else {
+        await channel.send(anyHit ? "✅ **Mob defeated!**" : "❌ It escaped…").catch(() => {});
+      }
       await channel.send(lines.join("\n").slice(0, 1900)).catch(() => {});
     }
 
