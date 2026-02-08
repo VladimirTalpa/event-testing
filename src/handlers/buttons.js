@@ -1,9 +1,9 @@
 // src/handlers/buttons.js
-const { bossByChannel, mobByChannel } = require("../core/state");
+const { bossByChannel, mobByChannel, pvpById } = require("../core/state");
 const { getPlayer, setPlayer } = require("../core/players");
 const { safeName } = require("../core/utils");
-const { mobEmbed, shopEmbed } = require("../ui/embeds");
-const { CID, mobButtons, shopButtons } = require("../ui/components");
+const { mobEmbed, shopEmbed, wardrobeEmbed } = require("../ui/embeds");
+const { CID, mobButtons, shopButtons, pvpButtons } = require("../ui/components");
 const { MOBS } = require("../data/mobs");
 const { BLEACH_SHOP_ITEMS, JJK_SHOP_ITEMS } = require("../data/shop");
 
@@ -37,7 +37,7 @@ module.exports = async function handleButtons(interaction) {
 
   const cid = interaction.customId;
 
-  // Boss join
+  /* ===================== Boss join ===================== */
   if (cid === CID.BOSS_JOIN) {
     const boss = bossByChannel.get(channel.id);
     if (!boss || !boss.joining) {
@@ -53,6 +53,7 @@ module.exports = async function handleButtons(interaction) {
 
     boss.participants.set(uid, { hits: 0, displayName: interaction.member?.displayName || interaction.user.username });
 
+    // update spawn message
     const fighters = [...boss.participants.values()];
     const fightersText = fighters.length
       ? fighters.map((p) => safeName(p.displayName)).join(", ").slice(0, 1000)
@@ -72,30 +73,32 @@ module.exports = async function handleButtons(interaction) {
     return;
   }
 
-  // Boss rules
+  /* ===================== Boss rules ===================== */
   if (cid === CID.BOSS_RULES) {
     const boss = bossByChannel.get(channel.id);
     const def = boss?.def;
 
+    const maxHits = def?.maxHits ?? 2;
+
     const txt = def
       ? `**${def.name}** • Difficulty: **${def.difficulty}** • Rounds: **${def.rounds.length}**\n` +
-        `Win: **${def.winReward}**\n` +
+        `Win: **${def.winRewardRange ? `${def.winRewardRange.min}-${def.winRewardRange.max}` : def.winReward}**\n` +
         `Success per round: **+${def.hitReward}** (banked, paid only on victory)\n` +
-        `2 hits = eliminated`
-      : `2 hits = eliminated.`;
+        `${maxHits} hits = eliminated`
+      : `${maxHits} hits = eliminated.`;
 
     await interaction.followUp({ content: txt, ephemeral: true }).catch(() => {});
     return;
   }
 
-  // Boss action buttons
+  /* ===================== Boss action buttons ===================== */
   if (cid.startsWith("boss_action:")) {
     const parts = cid.split(":");
     // boss_action:<bossId>:<roundIndex>:<token>:<kind>:<payload?>
     const bossId = parts[1];
     const roundIndex = Number(parts[2]);
     const token = parts[3];
-    const kind = parts[4]; // "press" or "combo"
+    const kind = parts[4];
     const payload = parts[5];
 
     const boss = bossByChannel.get(channel.id);
@@ -110,22 +113,14 @@ module.exports = async function handleButtons(interaction) {
 
     const uid = interaction.user.id;
     const st = boss.participants.get(uid);
-    if (!st || st.hits >= 2) {
+    const maxHits = boss.def.maxHits ?? 2;
+    if (!st || st.hits >= maxHits) {
       await interaction.followUp({ content: "❌ You are not in the fight.", ephemeral: true }).catch(() => {});
       return;
     }
 
+    // Existing press / combo
     if (kind === "press") {
-      // ✅ NEW: multi_press mode support
-      if (boss.activeAction.mode === "multi_press") {
-        const map = boss.activeAction.pressCount;
-        const prev = map.get(uid) || 0;
-        map.set(uid, prev + 1);
-        await interaction.followUp({ content: `✅ Block registered! (${prev + 1})`, ephemeral: true }).catch(() => {});
-        return;
-      }
-
-      // normal press mode
       if (boss.activeAction.pressed.has(uid)) {
         await interaction.followUp({ content: "✅ Already pressed.", ephemeral: true }).catch(() => {});
         return;
@@ -157,16 +152,61 @@ module.exports = async function handleButtons(interaction) {
       const next = prog + 1;
       boss.activeAction.comboProgress.set(uid, next);
 
-      if (next >= 4) {
-        await interaction.followUp({ content: "✅ Combo completed!", ephemeral: true }).catch(() => {});
-      } else {
-        await interaction.followUp({ content: `✅ Good! (${next}/4)`, ephemeral: true }).catch(() => {});
+      if (next >= 4) await interaction.followUp({ content: "✅ Combo completed!", ephemeral: true }).catch(() => {});
+      else await interaction.followUp({ content: `✅ Good! (${next}/4)`, ephemeral: true }).catch(() => {});
+      return;
+    }
+
+    // NEW: multi_press
+    if (kind === "multi") {
+      if (boss.activeAction.mode !== "multi_press") {
+        await interaction.followUp({ content: "❌ Not a multi-press phase.", ephemeral: true }).catch(() => {});
+        return;
       }
+      const map = boss.activeAction.counts;
+      const prev = map.get(uid) || 0;
+      map.set(uid, prev + 1);
+      await interaction.followUp({ content: `✅ Blocked (${prev + 1})`, ephemeral: true }).catch(() => {});
+      return;
+    }
+
+    // NEW: choice_qte
+    if (kind === "choice") {
+      if (boss.activeAction.mode !== "choice") {
+        await interaction.followUp({ content: "❌ Not a choice phase.", ephemeral: true }).catch(() => {});
+        return;
+      }
+      boss.activeAction.choice.set(uid, payload);
+      await interaction.followUp({ content: "✅ Chosen.", ephemeral: true }).catch(() => {});
+      return;
+    }
+
+    // NEW: tri_press
+    if (kind === "tri") {
+      if (boss.activeAction.mode !== "tri_press") {
+        await interaction.followUp({ content: "❌ Not a focus phase.", ephemeral: true }).catch(() => {});
+        return;
+      }
+      const set = boss.activeAction.pressed.get(uid) || new Set();
+      set.add(payload);
+      boss.activeAction.pressed.set(uid, set);
+      await interaction.followUp({ content: `✅ (${set.size}/3)`, ephemeral: true }).catch(() => {});
+      return;
+    }
+
+    // NEW: quiz
+    if (kind === "quiz") {
+      if (boss.activeAction.mode !== "quiz") {
+        await interaction.followUp({ content: "❌ Not a quiz phase.", ephemeral: true }).catch(() => {});
+        return;
+      }
+      boss.activeAction.choice.set(uid, payload);
+      await interaction.followUp({ content: "✅ Answer locked.", ephemeral: true }).catch(() => {});
       return;
     }
   }
 
-  // Mob attack
+  /* ===================== Mob attack ===================== */
   if (cid.startsWith(`${CID.MOB_ATTACK}:`)) {
     const eventKey = cid.split(":")[1];
     const state = mobByChannel.get(channel.id);
@@ -193,11 +233,94 @@ module.exports = async function handleButtons(interaction) {
       }).catch(() => {});
     }
 
-    await interaction.followUp({ content: eventKey === "bleach" ? "⚔️ Attack registered!" : "🪬 Exorcise registered!", ephemeral: true }).catch(() => {});
+    await interaction.followUp({ content: "⚔️ Action registered!", ephemeral: true }).catch(() => {});
     return;
   }
 
-  // Shop buys (без изменений, оставляю как у тебя)
+  /* ===================== PvP Clash ===================== */
+  if (cid.startsWith(`${CID.PVP_ACCEPT}:`) || cid.startsWith(`${CID.PVP_DECLINE}:`)) {
+    const isAccept = cid.startsWith(`${CID.PVP_ACCEPT}:`);
+    const [, currency, amountStr, challengerId, targetId] = cid.split(":");
+    const amount = Number(amountStr);
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      await interaction.followUp({ content: "❌ Invalid amount.", ephemeral: true }).catch(() => {});
+      return;
+    }
+
+    // Only target can accept/decline
+    if (interaction.user.id !== targetId) {
+      await interaction.followUp({ content: "❌ This is not your duel request.", ephemeral: true }).catch(() => {});
+      return;
+    }
+
+    const key = `${channel.id}:${challengerId}:${targetId}`;
+    const req = pvpById.get(key);
+    if (!req || req.done) {
+      await interaction.followUp({ content: "⌛ This request expired.", ephemeral: true }).catch(() => {});
+      return;
+    }
+
+    req.done = true;
+    pvpById.set(key, req);
+
+    if (!isAccept) {
+      await interaction.message?.edit({ components: pvpButtons(currency, amount, challengerId, targetId, true) }).catch(() => {});
+      await interaction.followUp({ content: "❌ Duel declined.", ephemeral: false }).catch(() => {});
+      return;
+    }
+
+    // Accept: do transfer
+    const p1 = await getPlayer(challengerId);
+    const p2 = await getPlayer(targetId);
+
+    function getBal(p, cur) {
+      if (cur === "reiatsu") return p.bleach.reiatsu;
+      if (cur === "cursed_energy") return p.jjk.cursedEnergy;
+      if (cur === "drako") return p.drako;
+      return 0;
+    }
+    function setBal(p, cur, v) {
+      if (cur === "reiatsu") p.bleach.reiatsu = v;
+      if (cur === "cursed_energy") p.jjk.cursedEnergy = v;
+      if (cur === "drako") p.drako = v;
+    }
+
+    const b1 = getBal(p1, currency);
+    const b2 = getBal(p2, currency);
+
+    if (b1 < amount) {
+      await interaction.followUp({ content: `❌ Challenger lacks funds.`, ephemeral: false }).catch(() => {});
+      return;
+    }
+    if (b2 < amount) {
+      await interaction.followUp({ content: `❌ You lack funds.`, ephemeral: false }).catch(() => {});
+      return;
+    }
+
+    // 50/50 outcome (simple for now)
+    const winnerIsChallenger = Math.random() < 0.5;
+    const winnerId = winnerIsChallenger ? challengerId : targetId;
+    const loserId = winnerIsChallenger ? targetId : challengerId;
+
+    const winner = winnerIsChallenger ? p1 : p2;
+    const loser = winnerIsChallenger ? p2 : p1;
+
+    setBal(loser, currency, getBal(loser, currency) - amount);
+    setBal(winner, currency, getBal(winner, currency) + amount);
+
+    await setPlayer(challengerId, p1);
+    await setPlayer(targetId, p2);
+
+    await interaction.message?.edit({ components: pvpButtons(currency, amount, challengerId, targetId, true) }).catch(() => {});
+    await interaction.followUp({
+      content: `⚔️ **PvP Clash!** Winner: <@${winnerId}> • Loser: <@${loserId}> • Stake: **${amount} ${currency}**`,
+      ephemeral: false,
+    }).catch(() => {});
+    return;
+  }
+
+  /* ===================== Shop buys ===================== */
   if (cid.startsWith("buy_")) {
     const p = await getPlayer(interaction.user.id);
 
