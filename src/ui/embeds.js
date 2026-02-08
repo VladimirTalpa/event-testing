@@ -96,10 +96,9 @@ function bossRoundEmbed(def, roundIndex, aliveCount) {
 }
 
 function bossVictoryEmbed(def, survivorsCount) {
-  const isJjk = def.event === "jjk";
   return new EmbedBuilder()
     .setColor(0x2ecc71)
-    .setTitle(isJjk ? `✅ ${def.name} Exorcised!` : `✅ ${def.name} Defeated!`)
+    .setTitle(`✅ ${def.name} Defeated!`)
     .setDescription("Rewards granted to survivors.")
     .addFields(
       { name: `${E_MEMBERS} Survivors`, value: `\`${survivorsCount}\``, inline: true },
@@ -109,21 +108,15 @@ function bossVictoryEmbed(def, survivorsCount) {
 }
 
 function bossDefeatEmbed(def) {
-  const isJjk = def.event === "jjk";
   return new EmbedBuilder()
     .setColor(0xe74c3c)
     .setTitle(`❌ Defeat`)
-    .setDescription(isJjk ? `Everyone lost. **${def.name}** wins.` : `Everyone lost. **${def.name}** wins.`)
+    .setDescription(`Everyone lost. **${def.name}** wins.`)
     .setImage(def.defeatMedia);
 }
 
 function mobEmbed(eventKey, joinedCount, mob) {
   const eventTag = eventKey === "bleach" ? `${E_BLEACH} BLEACH` : `${E_JJK} JJK`;
-
-  const actionLine =
-    eventKey === "bleach"
-      ? `Press the button to attack it.`
-      : `Press the button to **exorcise** it.`;
 
   return new EmbedBuilder()
     .setColor(COLOR)
@@ -134,8 +127,6 @@ function mobEmbed(eventKey, joinedCount, mob) {
         `🎲 **Hit chance:** 50%`,
         `${mob.currencyEmoji} **Hit:** ${mob.hitReward} • **Miss:** ${mob.missReward}`,
         `If you hit: +${mob.bonusPerKill}% boss bonus (max ${mob.bonusMax}%).`,
-        "",
-        actionLine,
       ].join("\n")
     )
     .addFields({ name: `${E_MEMBERS} Participants`, value: `\`${joinedCount}\``, inline: true })
@@ -176,8 +167,7 @@ function inventoryEmbed(eventKey, player, bonusMaxBleach = 30, bonusMaxJjk = 30)
   const inv = player.jjk.items;
   const itemBonus = calcJjkSurvivalBonus(inv);
   const mult = calcJjkCEMultiplier(inv);
-
-  const shards = player.jjk?.materials?.cursed_shard || 0;
+  const shards = player.jjk?.materials?.cursed_shard ?? 0;
 
   return new EmbedBuilder()
     .setColor(COLOR)
@@ -256,11 +246,7 @@ function wardrobeEmbed(guild, player) {
   return new EmbedBuilder()
     .setColor(COLOR)
     .setTitle("🧥 Wardrobe")
-    .setDescription(
-      "Saved roles never disappear.\n" +
-      "Select a role to **equip/unequip**.\n\n" +
-      lines
-    );
+    .setDescription("Saved roles never disappear.\nSelect a role to **equip/unequip**.\n\n" + lines);
 }
 
 module.exports = {
