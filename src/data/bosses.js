@@ -2,7 +2,6 @@
 const {
   E_VASTO,
   E_ULQ,
-  E_GRIMJOW,
   E_JJK,
   VASTO_DROP_ROLE_ID,
   ULQ_DROP_ROLE_ID,
@@ -10,8 +9,8 @@ const {
 
 const media = require("./media");
 
-// Grimmjow role ID you gave:
-const GRIMMJOW_DROP_ROLE_ID = "1469831066628919439";
+// ✅ Grimmjow role id you gave
+const GRIMMJOW_ROLE_ID = "1469831066628919439";
 
 const BOSSES = {
   vasto: {
@@ -120,7 +119,8 @@ const BOSSES = {
           "Ulquiorra attacks again — Combo Defense!\n" +
           "Press the buttons in the **correct order** within **15 seconds**.\n" +
           "Mistake or timeout = a hit.",
-        windowMs: 15000, // ✅ your requested change (was 5s)
+        // ✅ CHANGED TO 15s (you requested)
+        windowMs: 15000,
         media: media.ULQ_R2,
       },
       {
@@ -164,55 +164,55 @@ const BOSSES = {
     ],
   },
 
-  /* ===================== NEW BLEACH BOSS: GRIMMJOW ===================== */
+  // ✅ NEW: Grimmjow (Bleach)
   grimmjow: {
     event: "bleach",
     id: "grimmjow",
     name: "Grimmjow",
-    icon: E_GRIMJOW,
+    icon: "🐆",
     difficulty: "Medium",
     joinMs: 2 * 60 * 1000,
-    baseChance: 0.50,      // ✅ your requested: 50%
-    winReward: 125,        // ✅ your requested
-    hitReward: 15,         // ✅ your requested
-    roleDropChance: 0.03,  // (reasonable default, if you want another % tell me)
-    roleDropId: GRIMMJOW_DROP_ROLE_ID,
+    baseChance: 0.50,
+    winReward: 125,
+    hitReward: 15,
 
-    spawnMedia: media.GRIMMJOW_SPAWN_MEDIA,
-    victoryMedia: media.GRIMMJOW_VICTORY_MEDIA,
-    defeatMedia: media.GRIMMJOW_DEFEAT_MEDIA,
+    // you said: "и роль его роль ... id"
+    // chance not provided -> set same as Vasto (2.5%)
+    roleDropChance: 0.025,
+    roleDropId: GRIMMJOW_ROLE_ID,
+
+    spawnMedia: media.GRIM_SPAWN_MEDIA,
+    victoryMedia: media.GRIM_VICTORY_MEDIA,
+    defeatMedia: media.GRIM_DEFEAT_MEDIA,
 
     rounds: [
       {
-        type: "coop_block",
-        title: "Round 1 — Barrage Assault",
+        type: "combo_defense",
+        title: "Round 1 — Relentless Assault",
         intro:
-          "Grimmjow rushes you with a chain of brutal attacks.\n" +
-          "**3 players** must press **Block** within **15 seconds**.\n" +
-          "Fail = everyone takes a hit.",
+          "Grimmjow rushes you with a storm of attacks.\n" +
+          "Press the buttons in the **correct order** within **15 seconds**.\n" +
+          "Mistake or timeout = a hit.",
         windowMs: 15000,
-        requiredPresses: 3,
-        buttonLabel: "Block",
-        buttonEmoji: "🛡️",
-        media: media.GRIMMJOW_R1,
+        media: media.GRIM_R1,
       },
       {
         type: "coop_block",
         title: "Round 2 — Heavy Strike",
         intro:
-          "Grimmjow releases a powerful attack.\n" +
+          "Grimmjow unleashes a powerful attack.\n" +
           "**3 players** must press **Block** within **10 seconds**.\n" +
           "Fail = everyone takes a hit.",
         windowMs: 10000,
         requiredPresses: 3,
         buttonLabel: "Block",
         buttonEmoji: "🛡️",
-        media: media.GRIMMJOW_R2,
+        media: media.GRIM_R2,
       },
     ],
   },
 
-  /* ===================== UPDATED JJK BOSS: SPECIAL GRADE ===================== */
+  // ✅ NEW JJK Special Grade (replaces old placeholder logic)
   specialgrade: {
     event: "jjk",
     id: "specialgrade",
@@ -220,14 +220,20 @@ const BOSSES = {
     icon: E_JJK,
     difficulty: "Medium",
     joinMs: 2 * 60 * 1000,
-    baseChance: 0.50,   // ✅ your requested: 50%
-    winReward: 85,      // ✅ your requested
-    hitReward: 5,       // ✅ your requested (banked)
+    baseChance: 0.50,
+
+    // you requested:
+    // winReward = 85 CE
+    // hitReward = 5 CE banked per success
+    winReward: 85,
+    hitReward: 5,
+
+    // no role drop mentioned for JJK boss
     roleDropChance: 0.0,
     roleDropId: null,
 
-    // We will use this later in boss.js to grant materials:
-    materialReward: { key: "cursed_shard", amount: 1, name: "Cursed Shard" },
+    // ✅ NEW material reward for crafting later
+    materialReward: { key: "cursed_shard", name: "Cursed Shard", amount: 1 },
 
     spawnMedia: media.JJK_BOSS_SPAWN_MEDIA,
     victoryMedia: media.JJK_BOSS_VICTORY_MEDIA,
@@ -237,16 +243,16 @@ const BOSSES = {
       {
         type: "pressure",
         title: "Round 1 — Bloodlust",
-        intro: "The cursed spirit is thrilled and craves a fight with you.",
+        intro: "The curse is thrilled and craves battle. Endure its presence.",
         media: media.JJK_BOSS_R1,
       },
       {
         type: "quick_block",
         title: "Round 2 — Sudden Attack",
         intro:
-          "The cursed spirit unleashes a heavy attack!\n" +
-          "Press **Block** within **5 seconds**.\n" +
-          "Too late = a hit.",
+          "The curse fires a devastating strike!\n" +
+          "You have **5 seconds** to press **Block**.\n" +
+          "Too late = you take a hit.",
         windowMs: 5000,
         buttonLabel: "Block",
         buttonEmoji: "🛡️",
@@ -256,9 +262,9 @@ const BOSSES = {
         type: "finisher",
         title: "Round 3 — Exorcise",
         intro:
-          "The cursed spirit is trapped!\n" +
-          "Press **Exorcise** to finish it.",
-        windowMs: 8000,
+          "The curse is trapped — this is your chance!\n" +
+          "Press **Exorcise** in time to finish it.",
+        windowMs: 5000,
         buttonLabel: "Exorcise",
         buttonEmoji: "🪬",
         media: media.JJK_BOSS_R3,
