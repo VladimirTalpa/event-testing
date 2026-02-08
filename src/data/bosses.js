@@ -1,216 +1,182 @@
-const {
-  E_VASTO,
-  E_REIATSU,
-  BOSS_JOIN_MS,
-  BOSS_ROUNDS,
-  ROUND_COOLDOWN_MS,
-  BASE_SURVIVE_CHANCE,
-  BOSS_REIATSU_REWARD,
-  BOSS_SURVIVE_HIT_REIATSU,
-  DROP_ROLE_CHANCE_BASE,
-  DROP_ROLE_CHANCE_CAP,
-  DROP_ROBUX_CHANCE_REAL_BASE,
-  DROP_ROBUX_CHANCE_DISPLAY,
-  DROP_ROBUX_CHANCE_CAP,
-  ROBUX_CLAIM_TEXT,
-  BONUS_MAX,
-} = require("../config");
+// src/data/bosses.js
+const { E_VASTO, E_ULQ, E_BLEACH, E_JJK, VASTO_DROP_ROLE_ID, ULQ_DROP_ROLE_ID } = require("../config");
+const media = require("./media");
 
-const { bossSpawnEmbed, bossStateEmbed, bossVictoryEmbed, bossDefeatEmbed } = require("../embeds");
-const { bossButtons } = require("../components");
-const { PermissionsBitField } = require("discord.js");
+const BOSSES = {
+  vasto: {
+    event: "bleach",
+    id: "vasto",
+    name: "Vasto Lorde",
+    icon: E_VASTO,
+    difficulty: "Hard",
+    joinMs: 2 * 60 * 1000,
+    baseChance: 0.30,
+    winReward: 200,
+    hitReward: 15,
+    roleDropChance: 0.025,
+    roleDropId: VASTO_DROP_ROLE_ID,
 
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-function safeName(name) { return String(name || "Unknown").replace(/@/g, "").replace(/#/g, "＃"); }
-function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
+    spawnMedia: media.VASTO_SPAWN_MEDIA,
+    victoryMedia: media.VASTO_VICTORY_MEDIA,
+    defeatMedia: media.VASTO_DEFEAT_MEDIA,
 
-function calcItemSurvivalBonus(items) {
-  let bonus = 0;
-  if (items.zanpakuto_basic) bonus += 4;
-  if (items.hollow_mask_fragment) bonus += 7;
-  if (items.soul_reaper_cloak) bonus += 9;
-  if (items.reiatsu_amplifier) bonus += 2;
-  return bonus;
-}
-function calcReiatsuMultiplier(items) {
-  return items.reiatsu_amplifier ? 1.25 : 1.0;
-}
-function calcDropLuckMultiplier(items) {
-  let mult = 1.0;
-  if (items.zanpakuto_basic) mult += 0.05;
-  if (items.hollow_mask_fragment) mult += 0.10;
-  if (items.soul_reaper_cloak) mult += 0.06;
-  return mult;
-}
+    rounds: [
+      {
+        type: "pressure",
+        title: "Round 1 — Reiatsu Wave",
+        intro:
+          "Vasto Lorde releases a massive wave of Reiatsu.\n" +
+          "Withstand it to bank Reiatsu. Fail and you take a hit (1/2).",
+        media: media.VASTO_R1,
+      },
+      {
+        type: "pressure",
+        title: "Round 2 — Frenzy Pressure",
+        intro:
+          "Vasto Lorde enters a frenzy — the pressure intensifies.\n" +
+          "Withstand it to bank Reiatsu. Fail and you take a hit.",
+        media: media.VASTO_R2,
+      },
+      {
+        type: "coop_block",
+        title: "Round 3 — Cooperative Block",
+        intro:
+          "Vasto Lorde is charging a devastating attack.\n" +
+          "To survive, **4 players** must press **Block** within **5 seconds**.",
+        windowMs: 5000,
+        requiredPresses: 4,
+        buttonLabel: "Block",
+        buttonEmoji: "🛡️",
+        media: media.VASTO_R3,
+      },
+      {
+        type: "attack",
+        title: "Round 4 — Counterattack",
+        intro:
+          "Vasto Lorde is weakened — counterattack!\n" +
+          "Success banks Reiatsu. Failure = a hit.",
+        media: media.VASTO_R4,
+      },
+      {
+        type: "finisher",
+        title: "Round 5 — Finisher",
+        intro:
+          "Vasto Lorde has taken heavy damage — finish it!\n" +
+          "Press **Finisher** within **10 seconds**.\n" +
+          "If you do not press, you take a hit.",
+        windowMs: 10 * 1000,
+        buttonLabel: "Finisher",
+        buttonEmoji: "⚔️",
+        media: media.VASTO_R5,
+      },
+    ],
+  },
 
-function computeBossSurviveChance(player) {
-  const itemBonus = calcItemSurvivalBonus(player.items);
-  const perm = clamp(player.survivalBonus, 0, BONUS_MAX);
-  return Math.min(0.95, BASE_SURVIVE_CHANCE + (itemBonus + perm) / 100);
-}
+  ulquiorra: {
+    event: "bleach",
+    id: "ulquiorra",
+    name: "Ulquiorra",
+    icon: E_ULQ,
+    difficulty: "Extreme",
+    joinMs: 3 * 60 * 1000,
+    baseChance: 0.20,
+    winReward: 500,
+    hitReward: 25,
+    roleDropChance: 0.03,
+    roleDropId: ULQ_DROP_ROLE_ID,
 
-async function editMessageSafe(channel, messageId, payload) {
-  const msg = await channel.messages.fetch(messageId).catch(() => null);
-  if (!msg) return null;
-  await msg.edit(payload).catch(() => {});
-  return msg;
-}
+    spawnMedia: media.ULQ_SPAWN_MEDIA,
+    victoryMedia: media.ULQ_VICTORY_MEDIA,
+    defeatMedia: media.ULQ_DEFEAT_MEDIA,
 
-async function tryGiveRole(guild, userId, roleId) {
-  try {
-    const botMember = await guild.members.fetchMe();
-    if (!botMember.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
-      return { ok: false, reason: "Bot has no Manage Roles permission." };
-    }
-    const role = guild.roles.cache.get(roleId);
-    if (!role) return { ok: false, reason: "Role not found." };
-    const botTop = botMember.roles.highest?.position ?? 0;
-    if (botTop <= role.position) return { ok: false, reason: "Bot role is below target role (hierarchy)." };
-    const member = await guild.members.fetch(userId);
-    await member.roles.add(roleId);
-    return { ok: true };
-  } catch {
-    return { ok: false, reason: "Discord rejected role add (permissions/hierarchy)." };
-  }
-}
+    rounds: [
+      {
+        type: "coop_block",
+        title: "Round 1 — Cooperative Block",
+        intro:
+          "Ulquiorra launches a powerful attack.\n" +
+          "To survive, **4 players** must press **Block** within **5 seconds**.",
+        windowMs: 5000,
+        requiredPresses: 4,
+        buttonLabel: "Block",
+        buttonEmoji: "🛡️",
+        media: media.ULQ_R1,
+      },
+      {
+        type: "combo_defense",
+        title: "Round 2 — Combo Defense (QTE)",
+        intro:
+          "Ulquiorra attacks again — Combo Defense!\n" +
+          "Press the buttons in the **correct order** within **5 seconds**.\n" +
+          "Mistake or timeout = a hit.",
+        windowMs: 5000,
+        media: media.ULQ_R2,
+      },
+      {
+        type: "pressure",
+        title: "Round 3 — Transformation Pressure",
+        intro:
+          "Ulquiorra transforms — Reiatsu pressure becomes insane.\n" +
+          "Withstand it to avoid a hit.",
+        media: media.ULQ_R3,
+      },
+      {
+        type: "pressure",
+        title: "Round 4 — Suffocating Pressure",
+        intro:
+          "The pressure intensifies even further.\n" +
+          "Withstand it to avoid a hit.",
+        media: media.ULQ_R4,
+      },
+      {
+        type: "quick_block",
+        title: "Round 5 — Quick Block (2s)",
+        intro:
+          "Ulquiorra prepares a lethal strike!\n" +
+          "You have **2 seconds** to press **Block**.\n" +
+          "Block in time to survive and counterattack (banked reward).",
+        windowMs: 2000,
+        buttonLabel: "Block",
+        buttonEmoji: "🛡️",
+        media: media.ULQ_R5,
+      },
+      {
+        type: "group_final",
+        title: "Round 6 — Final Push",
+        intro:
+          "Ulquiorra is weakened — your final attack can decide everything.\n" +
+          "**At least 3 players** must succeed the roll.\n" +
+          "If fewer than 3 succeed — **everyone loses**.",
+        requiredWins: 3,
+        media: media.ULQ_R6,
+      },
+    ],
+  },
 
-async function updateBossSpawnMessage(channel, boss) {
-  const fighters = [...boss.participants.values()];
-  const fightersText = fighters.length
-    ? fighters.map((p) => safeName(p.displayName)).join(", ").slice(0, 1000)
-    : "`No fighters yet`";
+  specialgrade: {
+    event: "jjk",
+    id: "specialgrade",
+    name: "Special Grade Curse",
+    icon: E_JJK,
+    difficulty: "Deadly",
+    joinMs: 2 * 60 * 1000,
+    baseChance: 0.30,
+    winReward: 200,
+    hitReward: 15,
+    roleDropChance: 0.0,
+    roleDropId: null,
 
-  await editMessageSafe(channel, boss.messageId, {
-    embeds: [bossSpawnEmbed(boss.cfg, channel.name, fighters.length, fightersText)],
-    components: bossButtons(!boss.joining),
-  });
-}
+    spawnMedia: media.JJK_BOSS_SPAWN_MEDIA,
+    victoryMedia: media.JJK_BOSS_VICTORY_MEDIA,
+    defeatMedia: media.JJK_BOSS_DEFEAT_MEDIA,
 
-async function runBoss(channel, boss, players) {
-  const roundBonusMap = new Map();
+    rounds: [
+      { type: "pressure", title: "Round 1 — Cursed Pressure", intro: "Overwhelming cursed pressure floods the area.", media: media.JJK_BOSS_R1 },
+      { type: "pressure", title: "Round 2 — Malice Surge", intro: "The aura turns violent. Resist it.", media: media.JJK_BOSS_R2 },
+      { type: "attack", title: "Round 3 — Opening", intro: "A gap appears. Strike the core.", media: media.JJK_BOSS_R3 },
+      { type: "finisher", title: "Round 4 — Exorcism Window", intro: "Finish it! Press **Exorcise** in time.", windowMs: 5000, buttonLabel: "Exorcise", buttonEmoji: "🪬", media: media.JJK_BOSS_R4 },
+    ],
+  },
+};
 
-  try {
-    boss.joining = false;
-    await updateBossSpawnMessage(channel, boss);
-
-    let alive = [...boss.participants.keys()];
-    if (!alive.length) {
-      await channel.send(`${E_VASTO} No one joined. ${boss.cfg.name} vanished.`).catch(() => {});
-      return;
-    }
-
-    for (let round = 1; round <= BOSS_ROUNDS; round++) {
-      if (!alive.length) break;
-
-      await channel.send(`${E_VASTO} **Round ${round}/${BOSS_ROUNDS}** begins!`).catch(() => {});
-      const nextAlive = [];
-
-      for (const uid of alive) {
-        const state = boss.participants.get(uid);
-        const player = await players.get(uid);
-
-        const survived = Math.random() < computeBossSurviveChance(player);
-        const name = safeName(state.displayName);
-
-        if (!survived) {
-          state.hits++;
-          await channel.send(`💥 **${name}** was hit by ${boss.cfg.name}! (${state.hits}/2)`).catch(() => {});
-          if (state.hits < 2) nextAlive.push(uid);
-          else await channel.send(`☠️ **${name}** was eliminated.`).catch(() => {});
-        } else {
-          const mult = calcReiatsuMultiplier(player.items);
-          const bonus = Math.floor(BOSS_SURVIVE_HIT_REIATSU * mult);
-          player.reiatsu += bonus;
-          roundBonusMap.set(uid, (roundBonusMap.get(uid) || 0) + bonus);
-
-          await channel.send(`⚔️ **${name}** resisted and dealt damage!`).catch(() => {});
-          nextAlive.push(uid);
-        }
-
-        await players.set(uid, player);
-        await sleep(600);
-      }
-
-      alive = nextAlive;
-
-      if (alive.length) {
-        await channel.send({ embeds: [bossStateEmbed(boss.cfg, round, alive.length)] }).catch(() => {});
-        if (round < BOSS_ROUNDS) {
-          await channel.send(`⏳ Cooldown: **${Math.round(ROUND_COOLDOWN_MS / 1000)}s**`).catch(() => {});
-          await sleep(ROUND_COOLDOWN_MS);
-        }
-      }
-    }
-
-    if (!alive.length) {
-      await channel.send({ embeds: [bossDefeatEmbed(boss.cfg)] }).catch(() => {});
-      return;
-    }
-
-    // Rewards + drops
-    const lines = [];
-
-    for (const uid of alive) {
-      const player = await players.get(uid);
-      const mult = calcReiatsuMultiplier(player.items);
-
-      const baseReward = Math.floor(BOSS_REIATSU_REWARD * mult);
-      player.reiatsu += baseReward;
-
-      const roundBonus = roundBonusMap.get(uid) || 0;
-      lines.push(`• <@${uid}> +${E_REIATSU} ${baseReward} (Round hits: +${E_REIATSU} ${roundBonus})`);
-
-      const luckMult = calcDropLuckMultiplier(player.items);
-
-      // Role drop
-      const roleChance = Math.min(DROP_ROLE_CHANCE_CAP, DROP_ROLE_CHANCE_BASE * luckMult);
-      if (Math.random() < roleChance) {
-        const res = await tryGiveRole(channel.guild, uid, boss.cfg.dropRoleId);
-        lines.push(res.ok ? `🎭 <@${uid}> obtained **${boss.cfg.name} role**!`
-                          : `⚠️ <@${uid}> won role but bot couldn't assign: ${res.reason}`);
-      }
-
-      // Robux drop
-      const robuxChance = Math.min(DROP_ROBUX_CHANCE_CAP, DROP_ROBUX_CHANCE_REAL_BASE * luckMult);
-      if (Math.random() < robuxChance) {
-        lines.push(`🎁 <@${uid}> won **100 Robux** (${(DROP_ROBUX_CHANCE_DISPLAY * 100).toFixed(1)}%) — ${ROBUX_CLAIM_TEXT}`);
-      }
-
-      await players.set(uid, player);
-    }
-
-    await channel.send({ embeds: [bossVictoryEmbed(boss.cfg, alive.length)] }).catch(() => {});
-    await channel.send(lines.join("\n").slice(0, 1900)).catch(() => {});
-  } catch (e) {
-    console.error("runBoss crashed:", e);
-    await channel.send("⚠️ Boss event crashed. Please report to admin.").catch(() => {});
-  }
-}
-
-async function spawnBoss(channel, bossCfg, bossByChannel, players, withPingRoleId) {
-  if (bossByChannel.has(channel.id)) return;
-
-  if (withPingRoleId) await channel.send(`<@&${withPingRoleId}>`).catch(() => {});
-  const boss = { cfg: bossCfg, messageId: null, joining: true, participants: new Map() };
-
-  const msg = await channel.send({
-    embeds: [bossSpawnEmbed(bossCfg, channel.name, 0, "`No fighters yet`")],
-    components: bossButtons(false),
-  });
-
-  boss.messageId = msg.id;
-  bossByChannel.set(channel.id, boss);
-
-  setTimeout(() => {
-    const still = bossByChannel.get(channel.id);
-    if (!still || still.messageId !== boss.messageId) return;
-
-    still.joining = false;
-    updateBossSpawnMessage(channel, still).catch(() => {});
-    runBoss(channel, still, players)
-      .catch(() => {})
-      .finally(() => bossByChannel.delete(channel.id));
-  }, BOSS_JOIN_MS);
-}
-
-module.exports = { spawnBoss };
+module.exports = { BOSSES };
