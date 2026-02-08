@@ -11,14 +11,18 @@ if (!TOKEN || !CLIENT_ID || !GUILD_ID) {
   process.exit(1);
 }
 
+// Event logo emojis you gave:
+const BLEACH_LOGO = "<:bleach:1470018874408964119>";
+const JJK_LOGO = "<:jjk:1470018845245968434>";
+
 const EVENT_CHOICES_EXCHANGE = [
-  { name: `Bleach — ${cfg.DRAKO_RATE_BLEACH} Reiatsu = 1 Drako`, value: "bleach" },
-  { name: `Jujutsu Kaisen — ${cfg.DRAKO_RATE_JJK} CE = 1 Drako`, value: "jjk" },
+  { name: `${BLEACH_LOGO} Bleach — ${cfg.DRAKO_RATE_BLEACH} Reiatsu = 1 Drako`, value: "bleach" },
+  { name: `${JJK_LOGO} Jujutsu Kaisen — ${cfg.DRAKO_RATE_JJK} CE = 1 Drako`, value: "jjk" },
 ];
 
 const EVENT_CHOICES = [
-  { name: "Bleach", value: "bleach" },
-  { name: "Jujutsu Kaisen", value: "jjk" },
+  { name: `${BLEACH_LOGO} Bleach`, value: "bleach" },
+  { name: `${JJK_LOGO} Jujutsu Kaisen`, value: "jjk" },
 ];
 
 const BOSS_CHOICES = [
@@ -43,28 +47,38 @@ const commands = [
   new SlashCommandBuilder()
     .setName("inventory")
     .setDescription("View your inventory and bonuses (choose event)")
-    .addStringOption((opt) => opt.setName("event").setDescription("Which event inventory?").setRequired(true).addChoices(...EVENT_CHOICES)),
+    .addStringOption((opt) =>
+      opt.setName("event").setDescription("Which event inventory?").setRequired(true).addChoices(...EVENT_CHOICES)
+    ),
 
   new SlashCommandBuilder()
     .setName("shop")
     .setDescription("Open shop (choose event)")
-    .addStringOption((opt) => opt.setName("event").setDescription("Which shop?").setRequired(true).addChoices(...EVENT_CHOICES)),
+    .addStringOption((opt) =>
+      opt.setName("event").setDescription("Which shop?").setRequired(true).addChoices(...EVENT_CHOICES)
+    ),
 
   new SlashCommandBuilder()
     .setName("leaderboard")
     .setDescription("Leaderboard (choose event currency)")
-    .addStringOption((opt) => opt.setName("event").setDescription("Which event leaderboard?").setRequired(true).addChoices(...EVENT_CHOICES)),
+    .addStringOption((opt) =>
+      opt.setName("event").setDescription("Which event leaderboard?").setRequired(true).addChoices(...EVENT_CHOICES)
+    ),
 
   new SlashCommandBuilder()
     .setName("give_reatsu")
     .setDescription("Transfer Reiatsu (Bleach) to another player")
     .addUserOption((opt) => opt.setName("user").setDescription("Target player").setRequired(true))
-    .addIntegerOption((opt) => opt.setName("amount").setDescription("Amount of Reiatsu (minimum 50)").setRequired(true).setMinValue(50)),
+    .addIntegerOption((opt) =>
+      opt.setName("amount").setDescription("Amount of Reiatsu (minimum 50)").setRequired(true).setMinValue(50)
+    ),
 
   new SlashCommandBuilder()
     .setName("exchange_drako")
     .setDescription("Buy Drako Coin using event currency (NO reverse exchange)")
-    .addStringOption((opt) => opt.setName("event").setDescription("Pay with which event currency?").setRequired(true).addChoices(...EVENT_CHOICES_EXCHANGE))
+    .addStringOption((opt) =>
+      opt.setName("event").setDescription("Pay with which event currency?").setRequired(true).addChoices(...EVENT_CHOICES_EXCHANGE)
+    )
     .addIntegerOption((opt) => opt.setName("drako").setDescription("How many Drako you want to buy").setRequired(true).setMinValue(1)),
 
   new SlashCommandBuilder()
