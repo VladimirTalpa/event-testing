@@ -10,14 +10,19 @@ if (!TOKEN || !CLIENT_ID || !GUILD_ID) {
   process.exit(1);
 }
 
+// keep in sync with config.js
+const DRAKO_RATE_BLEACH = 47;
+const DRAKO_RATE_JJK = 19;
+
 const EVENT_CHOICES = [
-  { name: "Bleach", value: "bleach" },
-  { name: "Jujutsu Kaisen", value: "jjk" },
+  { name: `Bleach — ${DRAKO_RATE_BLEACH} Reiatsu = 1 Drako`, value: "bleach" },
+  { name: `Jujutsu Kaisen — ${DRAKO_RATE_JJK} CE = 1 Drako`, value: "jjk" },
 ];
 
 const BOSS_CHOICES = [
   { name: "Vasto Lorde (Bleach)", value: "vasto" },
   { name: "Ulquiorra (Bleach)", value: "ulquiorra" },
+  { name: "Grimmjow (Bleach)", value: "grimmjow" },
   { name: "Special Grade Curse (JJK)", value: "specialgrade" },
 ];
 
@@ -39,33 +44,30 @@ const commands = [
     .setName("inventory")
     .setDescription("View your inventory and bonuses (choose event)")
     .addStringOption((opt) =>
-      opt
-        .setName("event")
-        .setDescription("Which event inventory?")
-        .setRequired(true)
-        .addChoices(...EVENT_CHOICES)
+      opt.setName("event").setDescription("Which event inventory?").setRequired(true).addChoices(
+        { name: "Bleach", value: "bleach" },
+        { name: "Jujutsu Kaisen", value: "jjk" }
+      )
     ),
 
   new SlashCommandBuilder()
     .setName("shop")
     .setDescription("Open shop (choose event)")
     .addStringOption((opt) =>
-      opt
-        .setName("event")
-        .setDescription("Which shop?")
-        .setRequired(true)
-        .addChoices(...EVENT_CHOICES)
+      opt.setName("event").setDescription("Which shop?").setRequired(true).addChoices(
+        { name: "Bleach", value: "bleach" },
+        { name: "Jujutsu Kaisen", value: "jjk" }
+      )
     ),
 
   new SlashCommandBuilder()
     .setName("leaderboard")
     .setDescription("Leaderboard (choose event currency)")
     .addStringOption((opt) =>
-      opt
-        .setName("event")
-        .setDescription("Which event leaderboard?")
-        .setRequired(true)
-        .addChoices(...EVENT_CHOICES)
+      opt.setName("event").setDescription("Which event leaderboard?").setRequired(true).addChoices(
+        { name: "Bleach", value: "bleach" },
+        { name: "Jujutsu Kaisen", value: "jjk" }
+      )
     ),
 
   new SlashCommandBuilder()
@@ -75,29 +77,17 @@ const commands = [
       opt.setName("user").setDescription("Target player").setRequired(true)
     )
     .addIntegerOption((opt) =>
-      opt
-        .setName("amount")
-        .setDescription("Amount of Reiatsu (minimum 50)")
-        .setRequired(true)
-        .setMinValue(50)
+      opt.setName("amount").setDescription("Amount of Reiatsu (minimum 50)").setRequired(true).setMinValue(50)
     ),
 
   new SlashCommandBuilder()
     .setName("exchange_drako")
     .setDescription("Buy Drako Coin using event currency (NO reverse exchange)")
     .addStringOption((opt) =>
-      opt
-        .setName("event")
-        .setDescription("Pay with which event currency?")
-        .setRequired(true)
-        .addChoices(...EVENT_CHOICES)
+      opt.setName("event").setDescription("Pay with which event currency?").setRequired(true).addChoices(...EVENT_CHOICES)
     )
     .addIntegerOption((opt) =>
-      opt
-        .setName("drako")
-        .setDescription("How many Drako you want to buy")
-        .setRequired(true)
-        .setMinValue(1)
+      opt.setName("drako").setDescription("How many Drako you want to buy").setRequired(true).setMinValue(1)
     ),
 
   new SlashCommandBuilder()
@@ -108,22 +98,17 @@ const commands = [
     .setName("spawnboss")
     .setDescription("Spawn a boss (event staff only)")
     .addStringOption((opt) =>
-      opt
-        .setName("boss")
-        .setDescription("Choose boss")
-        .setRequired(true)
-        .addChoices(...BOSS_CHOICES)
+      opt.setName("boss").setDescription("Choose boss").setRequired(true).addChoices(...BOSS_CHOICES)
     ),
 
   new SlashCommandBuilder()
     .setName("spawnmob")
     .setDescription("Spawn a mob (event staff only)")
     .addStringOption((opt) =>
-      opt
-        .setName("event")
-        .setDescription("Which event mob?")
-        .setRequired(true)
-        .addChoices(...EVENT_CHOICES)
+      opt.setName("event").setDescription("Which event mob?").setRequired(true).addChoices(
+        { name: "Bleach", value: "bleach" },
+        { name: "Jujutsu Kaisen", value: "jjk" }
+      )
     ),
 
   new SlashCommandBuilder()
@@ -134,18 +119,10 @@ const commands = [
     .setName("adminadd")
     .setDescription("Admin: add currency to a user (role-restricted)")
     .addStringOption((opt) =>
-      opt
-        .setName("currency")
-        .setDescription("Which currency?")
-        .setRequired(true)
-        .addChoices(...CURRENCY_CHOICES)
+      opt.setName("currency").setDescription("Which currency?").setRequired(true).addChoices(...CURRENCY_CHOICES)
     )
     .addIntegerOption((opt) =>
-      opt
-        .setName("amount")
-        .setDescription("Amount to add")
-        .setRequired(true)
-        .setMinValue(1)
+      opt.setName("amount").setDescription("Amount to add").setRequired(true).setMinValue(1)
     )
     .addUserOption((opt) =>
       opt.setName("user").setDescription("Target user (optional)").setRequired(false)
@@ -157,9 +134,7 @@ const rest = new REST({ version: "10" }).setToken(TOKEN);
 (async () => {
   try {
     console.log("🔄 Deploying slash commands...");
-    await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), {
-      body: commands,
-    });
+    await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: commands });
     console.log("✅ Slash commands successfully deployed!");
   } catch (e) {
     console.error("❌ Failed to deploy commands:", e);
