@@ -15,6 +15,8 @@ function normalizePlayer(raw = {}) {
   const bleachItems = bleach.items && typeof bleach.items === "object" ? bleach.items : {};
   const jjkItems = jjk.items && typeof jjk.items === "object" ? jjk.items : {};
 
+  const jjkMaterials = jjk.materials && typeof jjk.materials === "object" ? jjk.materials : {};
+
   return {
     drako: Number.isFinite(raw.drako) ? raw.drako : 0,
     ownedRoles: [...new Set(ownedRoles)],
@@ -41,6 +43,9 @@ function normalizePlayer(raw = {}) {
     jjk: {
       cursedEnergy: Number.isFinite(jjk.cursedEnergy) ? jjk.cursedEnergy : 0,
       survivalBonus: Number.isFinite(jjk.survivalBonus) ? jjk.survivalBonus : 0,
+      materials: {
+        cursed_shard: Number.isFinite(jjkMaterials.cursed_shard) ? jjkMaterials.cursed_shard : 0,
+      },
       items: {
         black_flash_manual: !!jjkItems.black_flash_manual,
         domain_charm: !!jjkItems.domain_charm,
