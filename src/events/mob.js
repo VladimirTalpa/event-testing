@@ -95,19 +95,13 @@ async function spawnMob(channel, eventKey, opts) {
       await setPlayer(uid, player);
     }
 
-    await channel.messages
-      .fetch(still.messageId)
-      .then((m) => m.edit({ components: mobButtons(eventKey, true) }))
-      .catch(() => {});
+    await channel.messages.fetch(still.messageId).then((m) => m.edit({ components: mobButtons(eventKey, true) })).catch(() => {});
 
     if (!still.attackers.size) {
-      await channel.send(eventKey === "jjk"
-        ? "💨 The cursed spirit vanished… nobody tried to exorcise it."
-        : "💨 It disappeared… nobody attacked."
-      ).catch(() => {});
+      await channel.send(eventKey === "jjk" ? "💨 The spirit vanished… nobody exorcised." : "💨 It disappeared… nobody attacked.").catch(() => {});
     } else {
       if (eventKey === "jjk") {
-        await channel.send(anyHit ? "✅ **Cursed Spirit exorcised!**" : "❌ It escaped…").catch(() => {});
+        await channel.send(anyHit ? "✅ **Spirit exorcised!**" : "❌ It escaped…").catch(() => {});
       } else {
         await channel.send(anyHit ? "✅ **Mob defeated!**" : "❌ It escaped…").catch(() => {});
       }
