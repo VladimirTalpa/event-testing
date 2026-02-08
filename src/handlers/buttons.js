@@ -1,9 +1,9 @@
 // src/handlers/buttons.js
-const { bossByChannel, mobByChannel } = require("../core/state");
+const { bossByChannel, mobByChannel, leaderboardCache } = require("../core/state");
 const { getPlayer, setPlayer } = require("../core/players");
 const { safeName } = require("../core/utils");
 
-const { mobEmbed, shopEmbed, wardrobeEmbed, leaderboardEmbed } = require("../ui/embeds");
+const { mobEmbed, shopEmbed, leaderboardEmbed } = require("../ui/embeds");
 const { CID, mobButtons, shopButtons } = require("../ui/components");
 const { MOBS } = require("../data/mobs");
 const { BLEACH_SHOP_ITEMS, JJK_SHOP_ITEMS } = require("../data/shop");
@@ -31,10 +31,7 @@ function ensureOwnedRole(player, roleId) {
   if (!player.ownedRoles.includes(id)) player.ownedRoles.push(id);
 }
 
-/* ================= LEADERBOARD CACHE (per message) ================= */
-const LB_CACHE = new Map(); // messageId -> { eventKey, entries }
-
-/* helper: build lb buttons */
+/* ================= LEADERBOARD BUTTONS ================= */
 function lbComponents(eventKey, page, maxPage) {
   const prevDisabled = page <= 0;
   const nextDisabled = page >= maxPage - 1;
@@ -43,8 +40,8 @@ function lbComponents(eventKey, page, maxPage) {
     {
       type: 1,
       components: [
-        { type: 2, style: 2, label: "◀", custom_id: `lb:${eventKey}:${page}:prev`, disabled: prevDisabled },
-        { type: 2, style: 2, label: "▶", custom_id: `lb:${eventKey}:${page}:next`, disabled: nextDisabled },
+        { type: 2, style: 2, label: "◀ Prev", custom_id: `lb:${eventKey}:${page}:prev`, disabled: prevDisabled },
+        { type: 2, style: 2, label: "Next ▶", custom_id: `lb:${eventKey}:${page}:next`, disabled: nextDisabled },
       ],
     },
   ];
@@ -58,7 +55,7 @@ module.exports = async function handleButtons(interaction) {
 
   const cid = interaction.customId;
 
-  /* ================= LEADERBOARD PAGES ================= */
+  /* ================= LEADERBOARD PAGE TURN ================= */
   if (cid.startsWith("lb:")) {
     // lb:<eventKey>:<page>:<prev|next>
     const parts = cid.split(":");
@@ -69,21 +66,19 @@ module.exports = async function handleButtons(interaction) {
     const msgId = interaction.message?.id;
     if (!msgId) return;
 
-    const cached = LB_CACHE.get(msgId);
+    const cached = leaderboardCache.get(msgId);
     if (!cached || cached.eventKey !== eventKey) {
-      // if cache missing, cannot rebuild list here (slash already built it). Just ignore.
       await interaction.followUp({ content: "⚠️ Leaderboard cache missing. Re-run /leaderboard.", ephemeral: true }).catch(() => {});
       return;
     }
 
     const entries = cached.entries || [];
-    const pageSize = 10;
+    const pageSize = cached.pageSize || 10;
     const maxPage = Math.max(1, Math.ceil(entries.length / pageSize));
 
     let newPage = page;
     if (dir === "next") newPage++;
     if (dir === "prev") newPage--;
-
     if (newPage < 0) newPage = 0;
     if (newPage > maxPage - 1) newPage = maxPage - 1;
 
@@ -150,7 +145,6 @@ module.exports = async function handleButtons(interaction) {
   /* ================= Boss action ================= */
   if (cid.startsWith("boss_action:")) {
     const parts = cid.split(":");
-    // boss_action:<bossId>:<roundIndex>:<token>:<kind>:<payload?>
     const bossId = parts[1];
     const roundIndex = Number(parts[2]);
     const token = parts[3];
@@ -335,16 +329,4 @@ module.exports = async function handleButtons(interaction) {
     await interaction.followUp({ content: "✅ Purchased!", ephemeral: true }).catch(() => {});
     return;
   }
-
-  /* ================= Leaderboard cache writer =================
-     NOTE: Это вызывается из slash.js через interaction.message.edit нельзя.
-     Поэтому кэшируем при первом нажатии кнопки, если у нас есть embeds. */
-  if (interaction.message?.embeds?.length && interaction.message.embeds[0]?.title?.includes("Leaderboard")) {
-    // сюда не лезем — это просто защита
-  }
 };
-
-/* ================= IMPORTANT =================
-   Кэш лидерборда мы запишем в slash.js (в следующем пакете),
-   потому что именно slash.js формирует entries.
-*/
