@@ -6,7 +6,6 @@ const {
   E_JJK,
   VASTO_DROP_ROLE_ID,
   ULQ_DROP_ROLE_ID,
-  GRIMMJOW_DROP_ROLE_ID,
 } = require("../config");
 
 const media = require("./media");
@@ -57,10 +56,8 @@ const BOSSES = {
 
     rounds: [
       { type: "coop_block", title: "Round 1 — Cooperative Block", intro: "Ulquiorra launches a powerful attack.\nTo survive, **4 players** must press **Block** within **5 seconds**.", windowMs: 5000, requiredPresses: 4, buttonLabel: "Block", buttonEmoji: "🛡️", media: media.ULQ_R1 },
-
-      // ✅ you requested: make this QTE timer 15 seconds
+      // ✅ You asked: combo timer => 15 seconds
       { type: "combo_defense", title: "Round 2 — Combo Defense (QTE)", intro: "Ulquiorra attacks again — Combo Defense!\nPress the buttons in the **correct order** within **15 seconds**.\nMistake or timeout = a hit.", windowMs: 15000, media: media.ULQ_R2 },
-
       { type: "pressure", title: "Round 3 — Transformation Pressure", intro: "Ulquiorra transforms — Reiatsu pressure becomes insane.\nWithstand it to avoid a hit.", media: media.ULQ_R3 },
       { type: "pressure", title: "Round 4 — Suffocating Pressure", intro: "The pressure intensifies even further.\nWithstand it to avoid a hit.", media: media.ULQ_R4 },
       { type: "quick_block", title: "Round 5 — Quick Block (2s)", intro: "Ulquiorra prepares a lethal strike!\nYou have **2 seconds** to press **Block**.\nBlock in time to survive and counterattack (banked reward).", windowMs: 2000, buttonLabel: "Block", buttonEmoji: "🛡️", media: media.ULQ_R5 },
@@ -68,75 +65,156 @@ const BOSSES = {
     ],
   },
 
-  // ✅ NEW: Grimmjow (Bleach)
-  grimmjow: {
-    event: "bleach",
-    id: "grimmjow",
-    name: "Grimmjow",
-    icon: E_BLEACH,
-    difficulty: "Medium",
-    joinMs: 2 * 60 * 1000,
-    baseChance: 0.50,
-    winReward: 125,
-    hitReward: 15,
-    roleDropChance: 1.0, // always award (since you gave a role id)
-    roleDropId: GRIMMJOW_DROP_ROLE_ID,
+  /* ===================== MAHORAGA (JJK) ===================== */
+  mahoraga: {
+    event: "jjk",
+    id: "mahoraga",
+    name: "Mahoraga",
+    icon: E_JJK,
+    difficulty: "Insanity",
+    joinMs: 3 * 60 * 1000,
 
-    spawnMedia: media.GRIM_SPAWN_MEDIA,
-    victoryMedia: media.GRIM_VICTORY_MEDIA,
-    defeatMedia: media.GRIM_DEFEAT_MEDIA,
+    // you asked: 10% survive chance
+    baseChance: 0.10,
+
+    // you asked: lives = 3
+    maxHits: 3,
+
+    // rewards: win CE 800-1400 random, +30 per success banked
+    winRewardRange: { min: 800, max: 1400 },
+    hitReward: 30,
+
+    // drops
+    roleDropChance: 0.075,
+    roleDropId: "1470124664931094590",
+    expeditionKeyChance: 0.20,
+    shardDropRange: { min: 5, max: 20 }, // per winner random
+
+    // pre intro
+    preText: "этим сокровищем я призываю......",
+    preTextDelayMs: 10 * 1000,
+    teaserMedia: media.MAHO_TEASER,
+    teaserDelayMs: 5 * 1000,
+
+    spawnMedia: media.MAHO_SPAWN,
+    victoryMedia: media.MAHO_VICTORY,
+    defeatMedia: media.MAHO_DEFEAT,
 
     rounds: [
       {
-        type: "multi_press", // NEW round type implemented in boss.js below
-        title: "Round 1 — Savage Rush",
+        type: "multi_press",
+        title: "Round 1 — Total Block",
         intro:
-          "Grimmjow rushes you with a flurry of attacks.\n" +
-          "Press **Block** **3 times** within **15 seconds** to withstand.",
-        windowMs: 15000,
+          "Заблокируйте все атаки Махораги.\n" +
+          "Нужно нажать **Block** **3 раза** за **10 секунд**.",
+        windowMs: 10 * 1000,
         requiredPresses: 3,
         buttonLabel: "Block",
         buttonEmoji: "🛡️",
-        media: media.GRIM_R1,
+        media: media.MAHO_R1,
       },
       {
-        type: "coop_block",
-        title: "Round 2 — Strong Strike",
+        type: "pressure",
+        title: "Round 2 — Endure",
+        intro: "Выдержите атаки Махораги.",
+        media: media.MAHO_R2,
+      },
+      {
+        type: "pressure",
+        title: "Round 3 — Pressure",
+        intro: "Выдержите натиск Махораги.",
+        media: media.MAHO_R3,
+      },
+      {
+        type: "choice_qte",
+        title: "Round 4 — Decide Fast",
         intro:
-          "Grimmjow unleashes a powerful attack.\n" +
-          "**3 players** must press **Block** within **10 seconds**.\n" +
-          "Miss it — you take a hit.",
-        windowMs: 10000,
-        requiredPresses: 3,
-        buttonLabel: "Block",
-        buttonEmoji: "🛡️",
-        media: media.GRIM_R2,
+          "Выбери быстро.\n" +
+          "Нажми правильную кнопку за **3 секунды**.",
+        windowMs: 3000,
+        choices: [
+          { key: "slice", label: "Разрезание", emoji: "⚔️" },
+          { key: "salmon", label: "Лосось!!", emoji: "🐟" },
+        ],
+        correct: "slice",
+        afterText: "🩸 Махорага получил серьёзный урон.",
+        afterMedia: media.MAHO_R4_AFTER,
+      },
+      {
+        type: "scripted_hit_all",
+        title: "Round 5 — Adaptation Begins",
+        intro: "почему колесо у него на голове покрутилось ?",
+        media: media.MAHO_R5_WHEEL,
+        delayMs: 5000,
+        spamLines: [
+          "🚨 error....error....system corrupted....",
+          "🚨 error....error....system corrupted....",
+          "🚨 error....error....system corrupted....",
+          "🚨 error....error....system corrupted....",
+          "🚨 error....error....system corrupted....",
+          "🚨 error....error....system corrupted....",
+        ],
+        endText: "⚠️ **Махорага адаптировался.**",
+        endMedia: media.MAHO_ADAPTED,
+      },
+      {
+        type: "pressure",
+        title: "Round 6 — Unbreakable",
+        intro: "Махорага становится непобедимым…",
+        media: media.MAHO_R6,
+      },
+      {
+        type: "tri_press",
+        title: "Round 7 — Regain Focus",
+        intro:
+          "Махорага берёт над вами превосходство.\n" +
+          "Нажмите **все 3 кнопки** за **12 секунд**, чтобы собраться.",
+        windowMs: 12 * 1000,
+        buttons: [
+          { key: "focus", label: "Сосредоточиться", emoji: "🧠" },
+          { key: "reinforce", label: "Укрепить CE", emoji: "🟣" },
+          { key: "resolve", label: "Собраться", emoji: "🔥" },
+        ],
+        media: media.MAHO_R7,
+      },
+      {
+        type: "final_quiz",
+        title: "Final — How to kill him?",
+        intro: "Как его убить ?",
+        windowMs: 8000,
+        choices: [
+          { key: "domain", label: "Расширение территорий", emoji: "🌀" },
+          { key: "fire_arrow", label: "Убить до адаптации огненной стрелой", emoji: "🏹" },
+          { key: "world_slash", label: "Мировое разрезание", emoji: "🗡️" },
+        ],
+        correct: "fire_arrow",
       },
     ],
   },
 
-  // ✅ NEW: JJK Special Grade Curse (you requested)
+  /* ===================== OLD specialgrade (kept) ===================== */
   specialgrade: {
     event: "jjk",
     id: "specialgrade",
     name: "Special Grade Curse",
     icon: E_JJK,
-    difficulty: "Medium",
+    difficulty: "Deadly",
     joinMs: 2 * 60 * 1000,
-    baseChance: 0.50,
-    winReward: 85,
-    hitReward: 5,
+    baseChance: 0.30,
+    winReward: 200,
+    hitReward: 15,
     roleDropChance: 0.0,
     roleDropId: null,
 
-    spawnMedia: media.JJK_SG_SPAWN_MEDIA,
-    victoryMedia: media.JJK_SG_VICTORY_MEDIA,
-    defeatMedia: media.JJK_SG_DEFEAT_MEDIA,
+    spawnMedia: media.JJK_BOSS_SPAWN_MEDIA,
+    victoryMedia: media.JJK_BOSS_VICTORY_MEDIA,
+    defeatMedia: media.JJK_BOSS_DEFEAT_MEDIA,
 
     rounds: [
-      { type: "pressure", title: "Round 1 — Bloodlust", intro: "The cursed spirit is thrilled and craves battle.", media: media.JJK_SG_R1 },
-      { type: "quick_block", title: "Round 2 — Block (5s)", intro: "The cursed spirit unleashes a strong attack.\nPress **Block** within **5 seconds**.", windowMs: 5000, buttonLabel: "Block", buttonEmoji: "🛡️", media: media.JJK_SG_R2 },
-      { type: "finisher", title: "Round 3 — Exorcise", intro: "The cursed spirit is trapped.\nPress **Exorcise** to finish it.", windowMs: 8000, buttonLabel: "Exorcise", buttonEmoji: "🪬", media: media.JJK_SG_R3 },
+      { type: "pressure", title: "Round 1 — Cursed Pressure", intro: "Overwhelming cursed pressure floods the area.", media: media.JJK_BOSS_R1 },
+      { type: "pressure", title: "Round 2 — Malice Surge", intro: "The aura turns violent. Resist it.", media: media.JJK_BOSS_R2 },
+      { type: "attack", title: "Round 3 — Opening", intro: "A gap appears. Strike the core.", media: media.JJK_BOSS_R3 },
+      { type: "finisher", title: "Round 4 — Exorcism Window", intro: "Finish it! Press **Exorcise** in time.", windowMs: 5000, buttonLabel: "Exorcise", buttonEmoji: "🪬", media: media.JJK_BOSS_R4 },
     ],
   },
 };
