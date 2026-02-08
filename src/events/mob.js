@@ -2,7 +2,7 @@
 
 const { mobByChannel } = require("../core/state");
 const { getPlayer, setPlayer } = require("../core/players");
-const { safeName, sleep } = require("../core/utils");
+const { safeName } = require("../core/utils");
 
 const { mobEmbed } = require("../ui/embeds");
 const { mobButtons } = require("../ui/components");
@@ -11,39 +11,34 @@ const { MOBS } = require("../data/mobs");
 const { PING_HOLLOW_ROLE_ID } = require("../config");
 
 
-/* ===================== HELPERS ===================== */
-
-function isAllowed(channelId, eventKey, bleachId, jjkId) {
-  if (eventKey === "bleach") return channelId === bleachId;
-  if (eventKey === "jjk") return channelId === jjkId;
+function allowed(event, id, b, j) {
+  if (event === "bleach") return id === b;
+  if (event === "jjk") return id === j;
   return false;
 }
 
 
-/* ===================== MAIN ===================== */
+async function spawnMob(channel, event, opts = {}) {
 
-async function spawnMob(channel, eventKey, opts = {}) {
   const {
     bleachChannelId,
     jjkChannelId,
     withPing = true,
   } = opts;
 
-  if (!MOBS[eventKey]) return;
 
-  if (!isAllowed(
+  if (!MOBS[event]) return;
+
+  if (!allowed(
+    event,
     channel.id,
-    eventKey,
     bleachChannelId,
     jjkChannelId
-  )) {
-    return;
-  }
+  )) return;
+
 
   if (mobByChannel.has(channel.id)) return;
 
-
-  /* ===== PING ===== */
 
   if (withPing) {
     await channel.send(`<@&${PING_HOLLOW_ROLE_ID}>`)
@@ -51,44 +46,42 @@ async function spawnMob(channel, eventKey, opts = {}) {
   }
 
 
-  /* ===== CREATE ===== */
+  const mob = MOBS[event];
 
-  const mob = MOBS[eventKey];
 
   const state = {
-    eventKey,
+    event,
     attackers: new Map(),
-    messageId: null,
     resolved: false,
   };
 
 
   const msg = await channel.send({
-    embeds: [mobEmbed(eventKey, 0, mob)],
-    components: mobButtons(eventKey, false),
+    embeds: [mobEmbed(event, 0, mob)],
+    components: mobButtons(event, false),
   });
+
 
   state.messageId = msg.id;
 
   mobByChannel.set(channel.id, state);
 
 
-  /* ===================== TIMER ===================== */
-
   setTimeout(async () => {
-    const still = mobByChannel.get(channel.id);
 
-    if (!still || still.resolved) return;
+    const s = mobByChannel.get(channel.id);
 
-    still.resolved = true;
+    if (!s || s.resolved) return;
 
-    const lines = [];
+    s.resolved = true;
+
     let success = false;
 
+    const lines = [];
 
-    /* ===== RESOLVE ===== */
 
-    for (const [uid, info] of still.attackers) {
+    for (const [uid, info] of s.attackers) {
+
       const p = await getPlayer(uid);
 
       const hit = Math.random() < 0.5;
@@ -96,43 +89,47 @@ async function spawnMob(channel, eventKey, opts = {}) {
       const name = safeName(info.displayName);
 
 
-      /* ===== BLEACH ===== */
+      if (event === "bleach") {
 
-      if (eventKey === "bleach") {
         if (hit) {
+
           success = true;
 
           p.bleach.reiatsu += mob.hitReward;
 
           lines.push(
-            `⚔️ **${name}** defeated it +${mob.hitReward} ${mob.currencyEmoji}`
+            `⚔️ **${name}** defeated it +${mob.hitReward}`
           );
+
         } else {
+
           p.bleach.reiatsu += mob.missReward;
 
           lines.push(
-            `💨 **${name}** missed +${mob.missReward} ${mob.currencyEmoji}`
+            `💨 **${name}** missed +${mob.missReward}`
           );
         }
       }
 
 
-      /* ===== JJK ===== */
+      if (event === "jjk") {
 
-      if (eventKey === "jjk") {
         if (hit) {
+
           success = true;
 
           p.jjk.cursedEnergy += mob.hitReward;
 
           lines.push(
-            `🪬 **${name}** exorcised it +${mob.hitReward} ${mob.currencyEmoji}`
+            `🪬 **${name}** exorcised it +${mob.hitReward}`
           );
+
         } else {
+
           p.jjk.cursedEnergy += mob.missReward;
 
           lines.push(
-            `💨 **${name}** failed +${mob.missReward} ${mob.currencyEmoji}`
+            `💨 **${name}** failed +${mob.missReward}`
           );
         }
       }
@@ -142,23 +139,20 @@ async function spawnMob(channel, eventKey, opts = {}) {
     }
 
 
-    /* ===== DISABLE BUTTONS ===== */
-
     await channel.messages
-      .fetch(still.messageId)
-      .then(m => {
-        m.edit({
-          components: mobButtons(eventKey, true),
-        });
-      })
+      .fetch(s.messageId)
+      .then(m => m.edit({
+        components: mobButtons(event, true),
+      }))
       .catch(() => {});
 
 
-    /* ===== RESULT ===== */
+    if (!s.attackers.size) {
 
-    if (!still.attackers.size) {
       await channel.send("💨 Nobody attacked.");
+
     } else {
+
       await channel.send(
         success
           ? "✅ Mob exorcised!"
