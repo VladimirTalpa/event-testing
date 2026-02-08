@@ -1,5 +1,13 @@
 // src/data/bosses.js
-const { E_VASTO, E_ULQ, E_BLEACH, E_JJK, VASTO_DROP_ROLE_ID, ULQ_DROP_ROLE_ID } = require("../config");
+const {
+  E_VASTO,
+  E_ULQ,
+  E_GRIMJOW,
+  E_JJK,
+  VASTO_DROP_ROLE_ID,
+  ULQ_DROP_ROLE_ID,
+  GRIMMJOW_DROP_ROLE_ID,
+} = require("../config");
 const media = require("./media");
 
 const BOSSES = {
@@ -107,9 +115,9 @@ const BOSSES = {
         title: "Round 2 — Combo Defense (QTE)",
         intro:
           "Ulquiorra attacks again — Combo Defense!\n" +
-          "Press the buttons in the **correct order** within **5 seconds**.\n" +
+          "Press the buttons in the **correct order** within **15 seconds**.\n" +
           "Mistake or timeout = a hit.",
-        windowMs: 5000,
+        windowMs: 15000,
         media: media.ULQ_R2,
       },
       {
@@ -153,28 +161,104 @@ const BOSSES = {
     ],
   },
 
+  // NEW: Grimmjow
+  grimmjow: {
+    event: "bleach",
+    id: "grimmjow",
+    name: "Grimmjow",
+    icon: E_GRIMJOW,
+    difficulty: "Medium",
+    joinMs: 2 * 60 * 1000,
+    baseChance: 0.50,
+    winReward: 125,
+    hitReward: 15,
+    roleDropChance: 0.03,
+    roleDropId: GRIMMJOW_DROP_ROLE_ID,
+
+    spawnMedia: media.GRIM_SPAWN_MEDIA,
+    victoryMedia: media.GRIM_VICTORY_MEDIA,
+    defeatMedia: media.GRIM_DEFEAT_MEDIA,
+
+    rounds: [
+      {
+        type: "multi_press",
+        title: "Round 1 — Relentless Assault",
+        intro:
+          "Grimmjow rushes with a storm of attacks.\n" +
+          "Press **3 different Block buttons** within **15 seconds**.\n" +
+          "Fail = you take a hit.",
+        windowMs: 15000,
+        neededPresses: 3,
+        buttonLabel: "Block",
+        buttonEmoji: "🛡️",
+        media: media.GRIM_R1,
+      },
+      {
+        type: "coop_block",
+        title: "Round 2 — Synchronized Block",
+        intro:
+          "Grimmjow releases a powerful strike.\n" +
+          "**3 players** must press **Block** within **10 seconds**.\n" +
+          "Fail = everyone takes a hit.",
+        windowMs: 10000,
+        requiredPresses: 3,
+        buttonLabel: "Block",
+        buttonEmoji: "🛡️",
+        media: media.GRIM_R2,
+      },
+    ],
+  },
+
+  // Updated JJK boss
   specialgrade: {
     event: "jjk",
     id: "specialgrade",
     name: "Special Grade Curse",
     icon: E_JJK,
-    difficulty: "Deadly",
+    difficulty: "Medium",
     joinMs: 2 * 60 * 1000,
-    baseChance: 0.30,
-    winReward: 200,
-    hitReward: 15,
+    baseChance: 0.50,
+    winReward: 85,
+    hitReward: 5,
     roleDropChance: 0.0,
     roleDropId: null,
+
+    // Materials per survivor
+    materialRewards: { cursed_shard: 1 },
 
     spawnMedia: media.JJK_BOSS_SPAWN_MEDIA,
     victoryMedia: media.JJK_BOSS_VICTORY_MEDIA,
     defeatMedia: media.JJK_BOSS_DEFEAT_MEDIA,
 
     rounds: [
-      { type: "pressure", title: "Round 1 — Cursed Pressure", intro: "Overwhelming cursed pressure floods the area.", media: media.JJK_BOSS_R1 },
-      { type: "pressure", title: "Round 2 — Malice Surge", intro: "The aura turns violent. Resist it.", media: media.JJK_BOSS_R2 },
-      { type: "attack", title: "Round 3 — Opening", intro: "A gap appears. Strike the core.", media: media.JJK_BOSS_R3 },
-      { type: "finisher", title: "Round 4 — Exorcism Window", intro: "Finish it! Press **Exorcise** in time.", windowMs: 5000, buttonLabel: "Exorcise", buttonEmoji: "🪬", media: media.JJK_BOSS_R4 },
+      {
+        type: "pressure",
+        title: "Round 1 — Bloodlust",
+        intro: "The cursed spirit is ecstatic and craves a battle with you.",
+        media: media.JJK_BOSS_R1,
+      },
+      {
+        type: "quick_block",
+        title: "Round 2 — Block (5s)",
+        intro:
+          "The cursed spirit unleashes a heavy attack.\n" +
+          "Press **Block** within **5 seconds** or take a hit.",
+        windowMs: 5000,
+        buttonLabel: "Block",
+        buttonEmoji: "🛡️",
+        media: media.JJK_BOSS_R2,
+      },
+      {
+        type: "finisher",
+        title: "Round 3 — Exorcise",
+        intro:
+          "The cursed spirit is trapped.\n" +
+          "Press **Exorcise** to finish the exorcism!",
+        windowMs: 8000,
+        buttonLabel: "Exorcise",
+        buttonEmoji: "🪬",
+        media: media.JJK_BOSS_R3,
+      },
     ],
   },
 };
