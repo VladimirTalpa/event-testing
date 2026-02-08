@@ -10,9 +10,10 @@ if (!TOKEN || !CLIENT_ID || !GUILD_ID) {
   process.exit(1);
 }
 
+// ✅ show rates in the option label (Discord shows option "name")
 const EVENT_CHOICES = [
-  { name: "Bleach", value: "bleach" },
-  { name: "Jujutsu Kaisen", value: "jjk" },
+  { name: "Bleach (47 Reiatsu = 1 Drako)", value: "bleach" },
+  { name: "Jujutsu Kaisen (19 Cursed Energy = 1 Drako)", value: "jjk" },
 ];
 
 const BOSS_CHOICES = [
@@ -132,7 +133,7 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName("adminadd")
-    .setDescription("Admin: add currency to a user (role-restricted)")
+    .setDescription("Admin: add currency to a user")
     .addStringOption((opt) =>
       opt
         .setName("currency")
