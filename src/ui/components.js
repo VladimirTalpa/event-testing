@@ -26,8 +26,18 @@ function hasBoosterRole(member) {
 function bossButtons(disabled = false) {
   return [
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(CID.BOSS_JOIN).setLabel("Join Battle").setEmoji("🗡").setStyle(ButtonStyle.Danger).setDisabled(disabled),
-      new ButtonBuilder().setCustomId(CID.BOSS_RULES).setLabel("Rules").setEmoji("📜").setStyle(ButtonStyle.Secondary).setDisabled(disabled)
+      new ButtonBuilder()
+        .setCustomId(CID.BOSS_JOIN)
+        .setLabel("Join Battle")
+        .setEmoji("🗡")
+        .setStyle(ButtonStyle.Danger)
+        .setDisabled(disabled),
+      new ButtonBuilder()
+        .setCustomId(CID.BOSS_RULES)
+        .setLabel("Rules")
+        .setEmoji("📜")
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(disabled)
     ),
   ];
 }
@@ -35,7 +45,12 @@ function bossButtons(disabled = false) {
 function singleActionRow(customId, label, emoji, disabled = false) {
   return [
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(customId).setLabel(label).setEmoji(emoji).setStyle(ButtonStyle.Danger).setDisabled(disabled)
+      new ButtonBuilder()
+        .setCustomId(customId)
+        .setLabel(label)
+        .setEmoji(emoji)
+        .setStyle(ButtonStyle.Danger)
+        .setDisabled(disabled)
     ),
   ];
 }
@@ -57,7 +72,7 @@ function mobButtons(eventKey, disabled = false) {
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`${CID.MOB_ATTACK}:${eventKey}`)
-        .setLabel(eventKey === "bleach" ? "Attack Hollow" : "Exorcise Spirit")
+        .setLabel(eventKey === "bleach" ? "Attack Hollow" : "Attack Spirit")
         .setEmoji("⚔️")
         .setStyle(ButtonStyle.Primary)
         .setDisabled(disabled)
@@ -115,6 +130,13 @@ function wardrobeComponents(guild, member, player) {
   return [new ActionRowBuilder().addComponents(menu)];
 }
 
+/* ===================== LEADERBOARD NAV (FIX CRASH) ===================== */
+// Раньше slash.js вызывал leaderboardNav(), но её не было.
+// Пока делаем пустую (без страниц), чтобы /leaderboard работал.
+function leaderboardNav() {
+  return [];
+}
+
 module.exports = {
   CID,
   hasEventRole,
@@ -125,4 +147,5 @@ module.exports = {
   mobButtons,
   shopButtons,
   wardrobeComponents,
+  leaderboardNav, // ✅ важно
 };
