@@ -321,3 +321,4 @@ if (interaction.commandName === "adminremove") {
     ephemeral: false,
   });
 }
+
