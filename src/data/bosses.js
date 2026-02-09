@@ -347,6 +347,8 @@ const BOSSES = {
     hitReward: 15,
     roleDropChance: 0.0,
     roleDropId: null,
+      // ✅ NEW: shards drop 1-3 random for winners
+    shardDropRange: { min: 1, max: 3 },
 
     spawnMedia: media.JJK_SG_SPAWN_MEDIA,
     victoryMedia: media.JJK_SG_VICTORY_MEDIA,
