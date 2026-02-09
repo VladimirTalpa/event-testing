@@ -104,6 +104,19 @@ const commands = [
     .addUserOption((opt) => opt.setName("user").setDescription("Target user (optional)").setRequired(false)),
 ].map((c) => c.toJSON());
 
+new SlashCommandBuilder()
+  .setName("adminremove")
+  .setDescription("Admin: remove currency from a user (role-restricted)")
+  .addStringOption((opt) =>
+    opt.setName("currency").setDescription("Which currency?").setRequired(true).addChoices(...CURRENCY_CHOICES)
+  )
+  .addIntegerOption((opt) =>
+    opt.setName("amount").setDescription("Amount to remove").setRequired(true).setMinValue(1)
+  )
+  .addUserOption((opt) =>
+    opt.setName("user").setDescription("Target user (optional)").setRequired(false)
+  ),
+
 const rest = new REST({ version: "10" }).setToken(TOKEN);
 
 (async () => {
