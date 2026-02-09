@@ -447,7 +447,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
             const mult = getEventMultiplier(boss.def.event, player);
             const add = Math.floor(boss.def.hitReward * mult);
             bankSuccess(uid, boss, add);
-            await channel.send(`✅ <@${uid}> выдержал! (pressed ${cnt})`).catch(() => {});
+            await channel.send(`✅ <@${uid}> Blocked! (pressed ${cnt})`).catch(() => {});
           } else {
             await applyHit(uid, boss, channel, `failed to block enough times! (pressed ${cnt})`);
           }
