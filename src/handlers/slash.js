@@ -297,3 +297,27 @@ module.exports = async function handleSlash(interaction) {
     });
   }
 };
+
+if (interaction.commandName === "adminremove") {
+  const allowed = interaction.member?.roles?.cache?.has("1259865441405501571");
+  if (!allowed) return interaction.reply({ content: "⛔ No permission.", ephemeral: true });
+
+  const currency = interaction.options.getString("currency", true);
+  const amount = interaction.options.getInteger("amount", true);
+  const target = interaction.options.getUser("user") || interaction.user;
+
+  const p = await getPlayer(target.id);
+
+  if (currency === "drako") p.drako = Math.max(0, p.drako - amount);
+  if (currency === "reiatsu") p.bleach.reiatsu = Math.max(0, p.bleach.reiatsu - amount);
+  if (currency === "cursed_energy") p.jjk.cursedEnergy = Math.max(0, p.jjk.cursedEnergy - amount);
+
+  await setPlayer(target.id, p);
+
+  return interaction.reply({
+    content:
+      `✅ Removed **${amount}** from <@${target.id}>.\n` +
+      `${E_REIATSU} Reiatsu: **${p.bleach.reiatsu}** • ${E_CE} CE: **${p.jjk.cursedEnergy}** • ${E_DRAKO} Drako: **${p.drako}**`,
+    ephemeral: false,
+  });
+}
