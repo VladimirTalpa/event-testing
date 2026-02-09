@@ -248,29 +248,29 @@ const BOSSES = {
 
   /* ===================== OLD specialgrade (kept) ===================== */
   specialgrade: {
-    event: "jjk",
-    id: "specialgrade",
-    name: "Special Grade Curse",
-    icon: E_JJK,
-    difficulty: "Medium",
-    joinMs: 2 * 60 * 1000,
-    baseChance: 0.30,
-    winReward: 200,
-    hitReward: 15,
-    roleDropChance: 0.0,
-    roleDropId: null,
+  event: "jjk",
+  id: "specialgrade",
+  name: "Special Grade Curse",
+  icon: E_JJK,
+  difficulty: "Medium",
+  joinMs: 2 * 60 * 1000,
+  baseChance: 0.30,
+  winReward: 200,
+  hitReward: 15,
+  roleDropChance: 0.0,
+  roleDropId: null,
 
-    spawnMedia: media.JJK_BOSS_SPAWN_MEDIA,
-    victoryMedia: media.JJK_BOSS_VICTORY_MEDIA,
-    defeatMedia: media.JJK_BOSS_DEFEAT_MEDIA,
+  spawnMedia: media.JJK_SG_SPAWN_MEDIA,
+  victoryMedia: media.JJK_SG_VICTORY_MEDIA,
+  defeatMedia: media.JJK_SG_DEFEAT_MEDIA,
 
-    rounds: [
-      { type: "pressure", title: "Round 1 — Cursed Pressure", intro: "Overwhelming cursed pressure floods the area.", media: media.JJK_BOSS_R1 },
-      { type: "pressure", title: "Round 2 — Malice Surge", intro: "The aura turns violent. Resist it.", media: media.JJK_BOSS_R2 },
-      { type: "attack", title: "Round 3 — Opening", intro: "A gap appears. Strike the core.", media: media.JJK_BOSS_R3 },
-      { type: "finisher", title: "Round 4 — Exorcism Window", intro: "Finish it! Press **Exorcise** in time.", windowMs: 5000, buttonLabel: "Exorcise", buttonEmoji: "🪬", media: media.JJK_BOSS_R4 },
-    ],
-  },
-};
+  rounds: [
+    { type: "pressure", title: "Round 1 — Cursed Pressure", intro: "Overwhelming cursed pressure floods the area.", media: media.JJK_SG_R1 },
+    { type: "pressure", title: "Round 2 — Malice Surge", intro: "The aura turns violent. Resist it.", media: media.JJK_SG_R2 },
+    { type: "attack", title: "Round 3 — Opening", intro: "A gap appears. Strike the core.", media: media.JJK_SG_R3 },
+    { type: "finisher", title: "Round 4 — Exorcism Window", intro: "Finish it! Press **Exorcise** in time.", windowMs: 5000, buttonLabel: "Exorcise", buttonEmoji: "🪬", media: media.JJK_SG_SPAWN_MEDIA },
+  ],
+},
+
 
 module.exports = { BOSSES };
