@@ -252,7 +252,7 @@ const BOSSES = {
     id: "specialgrade",
     name: "Special Grade Curse",
     icon: E_JJK,
-    difficulty: "Deadly",
+    difficulty: "Medium",
     joinMs: 2 * 60 * 1000,
     baseChance: 0.30,
     winReward: 200,
