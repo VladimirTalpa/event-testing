@@ -1,4 +1,3 @@
-// src/handlers/slash.js
 const { BOSSES } = require("../data/bosses");
 const { MOBS } = require("../data/mobs");
 
@@ -21,8 +20,9 @@ const {
 
 const { getPlayer, setPlayer, getTopPlayers } = require("../core/players");
 const { safeName } = require("../core/utils");
-const { hasEventRole, hasBoosterRole, shopButtons, wardrobeComponents, pvpButtons } = require("../ui/components");
-const { inventoryEmbed, shopEmbed, leaderboardEmbed, wardrobeEmbed } = require("../ui/embeds");
+const { hasEventRole, hasBoosterRole, shopButtons, wardrobeComponents, pvpButtons, menuButtons } = require("../ui/components");
+
+const { inventoryEmbed, shopEmbed, drakoLeaderboardEmbed, menuEmbed, profileEmbed } = require("../ui/embeds");
 
 const { spawnBoss } = require("../events/boss");
 const { spawnMob } = require("../events/mob");
@@ -38,6 +38,15 @@ module.exports = async function handleSlash(interaction) {
   const channel = interaction.channel;
   if (!channel || !channel.isTextBased()) {
     return interaction.reply({ content: "❌ Use commands in a text channel.", ephemeral: true });
+  }
+
+  // ✅ NEW MENU
+  if (interaction.commandName === "menu") {
+    return interaction.reply({
+      embeds: [menuEmbed(interaction.user)],
+      components: menuButtons(false),
+      ephemeral: true,
+    });
   }
 
   if (interaction.commandName === "balance") {
@@ -83,7 +92,12 @@ module.exports = async function handleSlash(interaction) {
       entries.push({ name, score: r.score });
     }
 
-    return interaction.reply({ embeds: [leaderboardEmbed(eventKey, entries)], ephemeral: false });
+    // старый лидерборд по event валюте (как было)
+    const tag = eventKey === "bleach" ? "Bleach" : "JJK";
+    const emoji = eventKey === "bleach" ? E_REIATSU : E_CE;
+    const lines = entries.map((e, i) => `**#${i + 1}** — ${e.name}: **${emoji} ${e.score}**`);
+
+    return interaction.reply({ content: `🏆 **${tag} Leaderboard**\n` + (lines.join("\n") || "No data yet."), ephemeral: false });
   }
 
   if (interaction.commandName === "dailyclaim") {
@@ -103,7 +117,6 @@ module.exports = async function handleSlash(interaction) {
     return interaction.reply({ content: `🎁 You claimed **${E_REIATSU} ${amount} Reiatsu**!`, ephemeral: false });
   }
 
-  /* ===================== /give ===================== */
   if (interaction.commandName === "give") {
     const currency = interaction.options.getString("currency", true);
     const target = interaction.options.getUser("user", true);
@@ -177,29 +190,30 @@ module.exports = async function handleSlash(interaction) {
           `⚠️ Drako cannot be exchanged back.`,
         ephemeral: false,
       });
-    } else {
-      if (p.jjk.cursedEnergy < cost) {
-        return interaction.reply({
-          content:
-            `❌ Need ${currencyEmoji} **${cost}** to buy ${E_DRAKO} **${drakoWanted} Drako**.\n` +
-            `Rate: **${rate} ${currencyEmoji} = 1 ${E_DRAKO}** (one-way)\n` +
-            `You have ${currencyEmoji} **${p.jjk.cursedEnergy}**.`,
-          ephemeral: true,
-        });
-      }
-      p.jjk.cursedEnergy -= cost;
-      p.drako += drakoWanted;
-      await setPlayer(interaction.user.id, p);
+    }
 
+    if (p.jjk.cursedEnergy < cost) {
       return interaction.reply({
         content:
-          `✅ Exchanged ${currencyEmoji} **${cost}** → ${E_DRAKO} **${drakoWanted} Drako**.\n` +
+          `❌ Need ${currencyEmoji} **${cost}** to buy ${E_DRAKO} **${drakoWanted} Drako**.\n` +
           `Rate: **${rate} ${currencyEmoji} = 1 ${E_DRAKO}** (one-way)\n` +
-          `Now: ${currencyEmoji} **${p.jjk.cursedEnergy}** • ${E_DRAKO} **${p.drako}**\n` +
-          `⚠️ Drako cannot be exchanged back.`,
-        ephemeral: false,
+          `You have ${currencyEmoji} **${p.jjk.cursedEnergy}**.`,
+        ephemeral: true,
       });
     }
+
+    p.jjk.cursedEnergy -= cost;
+    p.drako += drakoWanted;
+    await setPlayer(interaction.user.id, p);
+
+    return interaction.reply({
+      content:
+        `✅ Exchanged ${currencyEmoji} **${cost}** → ${E_DRAKO} **${drakoWanted} Drako**.\n` +
+        `Rate: **${rate} ${currencyEmoji} = 1 ${E_DRAKO}** (one-way)\n` +
+        `Now: ${currencyEmoji} **${p.jjk.cursedEnergy}** • ${E_DRAKO} **${p.drako}**\n` +
+        `⚠️ Drako cannot be exchanged back.`,
+      ephemeral: false,
+    });
   }
 
   if (interaction.commandName === "spawnboss") {
@@ -244,6 +258,7 @@ module.exports = async function handleSlash(interaction) {
     const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
     if (!member) return interaction.reply({ content: "❌ Can't read your member data.", ephemeral: true });
 
+    const { wardrobeEmbed } = require("../ui/embeds");
     return interaction.reply({
       embeds: [wardrobeEmbed(interaction.guild, p)],
       components: wardrobeComponents(interaction.guild, member, p),
@@ -251,7 +266,6 @@ module.exports = async function handleSlash(interaction) {
     });
   }
 
-  /* ===================== /pvpclash ===================== */
   if (interaction.commandName === "pvpclash") {
     const currency = interaction.options.getString("currency", true);
     const amount = interaction.options.getInteger("amount", true);
@@ -273,7 +287,6 @@ module.exports = async function handleSlash(interaction) {
     });
   }
 
-  /* ===================== adminadd ===================== */
   if (interaction.commandName === "adminadd") {
     const allowed = interaction.member?.roles?.cache?.has("1259865441405501571");
     if (!allowed) return interaction.reply({ content: "⛔ No permission.", ephemeral: true });
@@ -293,39 +306,6 @@ module.exports = async function handleSlash(interaction) {
     return interaction.reply({
       content:
         `✅ Added **${amount}** to <@${target.id}>.\n` +
-        `${E_REIATSU} Reiatsu: **${p.bleach.reiatsu}** • ${E_CE} CE: **${p.jjk.cursedEnergy}** • ${E_DRAKO} Drako: **${p.drako}**`,
-      ephemeral: false,
-    });
-  }
-
-  /* ===================== adminremove (NEW) ===================== */
-  if (interaction.commandName === "adminremove") {
-    const allowed = interaction.member?.roles?.cache?.has("1259865441405501571");
-    if (!allowed) return interaction.reply({ content: "⛔ No permission.", ephemeral: true });
-
-    const currency = interaction.options.getString("currency", true);
-    const amount = interaction.options.getInteger("amount", true);
-    const target = interaction.options.getUser("user") || interaction.user;
-
-    const p = await getPlayer(target.id);
-
-    const before =
-      currency === "drako" ? p.drako :
-      currency === "reiatsu" ? p.bleach.reiatsu :
-      p.jjk.cursedEnergy;
-
-    const removed = Math.min(before, amount);
-    const after = before - removed;
-
-    if (currency === "drako") p.drako = after;
-    if (currency === "reiatsu") p.bleach.reiatsu = after;
-    if (currency === "cursed_energy") p.jjk.cursedEnergy = after;
-
-    await setPlayer(target.id, p);
-
-    return interaction.reply({
-      content:
-        `✅ Removed **${removed}** from <@${target.id}>.\n` +
         `${E_REIATSU} Reiatsu: **${p.bleach.reiatsu}** • ${E_CE} CE: **${p.jjk.cursedEnergy}** • ${E_DRAKO} Drako: **${p.drako}**`,
       ephemeral: false,
     });
