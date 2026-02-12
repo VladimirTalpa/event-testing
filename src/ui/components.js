@@ -11,15 +11,18 @@ const { EVENT_ROLE_IDS, BOOSTER_ROLE_ID } = require("../config");
 const CID = {
   BOSS_JOIN: "boss_join",
   BOSS_RULES: "boss_rules",
-
-  // boss_action:<bossId>:<roundIndex>:<token>:<kind>:<payload?>
   BOSS_ACTION: "boss_action",
+  MOB_ATTACK: "mob_attack",
 
-  MOB_ATTACK: "mob_attack", // mob_attack:<eventKey>
-
-  // pvp
-  PVP_ACCEPT: "pvp_accept", // pvp_accept:<currency>:<amount>:<challengerId>:<targetId>
+  PVP_ACCEPT: "pvp_accept",
   PVP_DECLINE: "pvp_decline",
+
+  // ✅ MENU
+  MENU_INV: "menu_inv",
+  MENU_CARDS: "menu_cards",
+  MENU_PACKS: "menu_packs",
+  MENU_PROFILE: "menu_profile",
+  MENU_LB_DRAKO: "menu_lb_drako",
 };
 
 function hasEventRole(member) {
@@ -30,6 +33,20 @@ function hasBoosterRole(member) {
   return !!member?.roles?.cache?.has(BOOSTER_ROLE_ID);
 }
 
+/* ===================== MAIN MENU ===================== */
+function menuButtons(disabled = false) {
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(CID.MENU_INV).setLabel("Inventory").setEmoji("🎒").setStyle(ButtonStyle.Secondary).setDisabled(disabled),
+      new ButtonBuilder().setCustomId(CID.MENU_CARDS).setLabel("Cards").setEmoji("🃏").setStyle(ButtonStyle.Secondary).setDisabled(disabled),
+      new ButtonBuilder().setCustomId(CID.MENU_PACKS).setLabel("Packs").setEmoji("🛒").setStyle(ButtonStyle.Secondary).setDisabled(disabled),
+      new ButtonBuilder().setCustomId(CID.MENU_PROFILE).setLabel("Profile").setEmoji("👤").setStyle(ButtonStyle.Primary).setDisabled(disabled),
+      new ButtonBuilder().setCustomId(CID.MENU_LB_DRAKO).setLabel("Drako Top").setEmoji("🏆").setStyle(ButtonStyle.Success).setDisabled(disabled)
+    ),
+  ];
+}
+
+/* ===================== EXISTING ===================== */
 function bossButtons(disabled = false) {
   return [
     new ActionRowBuilder().addComponents(
@@ -57,7 +74,6 @@ function dualChoiceRow(customIdA, labelA, emojiA, customIdB, labelB, emojiB, dis
 }
 
 function triChoiceRow(buttons, disabled = false) {
-  // buttons: [{customId,label,emoji}]
   const row = new ActionRowBuilder();
   for (const b of buttons.slice(0, 5)) {
     row.addComponents(
@@ -96,29 +112,31 @@ function mobButtons(eventKey, disabled = false) {
 }
 
 function shopButtons(eventKey, player) {
+  // оставил как было у тебя (без изменений)
+  const invB = player.bleach.items;
+  const invJ = player.jjk.items;
+
   if (eventKey === "bleach") {
-    const inv = player.bleach.items;
     const row1 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("buy_bleach_zanpakuto_basic").setLabel("Buy Zanpakutō").setStyle(ButtonStyle.Secondary).setDisabled(inv.zanpakuto_basic),
-      new ButtonBuilder().setCustomId("buy_bleach_hollow_mask_fragment").setLabel("Buy Mask Fragment").setStyle(ButtonStyle.Secondary).setDisabled(inv.hollow_mask_fragment),
-      new ButtonBuilder().setCustomId("buy_bleach_soul_reaper_cloak").setLabel("Buy Cloak").setStyle(ButtonStyle.Secondary).setDisabled(inv.soul_reaper_cloak)
+      new ButtonBuilder().setCustomId("buy_bleach_zanpakuto_basic").setLabel("Buy Zanpakutō").setStyle(ButtonStyle.Secondary).setDisabled(invB.zanpakuto_basic),
+      new ButtonBuilder().setCustomId("buy_bleach_hollow_mask_fragment").setLabel("Buy Mask Fragment").setStyle(ButtonStyle.Secondary).setDisabled(invB.hollow_mask_fragment),
+      new ButtonBuilder().setCustomId("buy_bleach_soul_reaper_cloak").setLabel("Buy Cloak").setStyle(ButtonStyle.Secondary).setDisabled(invB.soul_reaper_cloak)
     );
     const row2 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("buy_bleach_reiatsu_amplifier").setLabel("Buy Amplifier").setStyle(ButtonStyle.Secondary).setDisabled(inv.reiatsu_amplifier),
-      new ButtonBuilder().setCustomId("buy_bleach_cosmetic_role").setLabel("Buy Aizen role").setStyle(ButtonStyle.Danger).setDisabled(inv.cosmetic_role)
+      new ButtonBuilder().setCustomId("buy_bleach_reiatsu_amplifier").setLabel("Buy Amplifier").setStyle(ButtonStyle.Secondary).setDisabled(invB.reiatsu_amplifier),
+      new ButtonBuilder().setCustomId("buy_bleach_cosmetic_role").setLabel("Buy Aizen role").setStyle(ButtonStyle.Danger).setDisabled(invB.cosmetic_role)
     );
     return [row1, row2];
   }
 
-  const inv = player.jjk.items;
   const row1 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId("buy_jjk_black_flash_manual").setLabel("Buy Black Flash").setStyle(ButtonStyle.Secondary).setDisabled(inv.black_flash_manual),
-    new ButtonBuilder().setCustomId("buy_jjk_domain_charm").setLabel("Buy Domain Charm").setStyle(ButtonStyle.Secondary).setDisabled(inv.domain_charm),
-    new ButtonBuilder().setCustomId("buy_jjk_cursed_tool").setLabel("Buy Cursed Tool").setStyle(ButtonStyle.Secondary).setDisabled(inv.cursed_tool)
+    new ButtonBuilder().setCustomId("buy_jjk_black_flash_manual").setLabel("Buy Black Flash").setStyle(ButtonStyle.Secondary).setDisabled(invJ.black_flash_manual),
+    new ButtonBuilder().setCustomId("buy_jjk_domain_charm").setLabel("Buy Domain Charm").setStyle(ButtonStyle.Secondary).setDisabled(invJ.domain_charm),
+    new ButtonBuilder().setCustomId("buy_jjk_cursed_tool").setLabel("Buy Cursed Tool").setStyle(ButtonStyle.Secondary).setDisabled(invJ.cursed_tool)
   );
   const row2 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId("buy_jjk_reverse_talisman").setLabel("Buy Reverse Talisman").setStyle(ButtonStyle.Secondary).setDisabled(inv.reverse_talisman),
-    new ButtonBuilder().setCustomId("buy_jjk_binding_vow_seal").setLabel("Buy Binding Vow").setStyle(ButtonStyle.Danger).setDisabled(inv.binding_vow_seal)
+    new ButtonBuilder().setCustomId("buy_jjk_reverse_talisman").setLabel("Buy Reverse Talisman").setStyle(ButtonStyle.Secondary).setDisabled(invJ.reverse_talisman),
+    new ButtonBuilder().setCustomId("buy_jjk_binding_vow_seal").setLabel("Buy Binding Vow").setStyle(ButtonStyle.Danger).setDisabled(invJ.binding_vow_seal)
   );
   return [row1, row2];
 }
@@ -145,7 +163,6 @@ function wardrobeComponents(guild, member, player) {
   return [new ActionRowBuilder().addComponents(menu)];
 }
 
-/* ===================== PVP UI ===================== */
 function pvpButtons(currency, amount, challengerId, targetId, disabled = false) {
   return [
     new ActionRowBuilder().addComponents(
@@ -169,6 +186,11 @@ module.exports = {
   CID,
   hasEventRole,
   hasBoosterRole,
+
+  // ✅ menu
+  menuButtons,
+
+  // existing
   bossButtons,
   singleActionRow,
   dualChoiceRow,
