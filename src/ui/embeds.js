@@ -34,6 +34,22 @@ function hpBar(pct) {
   return `${p}% ${"█".repeat(filled)}${"░".repeat(10 - filled)}`;
 }
 
+/**
+ * Round HP logic:
+ * - If round has hpPct -> use it
+ * - Else linear: 100 -> ... -> 0 by rounds (shows "remaining after this round step")
+ */
+function roundHpPct(def, roundIndex) {
+  const r = def.rounds?.[roundIndex];
+  if (typeof r?.hpPct === "number") return r.hpPct;
+
+  const total = Math.max(1, def.rounds?.length || 1);
+  const step = 100 / total;
+  // Example: Round 1 => ~100-step, Round 2 => ~100-2*step ...
+  const remaining = Math.round(100 - step * (roundIndex + 1));
+  return Math.max(0, Math.min(100, remaining));
+}
+
 function calcBleachReiatsuMultiplier(items) {
   return items.reiatsu_amplifier ? 1.25 : 1.0;
 }
@@ -66,10 +82,7 @@ function calcJjkDropLuckMultiplier(items) {
   return mult;
 }
 
-/**
- * ✅ UPDATED: added hpPercent (default 100)
- */
-function bossSpawnEmbed(def, channelName, joinedCount, fightersText, hpPercent = 100) {
+function bossSpawnEmbed(def, channelName, joinedCount, fightersText) {
   const eventTag = def.event === "bleach" ? `${E_BLEACH} BLEACH` : `${E_JJK} JJK`;
   const currency = def.event === "bleach" ? E_REIATSU : E_CE;
 
@@ -86,10 +99,10 @@ function bossSpawnEmbed(def, channelName, joinedCount, fightersText, hpPercent =
     .setDescription(
       `**Difficulty:** ${def.difficulty}\n` +
       `⏳ **Join time:** ${Math.round(def.joinMs / 60000)} minutes\n` +
-      `Press **🗡 Join Battle** to participate.`
+      `Press **🗡 Join Battle** to participate.\n\n` +
+      `**HP:** ${hpBar(100)}`
     )
     .addFields(
-      { name: `❤️ Boss HP`, value: `\`${hpBar(hpPercent)}\``, inline: false },
       { name: `${E_MEMBERS} Fighters`, value: fightersText, inline: false },
       { name: `Joined`, value: `\`${joinedCount}\``, inline: true },
       { name: `${currency} Rewards`, value: rewardLine, inline: true },
@@ -99,21 +112,22 @@ function bossSpawnEmbed(def, channelName, joinedCount, fightersText, hpPercent =
     .setFooter({ text: `Boss • ${def.rounds.length} rounds • ${maxHits} hits = eliminated` });
 }
 
-/**
- * ✅ UPDATED: added hpPercent + statusText (both optional)
- */
-function bossRoundEmbed(def, roundIndex, aliveCount, hpPercent = 100, statusText = "") {
+function bossRoundEmbed(def, roundIndex, aliveCount) {
   const r = def.rounds[roundIndex];
   const eventTag = def.event === "bleach" ? `${E_BLEACH} BLEACH` : `${E_JJK} JJK`;
+
+  const hpPct = roundHpPct(def, roundIndex);
+  const status = r.status ? `**Status:** ${r.status}\n` : "";
 
   return new EmbedBuilder()
     .setColor(COLOR)
     .setTitle(`${eventTag} — ${def.icon} ${def.name} • ${r.title}`)
-    .setDescription((statusText ? `**Status:** ${statusText}\n\n` : "") + r.intro)
-    .addFields(
-      { name: `❤️ Boss HP`, value: `\`${hpBar(hpPercent)}\``, inline: true },
-      { name: `${E_MEMBERS} Alive fighters`, value: `\`${aliveCount}\``, inline: true }
+    .setDescription(
+      `**HP:** ${hpBar(hpPct)}\n` +
+      `${status}` +
+      `${r.intro || ""}`.trim()
     )
+    .addFields({ name: `${E_MEMBERS} Alive fighters`, value: `\`${aliveCount}\``, inline: true })
     .setImage(r.media || def.spawnMedia)
     .setFooter({ text: `Round ${roundIndex + 1}/${def.rounds.length}` });
 }
@@ -292,6 +306,8 @@ module.exports = {
   shopEmbed,
   leaderboardEmbed,
   wardrobeEmbed,
+
+  hpBar,
 
   calcBleachSurvivalBonus,
   calcBleachReiatsuMultiplier,
