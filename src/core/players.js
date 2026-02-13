@@ -1,3 +1,4 @@
+// src/core/players.js
 const { initRedis, getRedis } = require("./redis");
 
 const REDIS_PLAYERS_KEY = "events:players";
@@ -119,7 +120,6 @@ async function getTopPlayers(eventKey, limit = 10) {
     let score = 0;
     if (eventKey === "bleach") score = p.bleach?.reiatsu || 0;
     if (eventKey === "jjk") score = p.jjk?.cursedEnergy || 0;
-    if (eventKey === "drako") score = p.drako || 0;
 
     return { userId, score };
   });
