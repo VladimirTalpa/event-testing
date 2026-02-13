@@ -296,4 +296,46 @@ module.exports = async function handleSlash(interaction) {
       ephemeral: false,
     });
   }
+
+    if (interaction.commandName === "profile") {
+    const p = await getPlayer(interaction.user.id);
+    const { profileMenuRow } = require("../ui/menu");
+    const { EmbedBuilder } = require("discord.js");
+    const { COLOR, E_REIATSU, E_CE, E_DRAKO } = require("../config");
+
+    const e = new EmbedBuilder()
+      .setColor(COLOR)
+      .setTitle(`👤 Profile — ${safeName(interaction.user.username)}`)
+      .setDescription(
+        [
+          `💰 **Currency**`,
+          `${E_REIATSU} Reiatsu: **${p.bleach.reiatsu}**`,
+          `${E_CE} Cursed Energy: **${p.jjk.cursedEnergy}**`,
+          `${E_DRAKO} Drako: **${p.drako}**`,
+          "",
+          `🧩 Shards`,
+          `🩸 Bleach Shards: **${p.bleach.shards || 0}**`,
+          `🟣 Cursed Shards: **${p.jjk.shards || 0}**`,
+          "",
+          `🎁 Packs`,
+          `Basic: **${p.packs.basic || 0}** • Legendary: **${p.packs.legendary || 0}**`,
+        ].join("\n")
+      );
+
+    return interaction.reply({ embeds: [e], components: profileMenuRow(), ephemeral: true });
+  }
+
+  if (interaction.commandName === "store") {
+    const { storeMenuRow, packShopRows } = require("../ui/menu");
+    const { EmbedBuilder } = require("discord.js");
+    const { COLOR } = require("../config");
+
+    const e = new EmbedBuilder()
+      .setColor(COLOR)
+      .setTitle("🛒 Store")
+      .setDescription("Choose a category. (Minimal commands — use buttons.)");
+
+    return interaction.reply({ embeds: [e], components: [...storeMenuRow(), ...packShopRows()], ephemeral: true });
+  }
+
 };
