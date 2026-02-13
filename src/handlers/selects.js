@@ -1,65 +1,49 @@
 // src/handlers/selects.js
 const { getPlayer } = require("../core/players");
-const { wardrobeEmbed } = require("../ui/embeds");
-const { wardrobeComponents } = require("../ui/components");
-
-async function tryGiveRole(guild, userId, roleId) {
-  try {
-    const botMember = await guild.members.fetchMe();
-    if (!botMember.permissions.has("ManageRoles")) return { ok: false, reason: "Missing Manage Roles permission." };
-    const role = guild.roles.cache.get(roleId);
-    if (!role) return { ok: false, reason: "Role not found." };
-    const botTop = botMember.roles.highest?.position ?? 0;
-    if (botTop <= role.position) return { ok: false, reason: "Bot role is below target role (hierarchy)." };
-    const member = await guild.members.fetch(userId);
-    await member.roles.add(roleId);
-    return { ok: true };
-  } catch {
-    return { ok: false, reason: "Discord rejected role add." };
-  }
-}
-async function tryRemoveRole(guild, userId, roleId) {
-  try {
-    const botMember = await guild.members.fetchMe();
-    if (!botMember.permissions.has("ManageRoles")) return { ok: false, reason: "Missing Manage Roles permission." };
-    const role = guild.roles.cache.get(roleId);
-    if (!role) return { ok: false, reason: "Role not found." };
-    const botTop = botMember.roles.highest?.position ?? 0;
-    if (botTop <= role.position) return { ok: false, reason: "Bot role is below target role (hierarchy)." };
-    const member = await guild.members.fetch(userId);
-    await member.roles.remove(roleId);
-    return { ok: true };
-  } catch {
-    return { ok: false, reason: "Discord rejected role remove." };
-  }
-}
+const { cardDetailsEmbed } = require("../ui/embeds");
 
 module.exports = async function handleSelects(interaction) {
-  if (interaction.customId !== "wardrobe_select") return;
+  const cid = interaction.customId;
 
-  const roleId = interaction.values?.[0];
-  if (!roleId) return;
+  /* ===================== PROFILE -> CARD VIEW ===================== */
+  if (cid === "profile_cards_select") {
+    const cardId = interaction.values?.[0];
+    if (!cardId) return;
 
-  const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
-  if (!member) return interaction.reply({ content: "❌ Can't read your member data.", ephemeral: true });
+    const p = await getPlayer(interaction.user.id);
+    const card = (p.cards || []).find((c) => c.id === cardId);
+    if (!card) {
+      return interaction.reply({ content: "❌ Card not found.", ephemeral: true }).catch(() => {});
+    }
 
-  const p = await getPlayer(interaction.user.id);
-  if (!p.ownedRoles.includes(String(roleId))) {
-    return interaction.reply({ content: "❌ This role is not in your wardrobe.", ephemeral: true });
+    return interaction.reply({
+      embeds: [cardDetailsEmbed(card, card.charKey)],
+      ephemeral: true,
+    }).catch(() => {});
   }
 
-  const has = member.roles.cache.has(roleId);
-  if (has) {
-    const res = await tryRemoveRole(interaction.guild, interaction.user.id, roleId);
-    if (!res.ok) return interaction.reply({ content: `⚠️ Can't remove role: ${res.reason}`, ephemeral: true });
-  } else {
-    const res = await tryGiveRole(interaction.guild, interaction.user.id, roleId);
-    if (!res.ok) return interaction.reply({ content: `⚠️ Can't assign role: ${res.reason}`, ephemeral: true });
-  }
+  /* ===================== EXPEDITION PARTY PICK ===================== */
+  if (cid.startsWith("expedition_party_select:")) {
+    const anime = cid.split(":")[1];
+    const ids = interaction.values || [];
+    if (ids.length !== 3) {
+      return interaction.reply({ content: "❌ You must pick exactly 3 heroes.", ephemeral: true }).catch(() => {});
+    }
 
-  const updatedMember = await interaction.guild.members.fetch(interaction.user.id).catch(() => member);
-  return interaction.update({
-    embeds: [wardrobeEmbed(interaction.guild, p)],
-    components: wardrobeComponents(interaction.guild, updatedMember, p),
-  });
+    // show start button with those ids embedded
+    const startId = `ui_expe:start:${anime}:${ids.join(",")}`;
+
+    return interaction.reply({
+      content: `✅ Party selected. Start expedition? (Starts in **1 hour**, ticks every **10 minutes**)`,
+      components: [
+        {
+          type: 1,
+          components: [
+            { type: 2, style: 3, custom_id: startId, label: "Start Expedition", emoji: { name: "🧭" } },
+          ],
+        },
+      ],
+      ephemeral: true,
+    }).catch(() => {});
+  }
 };
