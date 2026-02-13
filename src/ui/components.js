@@ -9,19 +9,17 @@ const {
 const { EVENT_ROLE_IDS, BOOSTER_ROLE_ID } = require("../config");
 
 const CID = {
-  // ========= UI NAV =========
-  UI_PROFILE: "ui_profile", // ui_profile:<tab>
-  UI_STORE: "ui_store",     // ui_store:<tab>:<anime?>
-  UI_FORGE: "ui_forge",     // ui_forge:<tab>
-  UI_EXPE: "ui_expe",       // ui_expe:<action>
+  BOSS_JOIN: "boss_join",
+  BOSS_RULES: "boss_rules",
 
-  // ========= STORE ACTIONS =========
-  OPEN_PACK: "open_pack",   // open_pack:<anime>:<packType>
-  // ========= PROFILE ACTIONS =========
-  VIEW_CARD: "view_card",   // view_card:<cardId>
-  // ========= EXPEDITION ACTIONS =========
-  EXPE_PICK: "expe_pick",   // expe_pick:<anime>
-  EXPE_START: "expe_start", // expe_start:<anime>:<cardId1>,<cardId2>,<cardId3>
+  // boss_action:<bossId>:<roundIndex>:<token>:<kind>:<payload?>
+  BOSS_ACTION: "boss_action",
+
+  MOB_ATTACK: "mob_attack", // mob_attack:<eventKey>
+
+  // pvp
+  PVP_ACCEPT: "pvp_accept", // pvp_accept:<currency>:<amount>:<challengerId>:<targetId>
+  PVP_DECLINE: "pvp_decline",
 };
 
 function hasEventRole(member) {
@@ -32,102 +30,174 @@ function hasBoosterRole(member) {
   return !!member?.roles?.cache?.has(BOOSTER_ROLE_ID);
 }
 
-/* ===================== MAIN NAV ===================== */
-function profileNav(tab = "currency") {
+/* ===================== BOSS UI ===================== */
+function bossButtons(disabled = false) {
   return [
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`${CID.UI_PROFILE}:currency`).setLabel("Currency").setStyle(tab === "currency" ? ButtonStyle.Primary : ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(`${CID.UI_PROFILE}:cards`).setLabel("Cards").setStyle(tab === "cards" ? ButtonStyle.Primary : ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(`${CID.UI_PROFILE}:gears`).setLabel("Gears").setStyle(tab === "gears" ? ButtonStyle.Primary : ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(`${CID.UI_PROFILE}:titles`).setLabel("Titles").setStyle(tab === "titles" ? ButtonStyle.Primary : ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(`${CID.UI_PROFILE}:leaderboard`).setLabel("Leaderboard").setStyle(tab === "leaderboard" ? ButtonStyle.Primary : ButtonStyle.Secondary)
+      new ButtonBuilder()
+        .setCustomId(CID.BOSS_JOIN)
+        .setLabel("Join Battle")
+        .setEmoji("🗡")
+        .setStyle(ButtonStyle.Danger)
+        .setDisabled(disabled),
+      new ButtonBuilder()
+        .setCustomId(CID.BOSS_RULES)
+        .setLabel("Rules")
+        .setEmoji("📜")
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(disabled)
     ),
   ];
 }
 
-function storeNav(tab = "packs") {
+function singleActionRow(customId, label, emoji, disabled = false) {
   return [
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`${CID.UI_STORE}:eventshop`).setLabel("Event Shop").setStyle(tab === "eventshop" ? ButtonStyle.Primary : ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(`${CID.UI_STORE}:packs`).setLabel("Card Packs").setStyle(tab === "packs" ? ButtonStyle.Primary : ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(`${CID.UI_STORE}:gearshop`).setLabel("Gear Shop").setStyle(tab === "gearshop" ? ButtonStyle.Primary : ButtonStyle.Secondary)
+      new ButtonBuilder()
+        .setCustomId(customId)
+        .setLabel(label)
+        .setEmoji(emoji)
+        .setStyle(ButtonStyle.Danger)
+        .setDisabled(disabled)
     ),
   ];
 }
 
-function forgeNav(tab = "craft") {
+function dualChoiceRow(customIdA, labelA, emojiA, customIdB, labelB, emojiB, disabled = false) {
   return [
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`${CID.UI_FORGE}:craft`).setLabel("Craft").setStyle(tab === "craft" ? ButtonStyle.Primary : ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(`${CID.UI_FORGE}:evolve`).setLabel("Evolve").setStyle(tab === "evolve" ? ButtonStyle.Primary : ButtonStyle.Secondary)
+      new ButtonBuilder().setCustomId(customIdA).setLabel(labelA).setEmoji(emojiA).setStyle(ButtonStyle.Primary).setDisabled(disabled),
+      new ButtonBuilder().setCustomId(customIdB).setLabel(labelB).setEmoji(emojiB).setStyle(ButtonStyle.Secondary).setDisabled(disabled)
     ),
   ];
 }
 
-/* ===================== STORE PACK BUTTONS ===================== */
-function packButtons() {
+function triChoiceRow(buttons, disabled = false) {
+  const row = new ActionRowBuilder();
+  for (const b of buttons.slice(0, 5)) {
+    row.addComponents(
+      new ButtonBuilder()
+        .setCustomId(b.customId)
+        .setLabel(b.label)
+        .setEmoji(b.emoji)
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(disabled)
+    );
+  }
+  return [row];
+}
+
+function comboDefenseRows(token, bossId, roundIndex) {
+  const mk = (kind) => `boss_action:${bossId}:${roundIndex}:${token}:combo:${kind}`;
   return [
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`${CID.OPEN_PACK}:bleach:basic`).setLabel("Open Basic (Bleach)").setEmoji("🩸").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(`${CID.OPEN_PACK}:bleach:legendary`).setLabel("Open Legendary (Bleach)").setEmoji("🩸").setStyle(ButtonStyle.Danger)
-    ),
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`${CID.OPEN_PACK}:jjk:basic`).setLabel("Open Basic (JJK)").setEmoji("🟣").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(`${CID.OPEN_PACK}:jjk:legendary`).setLabel("Open Legendary (JJK)").setEmoji("🟣").setStyle(ButtonStyle.Danger)
+      new ButtonBuilder().setCustomId(mk("red")).setLabel("Red").setEmoji("🔴").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(mk("blue")).setLabel("Blue").setEmoji("🔵").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(mk("green")).setLabel("Green").setEmoji("🟢").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(mk("yellow")).setLabel("Yellow").setEmoji("🟡").setStyle(ButtonStyle.Secondary)
     ),
   ];
 }
 
-/* ===================== CARD SELECT (profile -> cards) ===================== */
-function cardsSelectMenu(player, anime = "all") {
-  const cards = player.cards || [];
-  const filtered = anime === "all" ? cards : cards.filter((c) => c.anime === anime);
+/* ===================== MOB UI ===================== */
+function mobButtons(eventKey, disabled = false) {
+  const label = eventKey === "bleach" ? "Attack Hollow" : "Exorcise Spirit";
+  const emoji = eventKey === "bleach" ? "⚔️" : "🪬";
 
-  if (!filtered.length) return [];
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`${CID.MOB_ATTACK}:${eventKey}`)
+        .setLabel(label)
+        .setEmoji(emoji)
+        .setStyle(ButtonStyle.Primary)
+        .setDisabled(disabled)
+    ),
+  ];
+}
 
-  const options = filtered.slice(0, 25).map((c) => {
-    const label = `${c.rarity} • ${c.charKey}`;
-    const desc = `Lv ${c.level} • ⭐${c.stars} • ${c.status}`;
-    return { label: label.slice(0, 100), value: c.id, description: desc.slice(0, 100) };
+/* ===================== SHOP UI ===================== */
+function shopButtons(eventKey, player) {
+  if (eventKey === "bleach") {
+    const inv = player.bleach.items;
+    const row1 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("buy_bleach_zanpakuto_basic").setLabel("Buy Zanpakutō").setStyle(ButtonStyle.Secondary).setDisabled(inv.zanpakuto_basic),
+      new ButtonBuilder().setCustomId("buy_bleach_hollow_mask_fragment").setLabel("Buy Mask Fragment").setStyle(ButtonStyle.Secondary).setDisabled(inv.hollow_mask_fragment),
+      new ButtonBuilder().setCustomId("buy_bleach_soul_reaper_cloak").setLabel("Buy Cloak").setStyle(ButtonStyle.Secondary).setDisabled(inv.soul_reaper_cloak)
+    );
+    const row2 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("buy_bleach_reiatsu_amplifier").setLabel("Buy Amplifier").setStyle(ButtonStyle.Secondary).setDisabled(inv.reiatsu_amplifier),
+      new ButtonBuilder().setCustomId("buy_bleach_cosmetic_role").setLabel("Buy Aizen role").setStyle(ButtonStyle.Danger).setDisabled(inv.cosmetic_role)
+    );
+    return [row1, row2];
+  }
+
+  const inv = player.jjk.items;
+  const row1 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId("buy_jjk_black_flash_manual").setLabel("Buy Black Flash").setStyle(ButtonStyle.Secondary).setDisabled(inv.black_flash_manual),
+    new ButtonBuilder().setCustomId("buy_jjk_domain_charm").setLabel("Buy Domain Charm").setStyle(ButtonStyle.Secondary).setDisabled(inv.domain_charm),
+    new ButtonBuilder().setCustomId("buy_jjk_cursed_tool").setLabel("Buy Cursed Tool").setStyle(ButtonStyle.Secondary).setDisabled(inv.cursed_tool)
+  );
+  const row2 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId("buy_jjk_reverse_talisman").setLabel("Buy Reverse Talisman").setStyle(ButtonStyle.Secondary).setDisabled(inv.reverse_talisman),
+    new ButtonBuilder().setCustomId("buy_jjk_binding_vow_seal").setLabel("Buy Binding Vow").setStyle(ButtonStyle.Danger).setDisabled(inv.binding_vow_seal)
+  );
+  return [row1, row2];
+}
+
+/* ===================== WARDROBE UI ===================== */
+function wardrobeComponents(guild, member, player) {
+  const roles = player.ownedRoles.map((rid) => guild.roles.cache.get(rid)).filter(Boolean);
+  if (!roles.length) return [];
+
+  const options = roles.slice(0, 25).map((r) => {
+    const equipped = member.roles.cache.has(r.id);
+    return {
+      label: r.name.slice(0, 100),
+      value: r.id,
+      description: equipped ? "Equipped (select to remove)" : "Not equipped (select to wear)",
+    };
   });
 
   const menu = new StringSelectMenuBuilder()
-    .setCustomId("profile_cards_select")
-    .setPlaceholder("Select a card to view")
+    .setCustomId("wardrobe_select")
+    .setPlaceholder("Choose a role to equip/unequip")
     .addOptions(options);
 
   return [new ActionRowBuilder().addComponents(menu)];
 }
 
-/* ===================== EXPEDITION PICK MENU (choose 3 heroes) ===================== */
-function expeditionPickMenu(player, anime) {
-  const cards = (player.cards || []).filter((c) => c.anime === anime && c.status === "idle");
-  if (!cards.length) return [];
-
-  const options = cards.slice(0, 25).map((c) => {
-    const label = `${c.rarity} • ${c.charKey}`;
-    const desc = `Lv ${c.level} • ⭐${c.stars}`;
-    return { label: label.slice(0, 100), value: c.id, description: desc.slice(0, 100) };
-  });
-
-  const menu = new StringSelectMenuBuilder()
-    .setCustomId(`expedition_party_select:${anime}`)
-    .setPlaceholder("Pick 3 heroes (select 3)")
-    .setMinValues(3)
-    .setMaxValues(3)
-    .addOptions(options);
-
-  return [new ActionRowBuilder().addComponents(menu)];
+/* ===================== PVP UI ===================== */
+function pvpButtons(currency, amount, challengerId, targetId, disabled = false) {
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`${CID.PVP_ACCEPT}:${currency}:${amount}:${challengerId}:${targetId}`)
+        .setLabel("Accept")
+        .setEmoji("✅")
+        .setStyle(ButtonStyle.Success)
+        .setDisabled(disabled),
+      new ButtonBuilder()
+        .setCustomId(`${CID.PVP_DECLINE}:${currency}:${amount}:${challengerId}:${targetId}`)
+        .setLabel("Decline")
+        .setEmoji("❌")
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(disabled)
+    ),
+  ];
 }
 
 module.exports = {
   CID,
   hasEventRole,
   hasBoosterRole,
-  profileNav,
-  storeNav,
-  forgeNav,
-  packButtons,
-  cardsSelectMenu,
-  expeditionPickMenu,
+  bossButtons,
+  singleActionRow,
+  dualChoiceRow,
+  triChoiceRow,
+  comboDefenseRows,
+  mobButtons,
+  shopButtons,
+  wardrobeComponents,
+  pvpButtons,
 };
