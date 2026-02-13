@@ -89,28 +89,21 @@ function aliveIds(boss) {
     .map(([uid]) => uid);
 }
 
-async function applyHit(uid, boss, channel, reasonText) {
-  const maxHits = getMaxHits(boss.def);
-  const st = boss.participants.get(uid);
-  if (!st) return;
-  st.hits++;
-  const name = safeName(st.displayName);
-  await channel.send(`💥 **${name}** ${reasonText} (**${st.hits}/${maxHits}**)`).catch(() => {});
-  if (st.hits >= maxHits) await channel.send(`☠️ **${name}** was eliminated.`).catch(() => {});
-}
-
 /**
- * ✅ NEW: silent hit for your "no numbers spam" format
- * returns {hits, eliminated, maxHits}
+ * Apply hit silently (no spam), return status text for summary.
  */
-function applyHitSilent(uid, boss) {
+function applyHitSilent(uid, boss, reasonLabel = "was hit") {
   const maxHits = getMaxHits(boss.def);
   const st = boss.participants.get(uid);
-  if (!st) return { hits: 0, eliminated: false, maxHits };
+  if (!st) return null;
+
   st.hits++;
-  const eliminatedNow = st.hits >= maxHits;
-  if (eliminatedNow) st.hits = maxHits;
-  return { hits: st.hits, eliminated: eliminatedNow, maxHits };
+
+  const name = safeName(st.displayName);
+  if (st.hits >= maxHits) {
+    return { kind: "elim", line: `☠ **${name}** eliminated` };
+  }
+  return { kind: "hit", line: `❌ **${name}** ${reasonLabel} (**${st.hits}/${maxHits}**)` };
 }
 
 function eliminate(uid, boss) {
@@ -152,9 +145,27 @@ async function updateBossSpawnMessage(channel, boss) {
   if (!msg) return;
 
   await msg.edit({
-    embeds: [bossSpawnEmbed(boss.def, channel.name, fighters.length, fightersText, boss.hpPercent ?? 100)],
+    embeds: [bossSpawnEmbed(boss.def, channel.name, fighters.length, fightersText)],
     components: bossButtons(!boss.joining),
   }).catch(() => {});
+}
+
+async function sendRoundSummary(channel, boss, roundIndex, aliveCount, statusLines) {
+  const def = boss.def;
+  const r = def.rounds[roundIndex];
+
+  // If round is final_quiz and you send text-only, keep your existing behavior
+  if (r.type !== "final_quiz") {
+    await channel.send({ embeds: [bossRoundEmbed(def, roundIndex, aliveCount)] }).catch(() => {});
+  } else {
+    await channel.send(`❓ **${r.title}**\n${r.intro}`).catch(() => {});
+  }
+
+  if (statusLines && statusLines.length) {
+    // Keep clean and under 1900 chars
+    const chunk = statusLines.join("\n").slice(0, 1900);
+    await channel.send(chunk).catch(() => {});
+  }
 }
 
 async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
@@ -168,33 +179,18 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
       return;
     }
 
-    const totalRounds = boss.def.rounds.length || 1;
-    const hpStep = Math.max(6, Math.round(100 / (totalRounds + 3)));
-    function hpAtRoundStart(roundIndex) {
-      return clamp(100 - hpStep * roundIndex, 0, 100);
-    }
-
     for (let i = 0; i < boss.def.rounds.length; i++) {
       alive = aliveIds(boss);
       if (!alive.length) break;
 
       const r = boss.def.rounds[i];
 
-      // ✅ Only final_quiz has special pre-text (others handle their own messages)
-      if (r.type === "final_quiz") {
-        await channel.send(`❓ **${r.title}**\n${r.intro}`).catch(() => {});
-      }
-
-      /* ===== Simple chance rounds (UPDATED TO YOUR FORMAT) ===== */
+      /* ===== Simple chance rounds (NEW OUTPUT STYLE) ===== */
       if (r.type === "pressure" || r.type === "attack") {
-        boss.hpPercent = hpAtRoundStart(i);
+        const statusLines = [];
 
-        const statusLabel = r.status || r.statusText || r.title || "";
-        await channel.send({
-          embeds: [bossRoundEmbed(boss.def, i, alive.length, boss.hpPercent, statusLabel)],
-        }).catch(() => {});
-
-        const lines = [];
+        // show embed first
+        await channel.send({ embeds: [bossRoundEmbed(boss.def, i, alive.length)] }).catch(() => {});
 
         for (const uid of alive) {
           const player = await getPlayer(uid);
@@ -204,23 +200,23 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
           const nm = safeName(boss.participants.get(uid)?.displayName);
 
           if (!ok) {
-            const res = applyHitSilent(uid, boss);
-
-            if (res.eliminated) lines.push(`☠ **${nm}** eliminated`);
-            else lines.push(`❌ **${nm}** was hit (${res.hits}/${res.maxHits})`);
+            const res = applyHitSilent(uid, boss, "was hit");
+            if (res) statusLines.push(res.line);
           } else {
-            // bank stays (economy intact), just no spam numbers
+            // bank rewards as before (numbers are hidden in-round; still used for payout)
             const mult = getEventMultiplier(boss.def.event, player);
             const add = Math.floor(boss.def.hitReward * mult);
             bankSuccess(uid, boss, add);
 
-            lines.push(`✅ **${nm}** endured`);
+            statusLines.push(`✅ **${nm}** endured`);
           }
-          await sleep(250);
+
+          await sleep(120);
         }
 
-        if (lines.length) {
-          await channel.send(lines.join("\n").slice(0, 1900)).catch(() => {});
+        // After round summary
+        if (statusLines.length) {
+          await channel.send(statusLines.join("\n").slice(0, 1900)).catch(() => {});
         }
 
         if (i < boss.def.rounds.length - 1) {
@@ -260,23 +256,33 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         const nowAlive = aliveIds(boss);
         const success = pressed.size >= req;
 
+        const statusLines = [];
+
+        // Embed + alive count
+        await channel.send({ embeds: [bossRoundEmbed(boss.def, i, nowAlive.length)] }).catch(() => {});
+
         if (!success) {
-          await channel.send(`❌ Not enough blocks (${pressed.size}/${req}). Everyone takes a hit!`).catch(() => {});
+          statusLines.push(`❌ Not enough blocks (${pressed.size}/${req}). Everyone takes a hit!`);
           for (const uid of nowAlive) {
-            await applyHit(uid, boss, channel, `failed to block in time!`);
-            await sleep(140);
+            const res = applyHitSilent(uid, boss, "was hit");
+            if (res) statusLines.push(res.line);
+            await sleep(80);
           }
         } else {
-          await channel.send(`✅ Block succeeded (${pressed.size}/${req}). Pressers counterattacked!`).catch(() => {});
+          statusLines.push(`✅ Block succeeded (${pressed.size}/${req}). Pressers endured and countered.`);
           for (const uid of nowAlive) {
+            const nm = safeName(boss.participants.get(uid)?.displayName);
             if (pressed.has(uid)) {
               const player = await getPlayer(uid);
               const mult = getEventMultiplier(boss.def.event, player);
               const add = Math.floor(boss.def.hitReward * mult);
               bankSuccess(uid, boss, add);
             }
+            statusLines.push(`✅ **${nm}** endured`);
           }
         }
+
+        await channel.send(statusLines.join("\n").slice(0, 1900)).catch(() => {});
 
         if (i < boss.def.rounds.length - 1) {
           await channel.send(`⏳ Next round in **${Math.round(ROUND_COOLDOWN_MS / 1000)}s**...`).catch(() => {});
@@ -307,27 +313,35 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         boss.activeAction = null;
 
         const nowAlive = aliveIds(boss);
+        const statusLines = [];
+
+        await channel.send({ embeds: [bossRoundEmbed(boss.def, i, nowAlive.length)] }).catch(() => {});
 
         for (const uid of nowAlive) {
           const player = await getPlayer(uid);
           const isJjk = boss.def.event === "jjk";
           const hasReverse = isJjk && player.jjk.items.reverse_talisman;
 
+          const nm = safeName(boss.participants.get(uid)?.displayName);
+
           if (pressed.has(uid)) {
             const mult = getEventMultiplier(boss.def.event, player);
             const add = Math.floor(boss.def.hitReward * mult);
             bankSuccess(uid, boss, add);
+            statusLines.push(`✅ **${nm}** endured`);
           } else {
             if (hasReverse && !boss.reverseUsed.has(uid)) {
               boss.reverseUsed.add(uid);
-              const nm = safeName(boss.participants.get(uid)?.displayName);
-              await channel.send(`✨ **${nm}** was saved by Reverse Technique! (ignored 1 hit)`).catch(() => {});
+              statusLines.push(`✨ **${nm}** was saved by Reverse Technique (ignored 1 hit)`);
             } else {
-              await applyHit(uid, boss, channel, `was too slow!`);
+              const res = applyHitSilent(uid, boss, "was hit");
+              if (res) statusLines.push(res.line);
             }
           }
-          await sleep(170);
+          await sleep(90);
         }
+
+        await channel.send(statusLines.join("\n").slice(0, 1900)).catch(() => {});
 
         if (i < boss.def.rounds.length - 1) {
           await channel.send(`⏳ Next round in **${Math.round(ROUND_COOLDOWN_MS / 1000)}s**...`).catch(() => {});
@@ -374,6 +388,9 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         boss.activeAction = null;
 
         const nowAlive = aliveIds(boss);
+        const statusLines = [];
+
+        await channel.send({ embeds: [bossRoundEmbed(boss.def, i, nowAlive.length)] }).catch(() => {});
 
         for (const uid of nowAlive) {
           const player = await getPlayer(uid);
@@ -384,21 +401,26 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
           const failed = action?.comboFailed?.has(uid);
           const completed = !failed && prog >= 4;
 
+          const nm = safeName(boss.participants.get(uid)?.displayName);
+
           if (completed) {
             const mult = getEventMultiplier(boss.def.event, player);
             const add = Math.floor(boss.def.hitReward * mult);
             bankSuccess(uid, boss, add);
+            statusLines.push(`✅ **${nm}** endured`);
           } else {
             if (hasReverse && !boss.reverseUsed.has(uid)) {
               boss.reverseUsed.add(uid);
-              const nm = safeName(boss.participants.get(uid)?.displayName);
-              await channel.send(`✨ **${nm}** was saved by Reverse Technique! (ignored 1 hit)`).catch(() => {});
+              statusLines.push(`✨ **${nm}** was saved by Reverse Technique (ignored 1 hit)`);
             } else {
-              await applyHit(uid, boss, channel, `failed the Combo Defense!`);
+              const res = applyHitSilent(uid, boss, "was hit");
+              if (res) statusLines.push(res.line);
             }
           }
-          await sleep(170);
+          await sleep(90);
         }
+
+        await channel.send(statusLines.join("\n").slice(0, 1900)).catch(() => {});
 
         if (i < boss.def.rounds.length - 1) {
           await channel.send(`⏳ Next round in **${Math.round(ROUND_COOLDOWN_MS / 1000)}s**...`).catch(() => {});
@@ -422,24 +444,32 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
           if (ok) { wins++; winners.add(uid); }
         }
 
+        const statusLines = [];
+        await channel.send({ embeds: [bossRoundEmbed(boss.def, i, nowAlive.length)] }).catch(() => {});
+
         if (wins < required) {
-          await channel.send(`❌ Not enough successful final hits (${wins}/${required}). **Everyone loses.**`).catch(() => {});
+          statusLines.push(`❌ Not enough endured (${wins}/${required}). **Everyone loses.**`);
           for (const uid of nowAlive) {
-            await applyHit(uid, boss, channel, `was overwhelmed in the final push!`);
+            const res = applyHitSilent(uid, boss, "was hit");
+            if (res) statusLines.push(res.line);
             eliminate(uid, boss);
-            await sleep(100);
+            await sleep(70);
           }
         } else {
-          await channel.send(`✅ Final push succeeded! (${wins}/${required}) Winners dealt the decisive blow.`).catch(() => {});
+          statusLines.push(`✅ Final push succeeded (${wins}/${required}). Winners endured.`);
           for (const uid of nowAlive) {
+            const nm = safeName(boss.participants.get(uid)?.displayName);
             if (winners.has(uid)) {
               const player = await getPlayer(uid);
               const mult = getEventMultiplier(boss.def.event, player);
               const add = Math.floor(boss.def.hitReward * mult);
               bankSuccess(uid, boss, add);
             }
+            statusLines.push(`✅ **${nm}** endured`);
           }
         }
+
+        await channel.send(statusLines.join("\n").slice(0, 1900)).catch(() => {});
 
         if (i < boss.def.rounds.length - 1) {
           await channel.send(`⏳ Next round in **${Math.round(ROUND_COOLDOWN_MS / 1000)}s**...`).catch(() => {});
@@ -476,19 +506,28 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         boss.activeAction = null;
 
         const nowAlive = aliveIds(boss);
+        const statusLines = [];
+
+        await channel.send({ embeds: [bossRoundEmbed(boss.def, i, nowAlive.length)] }).catch(() => {});
+
         for (const uid of nowAlive) {
           const cnt = action?.counts?.get(uid) || 0;
+          const nm = safeName(boss.participants.get(uid)?.displayName);
+
           if (cnt >= (action?.requiredPresses || 3)) {
             const player = await getPlayer(uid);
             const mult = getEventMultiplier(boss.def.event, player);
             const add = Math.floor(boss.def.hitReward * mult);
             bankSuccess(uid, boss, add);
-            await channel.send(`✅ <@${uid}> Blocked! (pressed ${cnt})`).catch(() => {});
+            statusLines.push(`✅ **${nm}** endured`);
           } else {
-            await applyHit(uid, boss, channel, `failed to block enough times! (pressed ${cnt})`);
+            const res = applyHitSilent(uid, boss, "was hit");
+            if (res) statusLines.push(res.line + ` (pressed ${cnt})`);
           }
-          await sleep(140);
+          await sleep(80);
         }
+
+        await channel.send(statusLines.join("\n").slice(0, 1900)).catch(() => {});
 
         if (i < boss.def.rounds.length - 1) {
           await channel.send(`⏳ Next round in **${Math.round(ROUND_COOLDOWN_MS / 1000)}s**...`).catch(() => {});
@@ -527,18 +566,28 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         boss.activeAction = null;
 
         const nowAlive = aliveIds(boss);
+        const statusLines = [];
+
+        await channel.send({ embeds: [bossRoundEmbed(boss.def, i, nowAlive.length)] }).catch(() => {});
+
         for (const uid of nowAlive) {
           const picked = action?.choice?.get(uid);
+          const nm = safeName(boss.participants.get(uid)?.displayName);
+
           if (picked === r.correct) {
             const player = await getPlayer(uid);
             const mult = getEventMultiplier(boss.def.event, player);
             const add = Math.floor(boss.def.hitReward * mult);
             bankSuccess(uid, boss, add);
+            statusLines.push(`✅ **${nm}** endured`);
           } else {
-            await applyHit(uid, boss, channel, `chose wrong!`);
+            const res = applyHitSilent(uid, boss, "was hit");
+            if (res) statusLines.push(res.line);
           }
-          await sleep(140);
+          await sleep(80);
         }
+
+        await channel.send(statusLines.join("\n").slice(0, 1900)).catch(() => {});
 
         if (r.afterText || r.afterMedia) {
           const e = new EmbedBuilder().setColor(0x8e44ad).setImage(r.afterMedia || boss.def.spawnMedia);
@@ -554,6 +603,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
 
       // scripted_hit_all: after delay + spam, everybody takes a hit
       if (r.type === "scripted_hit_all") {
+        await channel.send({ embeds: [bossRoundEmbed(boss.def, i, aliveIds(boss).length)] }).catch(() => {});
         await sleep(r.delayMs || 5000);
 
         for (const line of (r.spamLines || [])) {
@@ -562,9 +612,15 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         }
 
         const nowAlive = aliveIds(boss);
+        const statusLines = [];
         for (const uid of nowAlive) {
-          await applyHit(uid, boss, channel, `was struck by the adaptation surge!`);
-          await sleep(120);
+          const res = applyHitSilent(uid, boss, "was hit");
+          if (res) statusLines.push(res.line);
+          await sleep(70);
+        }
+
+        if (statusLines.length) {
+          await channel.send(statusLines.join("\n").slice(0, 1900)).catch(() => {});
         }
 
         if (r.endMedia || r.endText) {
@@ -609,20 +665,29 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         boss.activeAction = null;
 
         const nowAlive = aliveIds(boss);
+        const statusLines = [];
+
+        await channel.send({ embeds: [bossRoundEmbed(boss.def, i, nowAlive.length)] }).catch(() => {});
+
         for (const uid of nowAlive) {
           const set = action?.pressed?.get(uid) || new Set();
           const ok = (action?.requiredKeys || []).every((k) => set.has(k));
+          const nm = safeName(boss.participants.get(uid)?.displayName);
 
           if (ok) {
             const player = await getPlayer(uid);
             const mult = getEventMultiplier(boss.def.event, player);
             const add = Math.floor(boss.def.hitReward * mult);
             bankSuccess(uid, boss, add);
+            statusLines.push(`✅ **${nm}** endured`);
           } else {
-            await applyHit(uid, boss, channel, `couldn't regain focus in time!`);
+            const res = applyHitSilent(uid, boss, "was hit");
+            if (res) statusLines.push(res.line);
           }
-          await sleep(140);
+          await sleep(80);
         }
+
+        await channel.send(statusLines.join("\n").slice(0, 1900)).catch(() => {});
 
         if (i < boss.def.rounds.length - 1) {
           await channel.send(`⏳ Next round in **${Math.round(ROUND_COOLDOWN_MS / 1000)}s**...`).catch(() => {});
@@ -660,21 +725,37 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         boss.activeAction = null;
 
         const nowAlive = aliveIds(boss);
+        const statusLines = [];
+
+        // текстовый раунд ты уже делаешь отдельно, но мы дадим summary как ты хотел
         for (const uid of nowAlive) {
           const picked = action?.choice?.get(uid);
+          const nm = safeName(boss.participants.get(uid)?.displayName);
+
           if (picked !== r.correct) {
             eliminate(uid, boss);
+            statusLines.push(`☠ **${nm}** eliminated`);
           } else {
             const player = await getPlayer(uid);
             const mult = getEventMultiplier(boss.def.event, player);
             const add = Math.floor(boss.def.hitReward * mult);
             bankSuccess(uid, boss, add);
+            statusLines.push(`✅ **${nm}** endured`);
           }
-          await sleep(120);
+          await sleep(60);
+        }
+
+        if (statusLines.length) {
+          await channel.send(statusLines.join("\n").slice(0, 1900)).catch(() => {});
         }
 
         // no next round after final
         continue;
+      }
+
+      // Unknown types fallback: show embed if exists
+      if (r.type !== "final_quiz") {
+        await channel.send({ embeds: [bossRoundEmbed(boss.def, i, alive.length)] }).catch(() => {});
       }
     }
 
@@ -717,6 +798,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
 
       await setPlayer(uid, player);
 
+      // payout line (numbers are fine here)
       lines.push(`• <@${uid}> +${win} (Win) +${hits} (Bank)`);
 
       const luckMult = getEventDropMult(boss.def.event, player);
@@ -778,11 +860,10 @@ async function spawnBoss(channel, bossId, withPing = true) {
     hitBank: new Map(),
     activeAction: null,
     reverseUsed: new Set(),
-    hpPercent: 100, // ✅ NEW
   };
 
   const msg = await channel.send({
-    embeds: [bossSpawnEmbed(def, channel.name, 0, "`No fighters yet`", boss.hpPercent)],
+    embeds: [bossSpawnEmbed(def, channel.name, 0, "`No fighters yet`")],
     components: bossButtons(false),
   });
 
