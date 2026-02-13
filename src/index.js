@@ -1,3 +1,4 @@
+// src/index.js
 require("dotenv").config();
 
 const { Client, GatewayIntentBits, Partials, Events } = require("discord.js");
@@ -15,7 +16,6 @@ const client = new Client({
 client.once(Events.ClientReady, async () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
   await initRedis();
-  console.log("✅ Core ready");
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
