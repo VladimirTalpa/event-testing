@@ -36,11 +36,6 @@ const CURRENCY_CHOICES = [
 ];
 
 const commands = [
-  // ✅ NEW MENU
-  new SlashCommandBuilder()
-    .setName("menu")
-    .setDescription("Open the main menu"),
-
   new SlashCommandBuilder()
     .setName("balance")
     .setDescription("Check your balance (Reiatsu / Cursed Energy / Drako)")
@@ -49,24 +44,19 @@ const commands = [
   new SlashCommandBuilder()
     .setName("inventory")
     .setDescription("View your inventory and bonuses (choose event)")
-    .addStringOption((opt) =>
-      opt.setName("event").setDescription("Which event inventory?").setRequired(true).addChoices(...EVENT_CHOICES)
-    ),
+    .addStringOption((opt) => opt.setName("event").setDescription("Which event inventory?").setRequired(true).addChoices(...EVENT_CHOICES)),
 
   new SlashCommandBuilder()
     .setName("shop")
     .setDescription("Open shop (choose event)")
-    .addStringOption((opt) =>
-      opt.setName("event").setDescription("Which shop?").setRequired(true).addChoices(...EVENT_CHOICES)
-    ),
+    .addStringOption((opt) => opt.setName("event").setDescription("Which shop?").setRequired(true).addChoices(...EVENT_CHOICES)),
 
   new SlashCommandBuilder()
     .setName("leaderboard")
     .setDescription("Leaderboard (choose event currency)")
-    .addStringOption((opt) =>
-      opt.setName("event").setDescription("Which event leaderboard?").setRequired(true).addChoices(...EVENT_CHOICES)
-    ),
+    .addStringOption((opt) => opt.setName("event").setDescription("Which event leaderboard?").setRequired(true).addChoices(...EVENT_CHOICES)),
 
+  // ✅ new give
   new SlashCommandBuilder()
     .setName("give")
     .setDescription("Transfer currency to another player")
@@ -98,6 +88,7 @@ const commands = [
     .setName("wardrobe")
     .setDescription("Open your role wardrobe (equip/unequip saved roles)"),
 
+  // ✅ pvpclash
   new SlashCommandBuilder()
     .setName("pvpclash")
     .setDescription("Challenge a player to a PvP clash (stake currency)")
@@ -111,8 +102,6 @@ const commands = [
     .addStringOption((opt) => opt.setName("currency").setDescription("Which currency?").setRequired(true).addChoices(...CURRENCY_CHOICES))
     .addIntegerOption((opt) => opt.setName("amount").setDescription("Amount to add").setRequired(true).setMinValue(1))
     .addUserOption((opt) => opt.setName("user").setDescription("Target user (optional)").setRequired(false)),
-
-  // (adminremove у тебя уже есть/будет — можешь оставить как отдельную команду)
 ].map((c) => c.toJSON());
 
 const rest = new REST({ version: "10" }).setToken(TOKEN);
