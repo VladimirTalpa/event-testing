@@ -20,10 +20,9 @@ const {
   comboDefenseRows,
   dualChoiceRow,
   triChoiceRow,
+  CID,
 } = require("../ui/components");
 
-// ✅ ВАЖНО: правильный импорт embeds (чтобы bossSpawnEmbed был функцией)
-const embeds = require("../ui/embeds");
 const {
   bossSpawnEmbed,
   bossRoundEmbed,
@@ -35,22 +34,9 @@ const {
   calcJjkSurvivalBonus,
   calcJjkCEMultiplier,
   calcJjkDropLuckMultiplier,
-} = embeds;
+} = require("../ui/embeds");
 
-// ✅ защитка от твоей ошибки
-function assertEmbedFn(fn, name) {
-  if (typeof fn !== "function") {
-    throw new Error(
-      `[BOSS] Missing embed function "${name}". Check src/ui/embeds.js exports. Got: ${typeof fn}`
-    );
-  }
-}
-assertEmbedFn(bossSpawnEmbed, "bossSpawnEmbed");
-assertEmbedFn(bossRoundEmbed, "bossRoundEmbed");
-assertEmbedFn(bossVictoryEmbed, "bossVictoryEmbed");
-assertEmbedFn(bossDefeatEmbed, "bossDefeatEmbed");
-
-/* ===================== ROLE ADD/REMOVE ===================== */
+/* ===================== ROLE ADD ===================== */
 async function tryGiveRole(guild, userId, roleId) {
   try {
     const botMember = await guild.members.fetchMe();
@@ -61,9 +47,7 @@ async function tryGiveRole(guild, userId, roleId) {
     if (!role) return { ok: false, reason: "Role not found." };
 
     const botTop = botMember.roles.highest?.position ?? 0;
-    if (botTop <= role.position) {
-      return { ok: false, reason: "Bot role is below target role (hierarchy)." };
-    }
+    if (botTop <= role.position) return { ok: false, reason: "Bot role is below target role (hierarchy)." };
 
     const member = await guild.members.fetch(userId);
     await member.roles.add(roleId);
@@ -79,7 +63,6 @@ function ensureOwnedRole(player, roleId) {
   if (!player.ownedRoles.includes(id)) player.ownedRoles.push(id);
 }
 
-/* ===================== HELPERS ===================== */
 function isAllowedSpawnChannel(eventKey, channelId) {
   if (eventKey === "bleach") return channelId === BLEACH_CHANNEL_ID;
   if (eventKey === "jjk") return channelId === JJK_CHANNEL_ID;
@@ -90,7 +73,7 @@ function getMaxHits(def) {
   return def.maxHits ?? MAX_HITS;
 }
 
-function computeSurviveChance(eventKey, player, baseChance, bonusMaxBleach, bonusMaxJjk) {
+function computeSurviveChance(eventKey, player, baseChance, bonusMaxBleach = 30, bonusMaxJjk = 30) {
   if (eventKey === "bleach") {
     const itemBonus = calcBleachSurvivalBonus(player.bleach.items);
     const perm = clamp(player.bleach.survivalBonus, 0, bonusMaxBleach);
@@ -105,7 +88,6 @@ function getEventMultiplier(eventKey, player) {
   if (eventKey === "bleach") return calcBleachReiatsuMultiplier(player.bleach.items);
   return calcJjkCEMultiplier(player.jjk.items);
 }
-
 function getEventDropMult(eventKey, player) {
   if (eventKey === "bleach") return calcBleachDropLuckMultiplier(player.bleach.items);
   return calcJjkDropLuckMultiplier(player.jjk.items);
@@ -122,9 +104,10 @@ async function applyHit(uid, boss, channel, reasonText) {
   const maxHits = getMaxHits(boss.def);
   const st = boss.participants.get(uid);
   if (!st) return;
-  st.hits++;
 
+  st.hits++;
   const name = safeName(st.displayName);
+
   await channel.send(`💥 **${name}** ${reasonText} (**${st.hits}/${maxHits}**)`).catch(() => {});
   if (st.hits >= maxHits) await channel.send(`☠️ **${name}** was eliminated.`).catch(() => {});
 }
@@ -145,7 +128,6 @@ function randomComboSeq() {
   for (let i = 0; i < 4; i++) seq.push(colors[Math.floor(Math.random() * colors.length)]);
   return seq;
 }
-
 function comboToEmoji(c) {
   if (c === "red") return "🔴";
   if (c === "blue") return "🔵";
@@ -174,7 +156,6 @@ async function updateBossSpawnMessage(channel, boss) {
   }).catch(() => {});
 }
 
-/* ===================== MAIN LOOP ===================== */
 async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
   try {
     boss.joining = false;
@@ -237,6 +218,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         };
 
         const customId = `boss_action:${boss.def.id}:${i}:${token}:press:block`;
+
         const msg = await channel.send({
           content:
             `🛡️ **COOP BLOCK WINDOW: ${Math.round((r.windowMs || 5000) / 1000)}s**\n` +
@@ -247,9 +229,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         await sleep(r.windowMs || 5000);
 
         if (msg?.id) {
-          await msg.edit({
-            components: singleActionRow(customId, r.buttonLabel || "Block", r.buttonEmoji || "🛡️", true),
-          }).catch(() => {});
+          await msg.edit({ components: singleActionRow(customId, r.buttonLabel || "Block", r.buttonEmoji || "🛡️", true) }).catch(() => {});
         }
 
         const pressed = boss.activeAction?.token === token ? boss.activeAction.pressed : new Set();
@@ -300,11 +280,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
 
         await sleep(r.windowMs || 5000);
 
-        if (msg?.id) {
-          await msg.edit({
-            components: singleActionRow(customId, label, emoji, true),
-          }).catch(() => {});
-        }
+        if (msg?.id) await msg.edit({ components: singleActionRow(customId, label, emoji, true) }).catch(() => {});
 
         const pressed = boss.activeAction?.token === token ? boss.activeAction.pressed : new Set();
         boss.activeAction = null;
@@ -360,17 +336,13 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
             `🎮 **COMBO DEFENSE (QTE)** — You have **${Math.round((r.windowMs || 5000) / 1000)}s**\n` +
             `Press in order: ${seqText}\n` +
             `Mistake or timeout = a hit.`,
-          components: comboDefenseRows(token, boss.def.id, i),
+          components: comboDefenseRows(token, boss.def.id, i, false),
         }).catch(() => null);
 
         await sleep(r.windowMs || 5000);
 
         if (msg?.id) {
-          const disabledRows = comboDefenseRows(token, boss.def.id, i).map((row) => {
-            row.components.forEach((b) => b.setDisabled(true));
-            return row;
-          });
-          await msg.edit({ components: disabledRows }).catch(() => {});
+          await msg.edit({ components: comboDefenseRows(token, boss.def.id, i, true) }).catch(() => {});
         }
 
         const action = boss.activeAction;
@@ -451,8 +423,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         continue;
       }
 
-      /* ===================== MAHORAGA TYPES ===================== */
-
+      /* ===== multi_press ===== */
       if (r.type === "multi_press") {
         const token = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
         boss.activeAction = {
@@ -464,6 +435,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         };
 
         const customId = `boss_action:${boss.def.id}:${i}:${token}:multi:${r.type}`;
+
         const msg = await channel.send({
           content: `🛡️ **BLOCK x${boss.activeAction.requiredPresses}** — you have **${Math.round((r.windowMs || 10000) / 1000)}s**`,
           components: singleActionRow(customId, r.buttonLabel || "Block", r.buttonEmoji || "🛡️", false),
@@ -471,11 +443,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
 
         await sleep(r.windowMs || 10000);
 
-        if (msg?.id) {
-          await msg.edit({
-            components: singleActionRow(customId, r.buttonLabel || "Block", r.buttonEmoji || "🛡️", true),
-          }).catch(() => {});
-        }
+        if (msg?.id) await msg.edit({ components: singleActionRow(customId, r.buttonLabel || "Block", r.buttonEmoji || "🛡️", true) }).catch(() => {});
 
         const action = boss.activeAction?.token === token ? boss.activeAction : null;
         boss.activeAction = null;
@@ -488,7 +456,6 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
             const mult = getEventMultiplier(boss.def.event, player);
             const add = Math.floor(boss.def.hitReward * mult);
             bankSuccess(uid, boss, add);
-            await channel.send(`✅ <@${uid}> Blocked! (pressed ${cnt})`).catch(() => {});
           } else {
             await applyHit(uid, boss, channel, `failed to block enough times! (pressed ${cnt})`);
           }
@@ -502,6 +469,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         continue;
       }
 
+      /* ===== choice_qte ===== */
       if (r.type === "choice_qte") {
         const token = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
         boss.activeAction = {
@@ -513,7 +481,6 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
 
         const cA = r.choices?.[0];
         const cB = r.choices?.[1];
-
         const idA = `boss_action:${boss.def.id}:${i}:${token}:choice:${cA.key}`;
         const idB = `boss_action:${boss.def.id}:${i}:${token}:choice:${cB.key}`;
 
@@ -524,11 +491,9 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
 
         await sleep(r.windowMs || 3000);
 
-        if (msg?.id) {
-          await msg.edit({
-            components: dualChoiceRow(idA, cA.label, cA.emoji, idB, cB.label, cB.emoji, true),
-          }).catch(() => {});
-        }
+        if (msg?.id) await msg.edit({
+          components: dualChoiceRow(idA, cA.label, cA.emoji, idB, cB.label, cB.emoji, true),
+        }).catch(() => {});
 
         const action = boss.activeAction?.token === token ? boss.activeAction : null;
         boss.activeAction = null;
@@ -559,6 +524,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         continue;
       }
 
+      /* ===== scripted_hit_all ===== */
       if (r.type === "scripted_hit_all") {
         await sleep(r.delayMs || 5000);
 
@@ -585,6 +551,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         continue;
       }
 
+      /* ===== tri_press ===== */
       if (r.type === "tri_press") {
         const token = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
         boss.activeAction = {
@@ -636,6 +603,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         continue;
       }
 
+      /* ===== final_quiz ===== */
       if (r.type === "final_quiz") {
         const token = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
         boss.activeAction = {
@@ -676,11 +644,11 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
           }
           await sleep(120);
         }
+
         continue;
       }
     }
 
-    /* ===================== FINISH ===================== */
     const survivors = aliveIds(boss);
     if (!survivors.length) {
       await channel.send({ embeds: [bossDefeatEmbed(boss.def)] }).catch(() => {});
@@ -704,12 +672,12 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
       if (boss.def.event === "bleach") player.bleach.reiatsu += total;
       else player.jjk.cursedEnergy += total;
 
+      // extra drops for some bosses (optional)
       if (boss.def.event === "jjk" && boss.def.shardDropRange) {
         const shards = randInt(boss.def.shardDropRange.min, boss.def.shardDropRange.max);
         player.jjk.materials.cursedShards += shards;
         lines.push(`🧩 <@${uid}> получил **${shards} Cursed Shards**.`);
       }
-
       if (boss.def.event === "jjk" && boss.def.expeditionKeyChance) {
         if (Math.random() < boss.def.expeditionKeyChance) {
           player.jjk.materials.expeditionKeys += 1;
@@ -748,7 +716,6 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
   }
 }
 
-/* ===================== SPAWN ===================== */
 async function spawnBoss(channel, bossId, withPing = true) {
   const def = BOSSES[bossId];
   if (!def) return;
@@ -784,7 +751,7 @@ async function spawnBoss(channel, bossId, withPing = true) {
 
   const msg = await channel.send({
     embeds: [bossSpawnEmbed(def, channel.name, 0, "`No fighters yet`")],
-    components: bossButtons(false),
+    components: bossButtons(false), // ✅ КНОПКИ ПРИКРЕПЛЕНЫ
   });
 
   boss.messageId = msg.id;
@@ -798,4 +765,139 @@ async function spawnBoss(channel, bossId, withPing = true) {
   }, def.joinMs);
 }
 
-module.exports = { spawnBoss, runBoss };
+/* ===================== BUTTON HANDLER (ВАЖНО) ===================== */
+async function onBossButton(interaction) {
+  const channel = interaction.channel;
+  if (!channel || !channel.isTextBased()) return;
+
+  const cid = interaction.customId;
+
+  // Join
+  if (cid === CID.BOSS_JOIN) {
+    const boss = bossByChannel.get(channel.id);
+    if (!boss || !boss.joining) {
+      return interaction.followUp({ content: "❌ No active boss join.", ephemeral: true }).catch(() => {});
+    }
+
+    const uid = interaction.user.id;
+    if (boss.participants.has(uid)) {
+      return interaction.followUp({ content: "⚠️ You already joined.", ephemeral: true }).catch(() => {});
+    }
+
+    boss.participants.set(uid, { hits: 0, displayName: interaction.member?.displayName || interaction.user.username });
+    await updateBossSpawnMessage(channel, boss);
+
+    return interaction.followUp({ content: "✅ Joined the fight.", ephemeral: true }).catch(() => {});
+  }
+
+  // Rules
+  if (cid === CID.BOSS_RULES) {
+    const boss = bossByChannel.get(channel.id);
+    const def = boss?.def;
+    const maxHits = def?.maxHits ?? 2;
+
+    const txt = def
+      ? `**${def.name}** • Difficulty: **${def.difficulty}** • Rounds: **${def.rounds.length}**\n` +
+        `Win: **${def.winRewardRange ? `${def.winRewardRange.min}-${def.winRewardRange.max}` : def.winReward}**\n` +
+        `Success per round: **+${def.hitReward}** (banked, paid only on victory)\n` +
+        `${maxHits} hits = eliminated`
+      : `${maxHits} hits = eliminated.`;
+
+    return interaction.followUp({ content: txt, ephemeral: true }).catch(() => {});
+  }
+
+  // Boss action buttons
+  if (cid.startsWith("boss_action:")) {
+    const parts = cid.split(":");
+    const bossId = parts[1];
+    const roundIndex = Number(parts[2]);
+    const token = parts[3];
+    const kind = parts[4];
+    const payload = parts[5];
+
+    const boss = bossByChannel.get(channel.id);
+    if (!boss || boss.def.id !== bossId) {
+      return interaction.followUp({ content: "❌ No active boss action.", ephemeral: true }).catch(() => {});
+    }
+    if (!boss.activeAction || boss.activeAction.token !== token || boss.activeAction.roundIndex !== roundIndex) {
+      return interaction.followUp({ content: "⌛ Too late.", ephemeral: true }).catch(() => {});
+    }
+
+    const uid = interaction.user.id;
+    const st = boss.participants.get(uid);
+    const maxHits = boss.def.maxHits ?? 2;
+    if (!st || st.hits >= maxHits) {
+      return interaction.followUp({ content: "❌ You are not in the fight.", ephemeral: true }).catch(() => {});
+    }
+
+    if (kind === "press") {
+      if (boss.activeAction.pressed.has(uid)) {
+        return interaction.followUp({ content: "✅ Already pressed.", ephemeral: true }).catch(() => {});
+      }
+      boss.activeAction.pressed.add(uid);
+      return interaction.followUp({ content: "✅ Registered!", ephemeral: true }).catch(() => {});
+    }
+
+    if (kind === "combo") {
+      if (boss.activeAction.mode !== "combo") {
+        return interaction.followUp({ content: "❌ Not a combo phase.", ephemeral: true }).catch(() => {});
+      }
+      if (boss.activeAction.comboFailed.has(uid)) {
+        return interaction.followUp({ content: "❌ You already failed this combo.", ephemeral: true }).catch(() => {});
+      }
+
+      const seq = boss.activeAction.comboSeq || [];
+      const prog = boss.activeAction.comboProgress.get(uid) || 0;
+      const expected = seq[prog];
+
+      if (payload !== expected) {
+        boss.activeAction.comboFailed.add(uid);
+        return interaction.followUp({ content: "❌ Wrong button! (you will take a hit when the timer ends)", ephemeral: true }).catch(() => {});
+      }
+
+      const next = prog + 1;
+      boss.activeAction.comboProgress.set(uid, next);
+
+      if (next >= 4) return interaction.followUp({ content: "✅ Combo completed!", ephemeral: true }).catch(() => {});
+      return interaction.followUp({ content: `✅ Good! (${next}/4)`, ephemeral: true }).catch(() => {});
+    }
+
+    if (kind === "multi") {
+      if (boss.activeAction.mode !== "multi_press") {
+        return interaction.followUp({ content: "❌ Not a multi-press phase.", ephemeral: true }).catch(() => {});
+      }
+      const map = boss.activeAction.counts;
+      const prev = map.get(uid) || 0;
+      map.set(uid, prev + 1);
+      return interaction.followUp({ content: `✅ Blocked (${prev + 1})`, ephemeral: true }).catch(() => {});
+    }
+
+    if (kind === "choice") {
+      if (boss.activeAction.mode !== "choice") {
+        return interaction.followUp({ content: "❌ Not a choice phase.", ephemeral: true }).catch(() => {});
+      }
+      boss.activeAction.choice.set(uid, payload);
+      return interaction.followUp({ content: "✅ Chosen.", ephemeral: true }).catch(() => {});
+    }
+
+    if (kind === "tri") {
+      if (boss.activeAction.mode !== "tri_press") {
+        return interaction.followUp({ content: "❌ Not a focus phase.", ephemeral: true }).catch(() => {});
+      }
+      const set = boss.activeAction.pressed.get(uid) || new Set();
+      set.add(payload);
+      boss.activeAction.pressed.set(uid, set);
+      return interaction.followUp({ content: `✅ (${set.size}/3)`, ephemeral: true }).catch(() => {});
+    }
+
+    if (kind === "quiz") {
+      if (boss.activeAction.mode !== "quiz") {
+        return interaction.followUp({ content: "❌ Not a quiz phase.", ephemeral: true }).catch(() => {});
+      }
+      boss.activeAction.choice.set(uid, payload);
+      return interaction.followUp({ content: "✅ Answer locked.", ephemeral: true }).catch(() => {});
+    }
+  }
+}
+
+module.exports = { spawnBoss, runBoss, onBossButton };
