@@ -63,6 +63,7 @@ function calcJjkDropLuckMultiplier(items) {
 function bossSpawnEmbed(def, channelName, joinedCount, fightersText) {
   const eventTag = def.event === "bleach" ? `${E_BLEACH} BLEACH` : `${E_JJK} JJK`;
   const currency = def.event === "bleach" ? E_REIATSU : E_CE;
+
   const maxHits = def.maxHits ?? MAX_HITS;
 
   const rewardLine =
@@ -121,7 +122,7 @@ function bossDefeatEmbed(def) {
     .setImage(def.defeatMedia);
 }
 
-/* ===================== MOB + SHOP + INVENTORY ===================== */
+/* ===================== MOB EMBED ===================== */
 function mobEmbed(eventKey, joinedCount, mob) {
   const eventTag = eventKey === "bleach" ? `${E_BLEACH} BLEACH` : `${E_JJK} JJK`;
   const actionWord = eventKey === "jjk" ? "Exorcise" : "Attack";
@@ -143,6 +144,7 @@ function mobEmbed(eventKey, joinedCount, mob) {
     .setImage(mob.media);
 }
 
+/* ===================== INVENTORY / SHOP / LB ===================== */
 function inventoryEmbed(eventKey, player, bonusMaxBleach = 30, bonusMaxJjk = 30) {
   if (eventKey === "bleach") {
     const inv = player.bleach.items;
@@ -259,24 +261,25 @@ function wardrobeEmbed(guild, player) {
   return new EmbedBuilder()
     .setColor(COLOR)
     .setTitle("🧥 Wardrobe")
-    .setDescription("Saved roles never disappear.\nSelect a role to **equip/unequip**.\n\n" + lines);
+    .setDescription(
+      "Saved roles never disappear.\n" +
+      "Select a role to **equip/unequip**.\n\n" +
+      lines
+    );
 }
 
 module.exports = {
-  // boss
   bossSpawnEmbed,
   bossRoundEmbed,
   bossVictoryEmbed,
   bossDefeatEmbed,
 
-  // mob / inv / shop / etc
   mobEmbed,
   inventoryEmbed,
   shopEmbed,
   leaderboardEmbed,
   wardrobeEmbed,
 
-  // math helpers
   calcBleachSurvivalBonus,
   calcBleachReiatsuMultiplier,
   calcBleachDropLuckMultiplier,
