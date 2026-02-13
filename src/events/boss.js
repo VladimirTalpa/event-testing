@@ -99,6 +99,20 @@ async function applyHit(uid, boss, channel, reasonText) {
   if (st.hits >= maxHits) await channel.send(`☠️ **${name}** was eliminated.`).catch(() => {});
 }
 
+/**
+ * ✅ NEW: silent hit for your "no numbers spam" format
+ * returns {hits, eliminated, maxHits}
+ */
+function applyHitSilent(uid, boss) {
+  const maxHits = getMaxHits(boss.def);
+  const st = boss.participants.get(uid);
+  if (!st) return { hits: 0, eliminated: false, maxHits };
+  st.hits++;
+  const eliminatedNow = st.hits >= maxHits;
+  if (eliminatedNow) st.hits = maxHits;
+  return { hits: st.hits, eliminated: eliminatedNow, maxHits };
+}
+
 function eliminate(uid, boss) {
   const st = boss.participants.get(uid);
   if (!st) return;
@@ -138,7 +152,7 @@ async function updateBossSpawnMessage(channel, boss) {
   if (!msg) return;
 
   await msg.edit({
-    embeds: [bossSpawnEmbed(boss.def, channel.name, fighters.length, fightersText)],
+    embeds: [bossSpawnEmbed(boss.def, channel.name, fighters.length, fightersText, boss.hpPercent ?? 100)],
     components: bossButtons(!boss.joining),
   }).catch(() => {});
 }
@@ -154,37 +168,59 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
       return;
     }
 
+    const totalRounds = boss.def.rounds.length || 1;
+    const hpStep = Math.max(6, Math.round(100 / (totalRounds + 3)));
+    function hpAtRoundStart(roundIndex) {
+      return clamp(100 - hpStep * roundIndex, 0, 100);
+    }
+
     for (let i = 0; i < boss.def.rounds.length; i++) {
       alive = aliveIds(boss);
       if (!alive.length) break;
 
       const r = boss.def.rounds[i];
 
-      // Some rounds intentionally text-only (final quiz question)
-      if (r.type !== "final_quiz") {
-        await channel.send({ embeds: [bossRoundEmbed(boss.def, i, alive.length)] }).catch(() => {});
-      } else {
+      // ✅ Only final_quiz has special pre-text (others handle their own messages)
+      if (r.type === "final_quiz") {
         await channel.send(`❓ **${r.title}**\n${r.intro}`).catch(() => {});
       }
 
-      /* ===== Simple chance rounds ===== */
+      /* ===== Simple chance rounds (UPDATED TO YOUR FORMAT) ===== */
       if (r.type === "pressure" || r.type === "attack") {
+        boss.hpPercent = hpAtRoundStart(i);
+
+        const statusLabel = r.status || r.statusText || r.title || "";
+        await channel.send({
+          embeds: [bossRoundEmbed(boss.def, i, alive.length, boss.hpPercent, statusLabel)],
+        }).catch(() => {});
+
+        const lines = [];
+
         for (const uid of alive) {
           const player = await getPlayer(uid);
           const chance = computeSurviveChance(boss.def.event, player, boss.def.baseChance, bonusMaxBleach, bonusMaxJjk);
           const ok = Math.random() < chance;
 
+          const nm = safeName(boss.participants.get(uid)?.displayName);
+
           if (!ok) {
-            await applyHit(uid, boss, channel, `couldn't withstand **${boss.def.name}**!`);
+            const res = applyHitSilent(uid, boss);
+
+            if (res.eliminated) lines.push(`☠ **${nm}** eliminated`);
+            else lines.push(`❌ **${nm}** was hit (${res.hits}/${res.maxHits})`);
           } else {
+            // bank stays (economy intact), just no spam numbers
             const mult = getEventMultiplier(boss.def.event, player);
             const add = Math.floor(boss.def.hitReward * mult);
             bankSuccess(uid, boss, add);
 
-            const nm = safeName(boss.participants.get(uid)?.displayName);
-            await channel.send(`✅ **${nm}** succeeded! (+ ${add} banked)`).catch(() => {});
+            lines.push(`✅ **${nm}** endured`);
           }
           await sleep(250);
+        }
+
+        if (lines.length) {
+          await channel.send(lines.join("\n").slice(0, 1900)).catch(() => {});
         }
 
         if (i < boss.def.rounds.length - 1) {
@@ -742,10 +778,11 @@ async function spawnBoss(channel, bossId, withPing = true) {
     hitBank: new Map(),
     activeAction: null,
     reverseUsed: new Set(),
+    hpPercent: 100, // ✅ NEW
   };
 
   const msg = await channel.send({
-    embeds: [bossSpawnEmbed(def, channel.name, 0, "`No fighters yet`")],
+    embeds: [bossSpawnEmbed(def, channel.name, 0, "`No fighters yet`", boss.hpPercent)],
     components: bossButtons(false),
   });
 
