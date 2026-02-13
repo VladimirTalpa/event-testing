@@ -103,6 +103,14 @@ const commands = [
     .addIntegerOption((opt) => opt.setName("amount").setDescription("Amount to add").setRequired(true).setMinValue(1))
     .addUserOption((opt) => opt.setName("user").setDescription("Target user (optional)").setRequired(false)),
 ].map((c) => c.toJSON());
+new SlashCommandBuilder()
+  .setName("profile")
+  .setDescription("Open your profile (currency / cards / packs / gear)"),
+
+new SlashCommandBuilder()
+  .setName("store")
+  .setDescription("Open store (packs / gear / event shop)"),
+
 
 const rest = new REST({ version: "10" }).setToken(TOKEN);
 
