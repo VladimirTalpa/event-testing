@@ -28,6 +28,24 @@ function normalizePlayer(raw = {}) {
     drako: Number.isFinite(raw.drako) ? raw.drako : 0,
     ownedRoles: [...new Set(ownedRoles)],
 
+    // ===================== NEW: Packs / Cards / Gear / Expeditions =====================
+    packs: {
+      basic: Number.isFinite(raw?.packs?.basic) ? raw.packs.basic : 0,
+      legendary: Number.isFinite(raw?.packs?.legendary) ? raw.packs.legendary : 0,
+    },
+
+    // cards: { [instanceId]: { cardId, anime, rarity, level, xp, stars, status } }
+    // Пока без “death delete” — это включим на экспедициях (там и умирают)
+    cards: (raw.cards && typeof raw.cards === "object") ? raw.cards : {},
+
+    // gears: { [gearId]: { type, rarity, atkBonus, hpBonus, equippedTo } }
+    gears: (raw.gears && typeof raw.gears === "object") ? raw.gears : {},
+
+    // expeditions state placeholder
+    expeditions: raw.expeditions && typeof raw.expeditions === "object"
+      ? raw.expeditions
+      : { dailySlots: 2, lastReset: 0, active: null },
+
     bleach: {
       reiatsu: Number.isFinite(bleach.reiatsu)
         ? bleach.reiatsu
@@ -38,6 +56,7 @@ function normalizePlayer(raw = {}) {
       lastDaily: Number.isFinite(bleach.lastDaily)
         ? bleach.lastDaily
         : (Number.isFinite(raw.lastDaily) ? raw.lastDaily : 0),
+      shards: Number.isFinite(bleach.shards) ? bleach.shards : 0, // NEW
       items: {
         zanpakuto_basic: !!bleachItems.zanpakuto_basic,
         hollow_mask_fragment: !!bleachItems.hollow_mask_fragment,
@@ -50,6 +69,7 @@ function normalizePlayer(raw = {}) {
     jjk: {
       cursedEnergy: Number.isFinite(jjk.cursedEnergy) ? jjk.cursedEnergy : 0,
       survivalBonus: Number.isFinite(jjk.survivalBonus) ? jjk.survivalBonus : 0,
+      shards: Number.isFinite(jjk.shards) ? jjk.shards : 0, // NEW
       materials: {
         cursedShards: Math.max(0, Math.floor(cursedShards)),
         expeditionKeys: Math.max(0, Math.floor(expeditionKeys)),
@@ -63,7 +83,7 @@ function normalizePlayer(raw = {}) {
       },
     },
   };
-}
+
 
 async function getPlayer(userId) {
   await initRedis();
