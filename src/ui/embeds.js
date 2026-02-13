@@ -27,6 +27,13 @@ function calcBleachSurvivalBonus(items) {
   if (items.reiatsu_amplifier) bonus += 2;
   return bonus;
 }
+
+function hpBar(pct) {
+  const p = Math.max(0, Math.min(100, Math.floor(pct)));
+  const filled = Math.round((p / 100) * 10);
+  return `${p}% ${"█".repeat(filled)}${"░".repeat(10 - filled)}`;
+}
+
 function calcBleachReiatsuMultiplier(items) {
   return items.reiatsu_amplifier ? 1.25 : 1.0;
 }
