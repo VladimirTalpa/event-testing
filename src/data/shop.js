@@ -1,20 +1,17 @@
 // src/data/shop.js
-const { E_REIATSU, E_CE, SHOP_COSMETIC_ROLE_ID } = require("../config");
-
 const BLEACH_SHOP_ITEMS = [
-  { key: "zanpakuto_basic", name: "Zanpakutō (Basic)", price: 350, desc: `+4% survive vs Bleach bosses • +5% drop luck` },
-  { key: "hollow_mask_fragment", name: "Hollow Mask Fragment", price: 900, desc: `+7% survive vs Bleach bosses • +10% drop luck` },
-  { key: "soul_reaper_cloak", name: "Soul Reaper Cloak", price: 1200, desc: `+9% survive vs Bleach bosses • +6% drop luck` },
-  { key: "reiatsu_amplifier", name: "Reiatsu Amplifier", price: 1500, desc: `${E_REIATSU} +25% Reiatsu rewards • +2% survive vs Bleach bosses` },
-  { key: "cosmetic_role", name: "Sōsuke Aizen Role", price: 6000, desc: "Cosmetic Discord role (no stats).", roleId: SHOP_COSMETIC_ROLE_ID },
+  { key: "zanpakuto_basic", name: "Zanpakutō", price: 120, desc: "+Survival chance (boss rounds)" },
+  { key: "hollow_mask_fragment", name: "Mask Fragment", price: 180, desc: "+Survival chance" },
+  { key: "soul_reaper_cloak", name: "Soul Reaper Cloak", price: 220, desc: "+Survival chance" },
+  { key: "reiatsu_amplifier", name: "Reiatsu Amplifier", price: 260, desc: "x1.25 reward multiplier" }
 ];
 
 const JJK_SHOP_ITEMS = [
-  { key: "black_flash_manual", name: "Black Flash Manual", price: 260, desc: `${E_CE} +20% Cursed Energy rewards • +2% survive vs Special Grade` },
-  { key: "domain_charm", name: "Domain Expansion Charm", price: 520, desc: `+8% survive vs Special Grade • +4% mob hit chance` },
-  { key: "cursed_tool", name: "Cursed Tool: Split-Soul Edge", price: 740, desc: `+10% survive vs Special Grade • +8% drop luck (JJK)` },
-  { key: "reverse_talisman", name: "Reverse Technique Talisman", price: 980, desc: `Once per boss fight: ignore your first hit (soft shield)` },
-  { key: "binding_vow_seal", name: "Binding Vow Seal", price: 1200, desc: `+15% survive vs Special Grade • -10% rewards (tradeoff)` },
+  { key: "black_flash_manual", name: "Black Flash Manual", price: 120, desc: "x1.20 reward multiplier" },
+  { key: "domain_charm", name: "Domain Charm", price: 200, desc: "+Survival chance" },
+  { key: "cursed_tool", name: "Cursed Tool", price: 240, desc: "+Drop luck" },
+  { key: "reverse_talisman", name: "Reverse Talisman", price: 300, desc: "Ignore 1 hit per boss" },
+  { key: "binding_vow_seal", name: "Binding Vow Seal", price: 280, desc: "+Survival chance, but -10% reward mult" }
 ];
 
 module.exports = { BLEACH_SHOP_ITEMS, JJK_SHOP_ITEMS };
