@@ -6,6 +6,11 @@ const { mobEmbed, shopEmbed, wardrobeEmbed } = require("../ui/embeds");
 const { CID, mobButtons, shopButtons, pvpButtons } = require("../ui/components");
 const { MOBS } = require("../data/mobs");
 const { BLEACH_SHOP_ITEMS, JJK_SHOP_ITEMS } = require("../data/shop");
+const { packSessions } = require("../core/state");
+const { CARDS, randomCardFromPack } = require("../data/cards");
+const { cardEmbed } = require("../ui/cardEmbeds");
+const { MID, profileMenuRow, packShopRows, packRevealRow } = require("../ui/menu");
+
 
 async function tryGiveRole(guild, userId, roleId) {
   try {
@@ -88,6 +93,160 @@ module.exports = async function handleButtons(interaction) {
       : `${maxHits} hits = eliminated.`;
 
     await interaction.followUp({ content: txt, ephemeral: true }).catch(() => {});
+    return;
+  }
+
+    // ===================== MENU NAV (profile/store) =====================
+  if (cid === MID.PROFILE_CURRENCY || cid === MID.PROFILE_PACKS || cid === MID.PROFILE_CARDS) {
+    const p = await getPlayer(interaction.user.id);
+    const { EmbedBuilder } = require("discord.js");
+    const { COLOR, E_REIATSU, E_CE, E_DRAKO } = require("../config");
+
+    if (cid === MID.PROFILE_CURRENCY) {
+      const e = new EmbedBuilder()
+        .setColor(COLOR)
+        .setTitle("💰 Currency")
+        .setDescription(
+          [
+            `${E_REIATSU} Reiatsu: **${p.bleach.reiatsu}**`,
+            `${E_CE} Cursed Energy: **${p.jjk.cursedEnergy}**`,
+            `${E_DRAKO} Drako: **${p.drako}**`,
+            "",
+            `🧩 Shards`,
+            `🩸 Bleach Shards: **${p.bleach.shards || 0}**`,
+            `🟣 Cursed Shards: **${p.jjk.shards || 0}**`,
+          ].join("\n")
+        );
+      await interaction.message.edit({ embeds: [e], components: profileMenuRow() }).catch(() => {});
+      return;
+    }
+
+    if (cid === MID.PROFILE_PACKS) {
+      const e = new EmbedBuilder()
+        .setColor(COLOR)
+        .setTitle("🎁 Packs")
+        .setDescription(
+          [
+            `Basic: **${p.packs.basic || 0}**`,
+            `Legendary: **${p.packs.legendary || 0}**`,
+            "",
+            "Open packs from **/store** (Card Packs).",
+          ].join("\n")
+        );
+      await interaction.message.edit({ embeds: [e], components: profileMenuRow() }).catch(() => {});
+      return;
+    }
+
+    if (cid === MID.PROFILE_CARDS) {
+      const ids = Object.keys(p.cards || {});
+      const e = new EmbedBuilder()
+        .setColor(COLOR)
+        .setTitle("🃏 Cards")
+        .setDescription(
+          ids.length
+            ? `You own **${ids.length}** cards.\n(Full card management will be in /profile → Cards UI next update.)`
+            : "No cards yet. Open packs in /store."
+        );
+      await interaction.message.edit({ embeds: [e], components: profileMenuRow() }).catch(() => {});
+      return;
+    }
+  }
+
+  // ===================== OPEN PACK =====================
+  if (cid.startsWith("open_pack:")) {
+    const [, packType, anime] = cid.split(":");
+    const p = await getPlayer(interaction.user.id);
+
+    if (!p.packs) p.packs = { basic: 0, legendary: 0 };
+
+    const key = packType === "legendary" ? "legendary" : "basic";
+    if ((p.packs[key] || 0) < 1) {
+      await interaction.followUp({ content: "❌ You don't have this pack.", ephemeral: true }).catch(() => {});
+      return;
+    }
+
+    // consume pack
+    p.packs[key] -= 1;
+
+    // generate 3 cards per pack (you can change to 5 later)
+    const pulls = [];
+    for (let i = 0; i < 3; i++) {
+      const c = randomCardFromPack(packType, anime);
+      pulls.push(c.id);
+    }
+
+    // save cards as instances
+    if (!p.cards) p.cards = {};
+    for (const cardId of pulls) {
+      const instId = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+      const def = CARDS[cardId];
+      p.cards[instId] = {
+        cardId,
+        anime: def.anime,
+        rarity: def.rarity,
+        level: 1,
+        xp: 0,
+        stars: 0,
+        status: "idle",
+      };
+    }
+
+    await setPlayer(interaction.user.id, p);
+
+    // create session for reveal
+    packSessions.set(interaction.user.id, {
+      packType,
+      anime,
+      queue: pulls,
+      index: 0,
+      messageId: interaction.message.id,
+      channelId: interaction.channel.id,
+      createdAt: Date.now(),
+    });
+
+    const first = CARDS[pulls[0]];
+    await interaction.message.edit({
+      embeds: [cardEmbed(first, { footer: `Pack: ${packType.toUpperCase()} • 1/${pulls.length}` })],
+      components: packRevealRow(false),
+    }).catch(() => {});
+    return;
+  }
+
+  // ===================== PACK REVEAL NEXT / CLOSE =====================
+  if (cid === MID.REVEAL_NEXT || cid === MID.REVEAL_CLOSE) {
+    const sess = packSessions.get(interaction.user.id);
+    if (!sess) {
+      await interaction.followUp({ content: "❌ No active pack session.", ephemeral: true }).catch(() => {});
+      return;
+    }
+
+    if (cid === MID.REVEAL_CLOSE) {
+      packSessions.delete(interaction.user.id);
+      // go back to store pack shop UI
+      const { EmbedBuilder } = require("discord.js");
+      const { COLOR } = require("../config");
+      const e = new EmbedBuilder().setColor(COLOR).setTitle("🛒 Store — Card Packs").setDescription("Choose a pack to open.");
+      await interaction.message.edit({ embeds: [e], components: packShopRows() }).catch(() => {});
+      return;
+    }
+
+    sess.index += 1;
+
+    if (sess.index >= sess.queue.length) {
+      packSessions.delete(interaction.user.id);
+      await interaction.message.edit({
+        content: "✅ Pack finished!",
+        embeds: [],
+        components: packShopRows(),
+      }).catch(() => {});
+      return;
+    }
+
+    const next = CARDS[sess.queue[sess.index]];
+    await interaction.message.edit({
+      embeds: [cardEmbed(next, { footer: `Pack: ${sess.packType.toUpperCase()} • ${sess.index + 1}/${sess.queue.length}` })],
+      components: packRevealRow(false),
+    }).catch(() => {});
     return;
   }
 
