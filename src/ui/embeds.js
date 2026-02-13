@@ -66,7 +66,10 @@ function calcJjkDropLuckMultiplier(items) {
   return mult;
 }
 
-function bossSpawnEmbed(def, channelName, joinedCount, fightersText) {
+/**
+ * ✅ UPDATED: added hpPercent (default 100)
+ */
+function bossSpawnEmbed(def, channelName, joinedCount, fightersText, hpPercent = 100) {
   const eventTag = def.event === "bleach" ? `${E_BLEACH} BLEACH` : `${E_JJK} JJK`;
   const currency = def.event === "bleach" ? E_REIATSU : E_CE;
 
@@ -86,6 +89,7 @@ function bossSpawnEmbed(def, channelName, joinedCount, fightersText) {
       `Press **🗡 Join Battle** to participate.`
     )
     .addFields(
+      { name: `❤️ Boss HP`, value: `\`${hpBar(hpPercent)}\``, inline: false },
       { name: `${E_MEMBERS} Fighters`, value: fightersText, inline: false },
       { name: `Joined`, value: `\`${joinedCount}\``, inline: true },
       { name: `${currency} Rewards`, value: rewardLine, inline: true },
@@ -95,15 +99,21 @@ function bossSpawnEmbed(def, channelName, joinedCount, fightersText) {
     .setFooter({ text: `Boss • ${def.rounds.length} rounds • ${maxHits} hits = eliminated` });
 }
 
-function bossRoundEmbed(def, roundIndex, aliveCount) {
+/**
+ * ✅ UPDATED: added hpPercent + statusText (both optional)
+ */
+function bossRoundEmbed(def, roundIndex, aliveCount, hpPercent = 100, statusText = "") {
   const r = def.rounds[roundIndex];
   const eventTag = def.event === "bleach" ? `${E_BLEACH} BLEACH` : `${E_JJK} JJK`;
 
   return new EmbedBuilder()
     .setColor(COLOR)
     .setTitle(`${eventTag} — ${def.icon} ${def.name} • ${r.title}`)
-    .setDescription(r.intro)
-    .addFields({ name: `${E_MEMBERS} Alive fighters`, value: `\`${aliveCount}\``, inline: true })
+    .setDescription((statusText ? `**Status:** ${statusText}\n\n` : "") + r.intro)
+    .addFields(
+      { name: `❤️ Boss HP`, value: `\`${hpBar(hpPercent)}\``, inline: true },
+      { name: `${E_MEMBERS} Alive fighters`, value: `\`${aliveCount}\``, inline: true }
+    )
     .setImage(r.media || def.spawnMedia)
     .setFooter({ text: `Round ${roundIndex + 1}/${def.rounds.length}` });
 }
