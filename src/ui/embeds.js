@@ -1,6 +1,11 @@
+// src/ui/embeds.js
 const { EmbedBuilder } = require("discord.js");
+
 const {
   COLOR,
+  MAX_HITS,
+
+  E_MEMBERS,
   E_BLEACH,
   E_JJK,
   E_REIATSU,
@@ -13,7 +18,7 @@ const {
 const { BLEACH_SHOP_ITEMS, JJK_SHOP_ITEMS } = require("../data/shop");
 const { safeName } = require("../core/utils");
 
-/* ===== bonuses / multipliers (оставляю как у тебя) ===== */
+/* ===== bonuses / multipliers ===== */
 function calcBleachSurvivalBonus(items) {
   let bonus = 0;
   if (items.zanpakuto_basic) bonus += 4;
@@ -54,51 +59,89 @@ function calcJjkDropLuckMultiplier(items) {
   return mult;
 }
 
-/* ===================== NEW: MENU EMBEDS ===================== */
-function menuEmbed(user) {
+function bossSpawnEmbed(def, channelName, joinedCount, fightersText) {
+  const eventTag = def.event === "bleach" ? `${E_BLEACH} BLEACH` : `${E_JJK} JJK`;
+  const currency = def.event === "bleach" ? E_REIATSU : E_CE;
+
+  const maxHits = def.maxHits ?? MAX_HITS;
+
+  const rewardLine =
+    def.winRewardRange
+      ? `\`${def.winRewardRange.min}–${def.winRewardRange.max} on win • +${def.hitReward}/success (banked)\``
+      : `\`${def.winReward} on win • +${def.hitReward}/success (banked)\``;
+
   return new EmbedBuilder()
     .setColor(COLOR)
-    .setTitle("📜 Menu")
+    .setTitle(`${eventTag} — ${def.icon} ${def.name} Appeared!`)
+    .setDescription(
+      `**Difficulty:** ${def.difficulty}\n` +
+      `⏳ **Join time:** ${Math.round(def.joinMs / 60000)} minutes\n` +
+      `Press **🗡 Join Battle** to participate.`
+    )
+    .addFields(
+      { name: `${E_MEMBERS} Fighters`, value: fightersText, inline: false },
+      { name: `Joined`, value: `\`${joinedCount}\``, inline: true },
+      { name: `${currency} Rewards`, value: rewardLine, inline: true },
+      { name: `📌 Channel`, value: `\`#${channelName}\``, inline: true }
+    )
+    .setImage(def.spawnMedia)
+    .setFooter({ text: `Boss • ${def.rounds.length} rounds • ${maxHits} hits = eliminated` });
+}
+
+function bossRoundEmbed(def, roundIndex, aliveCount) {
+  const r = def.rounds[roundIndex];
+  const eventTag = def.event === "bleach" ? `${E_BLEACH} BLEACH` : `${E_JJK} JJK`;
+
+  return new EmbedBuilder()
+    .setColor(COLOR)
+    .setTitle(`${eventTag} — ${def.icon} ${def.name} • ${r.title}`)
+    .setDescription(r.intro)
+    .addFields({ name: `${E_MEMBERS} Alive fighters`, value: `\`${aliveCount}\``, inline: true })
+    .setImage(r.media || def.spawnMedia)
+    .setFooter({ text: `Round ${roundIndex + 1}/${def.rounds.length}` });
+}
+
+function bossVictoryEmbed(def, survivorsCount) {
+  return new EmbedBuilder()
+    .setColor(0x2ecc71)
+    .setTitle(`✅ ${def.name} Defeated!`)
+    .setDescription("Rewards granted to survivors.")
+    .addFields(
+      { name: `${E_MEMBERS} Survivors`, value: `\`${survivorsCount}\``, inline: true },
+      { name: `🎭 Drops`, value: `Role drops may occur.`, inline: true }
+    )
+    .setImage(def.victoryMedia);
+}
+
+function bossDefeatEmbed(def) {
+  return new EmbedBuilder()
+    .setColor(0xe74c3c)
+    .setTitle(`❌ Defeat`)
+    .setDescription(`Everyone lost. **${def.name}** wins.`)
+    .setImage(def.defeatMedia);
+}
+
+function mobEmbed(eventKey, joinedCount, mob) {
+  const eventTag = eventKey === "bleach" ? `${E_BLEACH} BLEACH` : `${E_JJK} JJK`;
+  const actionWord = eventKey === "jjk" ? "Exorcise" : "Attack";
+
+  return new EmbedBuilder()
+    .setColor(COLOR)
+    .setTitle(`${eventTag} — ${mob.icon} ${mob.name} Appeared!`)
     .setDescription(
       [
-        `Hello, **${safeName(user.username)}**.`,
+        `⏳ **Time:** 2 minutes`,
+        `🎲 **Hit chance:** 50%`,
+        `${mob.currencyEmoji} **Hit:** ${mob.hitReward} • **Miss:** ${mob.missReward}`,
+        `If you hit: +${mob.bonusPerKill}% boss bonus (max ${mob.bonusMax}%).`,
         "",
-        "Choose a section:",
-        "🎒 Inventory • 🃏 Cards • 🛒 Packs • 👤 Profile • 🏆 Drako Top",
+        `Press **${actionWord}**.`,
       ].join("\n")
-    );
+    )
+    .addFields({ name: `${E_MEMBERS} Attackers`, value: `\`${joinedCount}\``, inline: true })
+    .setImage(mob.media);
 }
 
-function profileEmbed(user, player) {
-  return new EmbedBuilder()
-    .setColor(COLOR)
-    .setTitle(`👤 Profile — ${safeName(user.username)}`)
-    .setDescription(
-      [
-        `${E_DRAKO} Drako: **${player.drako}**`,
-        "",
-        `${E_BLEACH} Bleach`,
-        `${E_REIATSU} Reiatsu: **${player.bleach.reiatsu}**`,
-        `⭐ Boss bonus: **${player.bleach.survivalBonus}%**`,
-        "",
-        `${E_JJK} JJK`,
-        `${E_CE} Cursed Energy: **${player.jjk.cursedEnergy}**`,
-        `⭐ Boss bonus: **${player.jjk.survivalBonus}%**`,
-        "",
-        `🧥 Wardrobe roles saved: **${player.ownedRoles.length}**`,
-      ].join("\n")
-    );
-}
-
-function drakoLeaderboardEmbed(entries) {
-  const lines = entries.map((e, i) => `**#${i + 1}** — ${safeName(e.name)}: **${E_DRAKO} ${e.score}**`);
-  return new EmbedBuilder()
-    .setColor(COLOR)
-    .setTitle(`🏆 Drako Leaderboard`)
-    .setDescription(lines.join("\n") || "No data yet.");
-}
-
-/* ===================== EXISTING (твои) ===================== */
 function inventoryEmbed(eventKey, player, bonusMaxBleach = 30, bonusMaxJjk = 30) {
   if (eventKey === "bleach") {
     const inv = player.bleach.items;
@@ -133,6 +176,7 @@ function inventoryEmbed(eventKey, player, bonusMaxBleach = 30, bonusMaxJjk = 30)
   const inv = player.jjk.items;
   const itemBonus = calcJjkSurvivalBonus(inv);
   const mult = calcJjkCEMultiplier(inv);
+
   const mats = player.jjk.materials || { cursedShards: 0, expeditionKeys: 0 };
 
   return new EmbedBuilder()
@@ -200,15 +244,37 @@ function shopEmbed(eventKey, player) {
     );
 }
 
-module.exports = {
-  // NEW
-  menuEmbed,
-  profileEmbed,
-  drakoLeaderboardEmbed,
+function leaderboardEmbed(eventKey, entries) {
+  const tag = eventKey === "bleach" ? `${E_BLEACH} Bleach` : `${E_JJK} JJK`;
+  const currency = eventKey === "bleach" ? E_REIATSU : E_CE;
+  const lines = entries.map((e, i) => `**#${i + 1}** — ${safeName(e.name)}: **${currency} ${e.score}**`);
+  return new EmbedBuilder().setColor(COLOR).setTitle(`🏆 ${tag} Leaderboard`).setDescription(lines.join("\n") || "No data yet.");
+}
 
-  // EXISTING
+function wardrobeEmbed(guild, player) {
+  const roles = player.ownedRoles.map((rid) => guild.roles.cache.get(rid)).filter(Boolean);
+  const lines = roles.length ? roles.map((r) => `• <@&${r.id}>`).join("\n") : "_No saved roles yet._";
+
+  return new EmbedBuilder()
+    .setColor(COLOR)
+    .setTitle("🧥 Wardrobe")
+    .setDescription(
+      "Saved roles never disappear.\n" +
+      "Select a role to **equip/unequip**.\n\n" +
+      lines
+    );
+}
+
+module.exports = {
+  bossSpawnEmbed,
+  bossRoundEmbed,
+  bossVictoryEmbed,
+  bossDefeatEmbed,
+  mobEmbed,
   inventoryEmbed,
   shopEmbed,
+  leaderboardEmbed,
+  wardrobeEmbed,
 
   calcBleachSurvivalBonus,
   calcBleachReiatsuMultiplier,
