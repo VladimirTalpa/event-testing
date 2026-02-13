@@ -8,5 +8,7 @@ const pvpById = new Map(); // key = `${channelId}:${challengerId}:${targetId}`
  * entries: [{ name, score }]
  */
 const leaderboardCache = new Map();
+const packSessions = new Map(); 
+// userId -> { packType, anime, queue:[cardId...], index, messageId, channelId, createdAt }
 
-module.exports = { bossByChannel, mobByChannel, leaderboardCache, pvpById };
+module.exports = { bossByChannel, mobByChannel, leaderboardCache, pvpById, packSessions };
