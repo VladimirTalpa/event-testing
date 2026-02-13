@@ -2,6 +2,7 @@
 const {
   E_VASTO,
   E_ULQ,
+  E_BLEACH,
   E_JJK,
   VASTO_DROP_ROLE_ID,
   ULQ_DROP_ROLE_ID,
@@ -55,6 +56,7 @@ const BOSSES = {
 
     rounds: [
       { type: "coop_block", title: "Round 1 — Cooperative Block", intro: "Ulquiorra launches a powerful attack.\nTo survive, **4 players** must press **Block** within **5 seconds**.", windowMs: 5000, requiredPresses: 4, buttonLabel: "Block", buttonEmoji: "🛡️", media: media.ULQ_R1 },
+      // ✅ You asked: combo timer => 15 seconds
       { type: "combo_defense", title: "Round 2 — Combo Defense (QTE)", intro: "Ulquiorra attacks again — Combo Defense!\nPress the buttons in the **correct order** within **15 seconds**.\nMistake or timeout = a hit.", windowMs: 15000, media: media.ULQ_R2 },
       { type: "pressure", title: "Round 3 — Transformation Pressure", intro: "Ulquiorra transforms — Reiatsu pressure becomes insane.\nWithstand it to avoid a hit.", media: media.ULQ_R3 },
       { type: "pressure", title: "Round 4 — Suffocating Pressure", intro: "The pressure intensifies even further.\nWithstand it to avoid a hit.", media: media.ULQ_R4 },
@@ -64,59 +66,60 @@ const BOSSES = {
   },
 
   grimmjow: {
-    event: "bleach",
-    id: "grimmjow",
-    name: "Grimmjow",
-    icon: "🦁",
-    difficulty: "Medium",
-    joinMs: 2 * 60 * 1000,
-    baseChance: 0.50,
-    winReward: 125,
-    hitReward: 15,
-    roleDropChance: 1.0,
-    roleDropId: "1469831066628919439",
+  event: "bleach",
+  id: "grimmjow",
+  name: "Grimmjow",
+  icon: "🦁", // можешь заменить на свой emoji если хочешь
+  difficulty: "Medium",
+  joinMs: 2 * 60 * 1000,
+  baseChance: 0.50,
+  winReward: 125,
+  hitReward: 15,
+  roleDropChance: 1.0, // если роль должна падать всегда при победе — оставь 1.0
+  roleDropId: "1469831066628919439",
 
-    spawnMedia: "https://media.discordapp.net/attachments/1405973335979851877/1469843123160088636/Your_paragraph_text_20.gif?ex=69892194&is=6987d014&hm=f4f9a53a32821a59c255ab38ca2785aee18654acfb13fad1220324fc93b31431&=",
-    victoryMedia: "https://media.discordapp.net/attachments/1405973335979851877/1469843182920532062/Your_paragraph_text_24.gif?ex=698921a3&is=6987d023&hm=7156f4b3cddeb4dc24e79afd243b5967c6ea239b53c1fdb75e6a3ca271546ece&=",
-    defeatMedia: "https://media.discordapp.net/attachments/1405973335979851877/1469843151152746668/Your_paragraph_text_22.gif?ex=6989219b&is=6987d01b&hm=0482ac0a77dc9e0d047b55951c7708d71badbda4d9cc3b6f906d3e445e780dcc&=",
+  spawnMedia: "https://media.discordapp.net/attachments/1405973335979851877/1469843123160088636/Your_paragraph_text_20.gif?ex=69892194&is=6987d014&hm=f4f9a53a32821a59c255ab38ca2785aee18654acfb13fad1220324fc93b31431&=",
+  victoryMedia: "https://media.discordapp.net/attachments/1405973335979851877/1469843182920532062/Your_paragraph_text_24.gif?ex=698921a3&is=6987d023&hm=7156f4b3cddeb4dc24e79afd243b5967c6ea239b53c1fdb75e6a3ca271546ece&=",
+  defeatMedia: "https://media.discordapp.net/attachments/1405973335979851877/1469843151152746668/Your_paragraph_text_22.gif?ex=6989219b&is=6987d01b&hm=0482ac0a77dc9e0d047b55951c7708d71badbda4d9cc3b6f906d3e445e780dcc&=",
 
-    rounds: [
-      {
-        type: "multi_press",
-        title: "Round 1 — Relentless Assault",
-        intro:
-          "Grimmjow rushes in with a storm of strikes.\n" +
-          "Press **Block** **3 times** within **15 seconds** to withstand it.",
-        windowMs: 15000,
-        requiredPresses: 3,
-        buttonLabel: "Block",
-        buttonEmoji: "🛡️",
-        media: "https://media.discordapp.net/attachments/1405973335979851877/1469843137181651024/Your_paragraph_text_21.gif?ex=69892198&is=6987d018&hm=4852cd95f921b0d65021bb4569e695eca88078b0b75c31072e307163190e702f&=",
-      },
-      {
-        type: "coop_block",
-        title: "Round 2 — Coordinated Defense",
-        intro:
-          "Grimmjow releases a heavy blow.\n" +
-          "**3 players** must press **Block** within **10 seconds**.\n" +
-          "Failing to block in time = you take a hit.",
-        windowMs: 10000,
-        requiredPresses: 3,
-        buttonLabel: "Block",
-        buttonEmoji: "🛡️",
-        media: "https://media.discordapp.net/attachments/1405973335979851877/1469843163945504899/Your_paragraph_text_23.gif?ex=6989219e&is=6987d01e&hm=2ac5fdbc70879714bf44c2c107d643cb61b67f79b7e27dbea0fb2a30c7feb861&=",
-      },
-      {
-        type: "attack",
-        title: "Final — You endured the trial",
-        intro:
-          "You held your ground.\n" +
-          "Grimmjow leaves the battlefield.",
-        media: "https://media.discordapp.net/attachments/1405973335979851877/1469843182920532062/Your_paragraph_text_24.gif?ex=698921a3&is=6987d023&hm=7156f4b3cddeb4dc24e79afd243b5967c6ea239b53c1fdb75e6a3ca271546ece&=",
-      },
-    ],
-  },
+  rounds: [
+    {
+      type: "multi_press",                // ⚠️ это новый тип, см. примечание ниже
+      title: "Round 1 — Relentless Assault",
+      intro:
+        "Grimmjow rushes in with a storm of strikes.\n" +
+        "Press **Block** **3 times** within **15 seconds** to withstand it.",
+      windowMs: 15000,
+      requiredPresses: 3,
+      buttonLabel: "Block",
+      buttonEmoji: "🛡️",
+      media: "https://media.discordapp.net/attachments/1405973335979851877/1469843137181651024/Your_paragraph_text_21.gif?ex=69892198&is=6987d018&hm=4852cd95f921b0d65021bb4569e695eca88078b0b75c31072e307163190e702f&=",
+    },
+    {
+      type: "coop_block",
+      title: "Round 2 — Coordinated Defense",
+      intro:
+        "Grimmjow releases a heavy blow.\n" +
+        "**3 players** must press **Block** within **10 seconds**.\n" +
+        "Failing to block in time = you take a hit.",
+      windowMs: 10000,
+      requiredPresses: 3,
+      buttonLabel: "Block",
+      buttonEmoji: "🛡️",
+      media: "https://media.discordapp.net/attachments/1405973335979851877/1469843163945504899/Your_paragraph_text_23.gif?ex=6989219e&is=6987d01e&hm=2ac5fdbc70879714bf44c2c107d643cb61b67f79b7e27dbea0fb2a30c7feb861&=",
+    },
+    {
+      type: "attack",
+      title: "Final — You endured the trial",
+      intro:
+        "You held your ground.\n" +
+        "Grimmjow leaves the battlefield.",
+      media: "https://media.discordapp.net/attachments/1405973335979851877/1469843182920532062/Your_paragraph_text_24.gif?ex=698921a3&is=6987d023&hm=7156f4b3cddeb4dc24e79afd243b5967c6ea239b53c1fdb75e6a3ca271546ece&=",
+    },
+  ],
+},
 
+  /* ===================== MAHORAGA (JJK) ===================== */
   mahoraga: {
     event: "jjk",
     id: "mahoraga",
@@ -124,17 +127,24 @@ const BOSSES = {
     icon: E_JJK,
     difficulty: "Insanity",
     joinMs: 3 * 60 * 1000,
+
+    // you asked: 10% survive chance
     baseChance: 0.10,
+
+    // you asked: lives = 3
     maxHits: 3,
 
+    // rewards: win CE 800-1400 random, +30 per success banked
     winRewardRange: { min: 800, max: 1400 },
     hitReward: 30,
 
+    // drops
     roleDropChance: 0.075,
     roleDropId: "1470124664931094590",
     expeditionKeyChance: 0.20,
-    shardDropRange: { min: 5, max: 20 },
+    shardDropRange: { min: 5, max: 20 }, // per winner random
 
+    // pre intro
     preText: "With this treasure, I summon...",
     preTextDelayMs: 10 * 1000,
     teaserMedia: media.MAHO_TEASER,
@@ -236,7 +246,7 @@ const BOSSES = {
     ],
   },
 
-  // ✅ Special Grade теперь тоже дропает shards 1–3
+  /* ===================== OLD specialgrade (kept) ===================== */
   specialgrade: {
     event: "jjk",
     id: "specialgrade",
@@ -247,21 +257,18 @@ const BOSSES = {
     baseChance: 0.30,
     winReward: 200,
     hitReward: 15,
-
-    shardDropRange: { min: 1, max: 3 }, // ✅ ДОБАВЛЕНО
-
     roleDropChance: 0.0,
     roleDropId: null,
 
-    spawnMedia: media.JJK_SG_SPAWN_MEDIA,
-    victoryMedia: media.JJK_SG_VICTORY_MEDIA,
-    defeatMedia: media.JJK_SG_DEFEAT_MEDIA,
+    spawnMedia: media.JJK_BOSS_SPAWN_MEDIA,
+    victoryMedia: media.JJK_BOSS_VICTORY_MEDIA,
+    defeatMedia: media.JJK_BOSS_DEFEAT_MEDIA,
 
     rounds: [
-      { type: "pressure", title: "Round 1 — Cursed Pressure", intro: "Overwhelming cursed pressure floods the area.", media: media.JJK_SG_R1 },
-      { type: "pressure", title: "Round 2 — Malice Surge", intro: "The aura turns violent. Resist it.", media: media.JJK_SG_R2 },
-      { type: "attack", title: "Round 3 — Opening", intro: "A gap appears. Strike the core.", media: media.JJK_SG_R3 },
-      { type: "finisher", title: "Round 4 — Exorcism Window", intro: "Finish it! Press **Exorcise** in time.", windowMs: 5000, buttonLabel: "Exorcise", buttonEmoji: "🪬", media: media.JJK_SG_SPAWN_MEDIA },
+      { type: "pressure", title: "Round 1 — Cursed Pressure", intro: "Overwhelming cursed pressure floods the area.", media: media.JJK_BOSS_R1 },
+      { type: "pressure", title: "Round 2 — Malice Surge", intro: "The aura turns violent. Resist it.", media: media.JJK_BOSS_R2 },
+      { type: "attack", title: "Round 3 — Opening", intro: "A gap appears. Strike the core.", media: media.JJK_BOSS_R3 },
+      { type: "finisher", title: "Round 4 — Exorcism Window", intro: "Finish it! Press **Exorcise** in time.", windowMs: 5000, buttonLabel: "Exorcise", buttonEmoji: "🪬", media: media.JJK_BOSS_R4 },
     ],
   },
 };
