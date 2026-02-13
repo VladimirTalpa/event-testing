@@ -160,6 +160,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
 
       const r = boss.def.rounds[i];
 
+      // Some rounds intentionally text-only (final quiz question)
       if (r.type !== "final_quiz") {
         await channel.send({ embeds: [bossRoundEmbed(boss.def, i, alive.length)] }).catch(() => {});
       } else {
@@ -413,13 +414,14 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
 
       /* ===================== NEW ROUND TYPES (Mahoraga) ===================== */
 
+      // multi_press: user must press same button N times in time
       if (r.type === "multi_press") {
         const token = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
         boss.activeAction = {
           token,
           roundIndex: i,
           mode: "multi_press",
-          counts: new Map(),
+          counts: new Map(), // uid -> count
           requiredPresses: r.requiredPresses || 3,
         };
 
@@ -459,13 +461,14 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         continue;
       }
 
+      // choice_qte: 2 buttons, one correct
       if (r.type === "choice_qte") {
         const token = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
         boss.activeAction = {
           token,
           roundIndex: i,
           mode: "choice",
-          choice: new Map(),
+          choice: new Map(), // uid -> key
         };
 
         const cA = r.choices?.[0];
@@ -513,6 +516,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         continue;
       }
 
+      // scripted_hit_all: after delay + spam, everybody takes a hit
       if (r.type === "scripted_hit_all") {
         await sleep(r.delayMs || 5000);
 
@@ -539,13 +543,14 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         continue;
       }
 
+      // tri_press: user must press all 3 buttons within window
       if (r.type === "tri_press") {
         const token = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
         boss.activeAction = {
           token,
           roundIndex: i,
           mode: "tri_press",
-          pressed: new Map(),
+          pressed: new Map(), // uid -> Set(keys)
           requiredKeys: (r.buttons || []).map((b) => b.key),
         };
 
@@ -590,13 +595,14 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         continue;
       }
 
+      // final_quiz: only correct choice wins; wrong = eliminated
       if (r.type === "final_quiz") {
         const token = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
         boss.activeAction = {
           token,
           roundIndex: i,
           mode: "quiz",
-          choice: new Map(),
+          choice: new Map(), // uid -> key
         };
 
         const btns = (r.choices || []).map((c) => ({
@@ -631,6 +637,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
           await sleep(120);
         }
 
+        // no next round after final
         continue;
       }
     }
@@ -646,6 +653,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
       const player = await getPlayer(uid);
       const mult = getEventMultiplier(boss.def.event, player);
 
+      // win reward range support
       const winBase =
         boss.def.winRewardRange
           ? randInt(boss.def.winRewardRange.min, boss.def.winRewardRange.max)
@@ -658,22 +666,12 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
       if (boss.def.event === "bleach") player.bleach.reiatsu += total;
       else player.jjk.cursedEnergy += total;
 
-      // ✅ IMPORTANT: ensure materials exists (fix for shards not adding)
-      if (boss.def.event === "jjk") {
-        if (!player.jjk.materials || typeof player.jjk.materials !== "object") {
-          player.jjk.materials = { cursedShards: 0, expeditionKeys: 0 };
-        }
-        if (!Number.isFinite(player.jjk.materials.cursedShards)) player.jjk.materials.cursedShards = 0;
-        if (!Number.isFinite(player.jjk.materials.expeditionKeys)) player.jjk.materials.expeditionKeys = 0;
-      }
-
-      // ✅ Shards drop for ANY JJK boss that has shardDropRange (Special Grade included)
+      // Mahoraga shard drops + expedition key chance
       if (boss.def.event === "jjk" && boss.def.shardDropRange) {
         const shards = randInt(boss.def.shardDropRange.min, boss.def.shardDropRange.max);
         player.jjk.materials.cursedShards += shards;
         lines.push(`🧩 <@${uid}> получил **${shards} Cursed Shards**.`);
       }
-
       if (boss.def.event === "jjk" && boss.def.expeditionKeyChance) {
         if (Math.random() < boss.def.expeditionKeyChance) {
           player.jjk.materials.expeditionKeys += 1;
@@ -724,6 +722,7 @@ async function spawnBoss(channel, bossId, withPing = true) {
 
   if (withPing) await channel.send(`<@&${PING_BOSS_ROLE_ID}>`).catch(() => {});
 
+  // ✅ Mahoraga pre-text + teaser
   if (def.preText) {
     await channel.send(def.preText).catch(() => {});
     await sleep(def.preTextDelayMs || 10000);
