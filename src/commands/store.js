@@ -1,62 +1,43 @@
-// src/commands/store.js
-const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
-const {
-  storeHomeEmbed,
-  storePacksEmbed,
-  storeGearEmbed,
-  storeEventEmbed,
-} = require("../ui/embeds");
-const { navRow } = require("../ui/components");
+const { SlashCommandBuilder } = require('discord.js');
+const { mutate, getUser } = require('../core/db');
+const { storeEmbed } = require('../ui/embeds');
+const { storeNavRow } = require('../ui/components');
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName("store")
-    .setDescription("Open store menu"),
+    .setName('store')
+    .setDescription('Open store')
+    .addStringOption((o) =>
+      o.setName('event').setDescription('Faction context').setRequired(true).addChoices(
+        { name: 'Bleach', value: 'bleach' },
+        { name: 'JJK', value: 'jjk' },
+      )
+    ),
+
   async execute(interaction) {
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("store:packs").setLabel("Card Packs").setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId("store:gear").setLabel("Gear Shop").setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId("store:event").setLabel("Event Shop").setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId("ui:close").setLabel("Close").setStyle(ButtonStyle.Secondary),
-    );
+    const event = interaction.options.getString('event');
 
-    await interaction.reply({
-      embeds: [storeHomeEmbed()],
-      components: [row],
-      ephemeral: true,
+    const payload = mutate((db) => {
+      const u = getUser(db, interaction.user.id);
+      return { wallet: u.wallet };
     });
-  },
 
-  async onButton(interaction) {
-    if (interaction.customId === "store:packs") {
-      return interaction.update({
-        embeds: [storePacksEmbed()],
-        components: [navRow({ backId: "store:home" })],
-      });
-    }
-    if (interaction.customId === "store:gear") {
-      return interaction.update({
-        embeds: [storeGearEmbed()],
-        components: [navRow({ backId: "store:home" })],
-      });
-    }
-    if (interaction.customId === "store:event") {
-      return interaction.update({
-        embeds: [storeEventEmbed()],
-        components: [navRow({ backId: "store:home" })],
-      });
-    }
-    if (interaction.customId === "store:home") {
-      const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("store:packs").setLabel("Card Packs").setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId("store:gear").setLabel("Gear Shop").setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId("store:event").setLabel("Event Shop").setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId("ui:close").setLabel("Close").setStyle(ButtonStyle.Secondary),
-      );
-      return interaction.update({
-        embeds: [storeHomeEmbed()],
-        components: [row],
-      });
-    }
+    // Non-ephemeral: so it looks like a real UI. But locked to the owner by STORE_CTX.
+    await interaction.reply({
+      content: `STORE_CTX:${event}:${interaction.user.id}`,
+      embeds: [storeEmbed('event', event, payload.wallet)],
+      components: [storeNavRow('event')],
+      ephemeral: false,
+    });
+
+    // add action row after sending (needs message)
+    const msg = await interaction.fetchReply();
+    const buttons = require('../events/buttons');
+    // patch in actions row by editing
+    const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('buy:cosmeticrole').setLabel('Buy Cosmetic Title (300)').setStyle(ButtonStyle.Success)
+    );
+    await msg.edit({ components: [storeNavRow('event'), row] }).catch(() => {});
   },
 };
