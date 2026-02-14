@@ -1,44 +1,45 @@
-const { Client, GatewayIntentBits, Partials, Collection } = require("discord.js");
-const cfg = require("./config");
+// src/index.js
+require("dotenv").config();
+
+const { Client, GatewayIntentBits, Partials, Events } = require("discord.js");
+const { initRedis } = require("./core/redis");
 
 const handleSlash = require("./handlers/slash");
 const handleButtons = require("./handlers/buttons");
 const handleSelects = require("./handlers/selects");
 
-const expeditions = require("./systems/expeditions");
-
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-  ],
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
   partials: [Partials.Channel],
 });
 
-client.commands = new Collection();
-
-client.once("ready", async () => {
+client.once(Events.ClientReady, async () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
-
-  // ✅ ВОТ ЭТО и есть “привязать client для экспедиций”
-  expeditions.init(client);
+  await initRedis();
 });
 
-client.on("interactionCreate", async (interaction) => {
+client.on(Events.InteractionCreate, async (interaction) => {
   try {
-    if (interaction.isChatInputCommand()) return handleSlash(interaction);
-    if (interaction.isButton()) return handleButtons(interaction);
-    if (interaction.isStringSelectMenu()) return handleSelects(interaction);
+    if (interaction.isChatInputCommand()) return await handleSlash(interaction, client);
+    if (interaction.isButton()) return await handleButtons(interaction, client);
+    if (interaction.isStringSelectMenu()) return await handleSelects(interaction, client);
   } catch (e) {
-    console.error("interactionCreate error:", e);
+    console.error("Interaction error:", e);
     try {
-      if (interaction.deferred || interaction.replied) {
-        await interaction.editReply({ content: "❌ Error. Check console." });
-      } else {
-        await interaction.reply({ content: "❌ Error. Check console.", ephemeral: true });
+      if (interaction.isRepliable()) {
+        if (interaction.deferred || interaction.replied) {
+          await interaction.followUp({ content: "⚠️ Error handling this action.", ephemeral: true });
+        } else {
+          await interaction.reply({ content: "⚠️ Error handling this action.", ephemeral: true });
+        }
       }
     } catch {}
   }
 });
 
-client.login(cfg.TOKEN);
+const token = process.env.DISCORD_TOKEN;
+if (!token) {
+  console.error("❌ Missing DISCORD_TOKEN in env");
+  process.exit(1);
+}
+client.login(token);
