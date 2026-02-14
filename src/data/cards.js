@@ -1,193 +1,39 @@
-// src/data/cards.js
-const { CARD_PLACEHOLDER_GIF } = require("../config");
+// src/config.js
+require("dotenv").config();
 
-const RARITY = {
-  COMMON: "Common",
-  RARE: "Rare",
-  LEGENDARY: "Legendary",
-  MYTHIC: "Mythic",
+module.exports = {
+  // ================== REQUIRED ==================
+  TOKEN: process.env.TOKEN,
+
+  // ================== UI ==================
+  COLOR: 0x8a2be2, // фиолетовый (можешь поменять)
+
+  // ================== PACK PRICES ==================
+  // цены за пак (покупка в /store -> Card Packs)
+  PACK_BASIC_PRICE_BLEACH: 250,
+  PACK_BASIC_PRICE_JJK: 250,
+
+  PACK_LEGENDARY_PRICE_BLEACH: 1200,
+  PACK_LEGENDARY_PRICE_JJK: 1200,
+
+  // ================== EVOLVE COSTS ==================
+  // forge evolve (cost)
+  EVOLVE_RARE_TO_LEGENDARY_SHARDS: 120,
+  EVOLVE_LEGENDARY_TO_MYTHIC_SHARDS: 280,
+
+  EVOLVE_RARE_TO_LEGENDARY_DRKO: 25,
+  EVOLVE_LEGENDARY_TO_MYTHIC_DRKO: 60,
+
+  // ================== EXPEDITION SETTINGS ==================
+  // лимит экспедиций в день
+  EXPEDITION_DAILY_LIMIT: 2,
+
+  // старт через 1 час
+  EXPEDITION_START_DELAY_MIN: 60,
+
+  // обновление сообщения каждые 10 минут
+  EXPEDITION_TICK_MIN: 10,
+
+  // сколько тиков всего (6 тиков = 60 минут при 10 мин)
+  EXPEDITION_TOTAL_TICKS: 6,
 };
-
-const ROLE = {
-  DPS: "DPS",
-  TANK: "Tank",
-  SUPPORT: "Support",
-};
-
-// charKey -> card definition
-const CARDS = {
-  // ===================== JJK =====================
-  miwa: {
-    key: "miwa",
-    anime: "jjk",
-    name: "Kasumi Miwa",
-    rarity: RARITY.COMMON,
-    role: ROLE.SUPPORT,
-    base: { hp: 95, atk: 22, def: 18 },
-    passive: "Sometimes reduces incoming damage (useful in expeditions).",
-    art: CARD_PLACEHOLDER_GIF,
-    evolutions: [], // none
-  },
-  momo: {
-    key: "momo",
-    anime: "jjk",
-    name: "Momo Nishimiya",
-    rarity: RARITY.COMMON,
-    role: ROLE.SUPPORT,
-    base: { hp: 85, atk: 20, def: 16 },
-    passive: "Small team survival support chance.",
-    art: CARD_PLACEHOLDER_GIF,
-    evolutions: [],
-  },
-  mai: {
-    key: "mai",
-    anime: "jjk",
-    name: "Mai Zenin",
-    rarity: RARITY.COMMON,
-    role: ROLE.DPS,
-    base: { hp: 80, atk: 28, def: 14 },
-    passive: "Chance to land a precise strike (better success outcomes in PvE).",
-    art: CARD_PLACEHOLDER_GIF,
-    evolutions: [],
-  },
-  todo: {
-    key: "todo",
-    anime: "jjk",
-    name: "Aoi Todo",
-    rarity: RARITY.RARE,
-    role: ROLE.TANK,
-    base: { hp: 140, atk: 30, def: 32 },
-    passive: "Team protection (strong expedition tank).",
-    art: CARD_PLACEHOLDER_GIF,
-    evolutions: [],
-  },
-  panda: {
-    key: "panda",
-    anime: "jjk",
-    name: "Panda",
-    rarity: RARITY.RARE,
-    role: ROLE.TANK,
-    base: { hp: 130, atk: 27, def: 30 },
-    passive: "High durability (ideal for long runs).",
-    art: CARD_PLACEHOLDER_GIF,
-    evolutions: [],
-  },
-  toji_leg: {
-    key: "toji_leg",
-    anime: "jjk",
-    name: "Toji Fushiguro",
-    rarity: RARITY.LEGENDARY,
-    role: ROLE.DPS,
-    base: { hp: 160, atk: 55, def: 28 },
-    passive: "High success chance in combat events.",
-    art: CARD_PLACEHOLDER_GIF,
-    evolutions: ["toji_myth"],
-  },
-  toji_myth: {
-    key: "toji_myth",
-    anime: "jjk",
-    name: "Toji (Mythic)",
-    rarity: RARITY.MYTHIC,
-    role: ROLE.DPS,
-    base: { hp: 260, atk: 95, def: 45 },
-    passive: "Breaks content noticeably, bosses will be stronger.",
-    art: CARD_PLACEHOLDER_GIF,
-    evolutions: [],
-  },
-
-  // ===================== BLEACH =====================
-  ikkaku: {
-    key: "ikkaku",
-    anime: "bleach",
-    name: "Ikkaku Madarame",
-    rarity: RARITY.COMMON,
-    role: ROLE.TANK,
-    base: { hp: 120, atk: 24, def: 24 },
-    passive: "Stable tank, great for start.",
-    art: CARD_PLACEHOLDER_GIF,
-    evolutions: [],
-  },
-  hisagi: {
-    key: "hisagi",
-    anime: "bleach",
-    name: "Shuuhei Hisagi",
-    rarity: RARITY.COMMON,
-    role: ROLE.DPS,
-    base: { hp: 95, atk: 30, def: 16 },
-    passive: "Higher chance of successful action in PvE.",
-    art: CARD_PLACEHOLDER_GIF,
-    evolutions: [],
-  },
-  ganju: {
-    key: "ganju",
-    anime: "bleach",
-    name: "Ganju Shiba",
-    rarity: RARITY.COMMON,
-    role: ROLE.SUPPORT,
-    base: { hp: 90, atk: 20, def: 18 },
-    passive: "Luck: slightly improves material find chance.",
-    art: CARD_PLACEHOLDER_GIF,
-    evolutions: [],
-  },
-  chad_rare: {
-    key: "chad_rare",
-    anime: "bleach",
-    name: "Yasutora Sado (Chad)",
-    rarity: RARITY.RARE,
-    role: ROLE.TANK,
-    base: { hp: 170, atk: 30, def: 35 },
-    passive: "Super survivability.",
-    art: CARD_PLACEHOLDER_GIF,
-    evolutions: ["chad_leg"],
-  },
-  chad_leg: {
-    key: "chad_leg",
-    anime: "bleach",
-    name: "Chad (Legendary)",
-    rarity: RARITY.LEGENDARY,
-    role: ROLE.TANK,
-    base: { hp: 235, atk: 42, def: 48 },
-    passive: "Legendary wall. Much safer in expeditions.",
-    art: CARD_PLACEHOLDER_GIF,
-    evolutions: [],
-  },
-  orihime: {
-    key: "orihime",
-    anime: "bleach",
-    name: "Orihime Inoue",
-    rarity: RARITY.RARE,
-    role: ROLE.SUPPORT,
-    base: { hp: 110, atk: 18, def: 22 },
-    passive: "Healing chance: can save from death / reduce consequences.",
-    art: CARD_PLACEHOLDER_GIF,
-    evolutions: [],
-  },
-  ichigo_leg: {
-    key: "ichigo_leg",
-    anime: "bleach",
-    name: "Ichigo Kurosaki",
-    rarity: RARITY.LEGENDARY,
-    role: ROLE.DPS,
-    base: { hp: 190, atk: 60, def: 28 },
-    passive: "Carry for expeditions/raids.",
-    art: CARD_PLACEHOLDER_GIF,
-    evolutions: ["ichigo_myth"],
-  },
-  ichigo_myth: {
-    key: "ichigo_myth",
-    anime: "bleach",
-    name: "Ichigo (Mythic)",
-    rarity: RARITY.MYTHIC,
-    role: ROLE.DPS,
-    base: { hp: 300, atk: 100, def: 45 },
-    passive: "Very high success rate, near guaranteed expeditions if prepared.",
-    art: CARD_PLACEHOLDER_GIF,
-    evolutions: [],
-  },
-};
-
-function getCardsByAnime(anime) {
-  return Object.values(CARDS).filter((c) => c.anime === anime);
-}
-
-module.exports = { CARDS, RARITY, ROLE, getCardsByAnime };
