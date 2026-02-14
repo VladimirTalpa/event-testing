@@ -1,128 +1,113 @@
-const { getPlayer } = require("../core/players");
-const { renderStore, renderProfile, renderCardInstanceEmbed, buildCardsSelectMenu, buildGearRows } = require("../ui/embeds");
-const { buildStoreNavRow, buildProfileNavRow, buildPackBuyRows, backRow } = require("../ui/components");
+// src/handlers/buttons.js
+const { bossByChannel, mobByChannel, pvpById } = require("../core/state");
+const { getPlayer, setPlayer } = require("../core/players");
+const { safeName } = require("../core/utils");
 
-const packs = require("../systems/packs");
-const expeditions = require("../systems/expeditions");
-const gears = require("../systems/gears");
+const { MOBS } = require("../data/mobs");
+const { BLEACH_SHOP_ITEMS, JJK_SHOP_ITEMS } = require("../data/shop");
+
+const { mobEmbed, shopEmbed } = require("../ui/old_embeds_inventory_shop");
+const { CID, mobButtons, shopButtons, pvpButtons } = require("../ui/old_components_shop_mob_boss");
+
+// NEW UI
+const { closeRow, profileTabsSelect, storeTabsSelect, packSelect, backCloseRow } = require("../ui/components");
+const {
+  profileHomeEmbed,
+  profileCurrencyEmbed,
+  profileCardsEmbed,
+  profileGearsEmbed,
+  profileTitlesEmbed,
+  profileLeaderboardEmbed,
+
+  storeHomeEmbed,
+  storeEventShopEmbed,
+  storePacksEmbed,
+  storeGearShopEmbed,
+} = require("../ui/embeds");
+
+const { getCardsSummaryText, getTitlesText } = require("../core/profile_helpers");
+const { E_REIATSU, E_CE, E_DRAKO } = require("../config");
+
+/* ===================== role helpers ===================== */
+async function tryGiveRole(guild, userId, roleId) {
+  try {
+    const botMember = await guild.members.fetchMe();
+    if (!botMember.permissions.has("ManageRoles")) return { ok: false, reason: "Missing Manage Roles permission." };
+    const role = guild.roles.cache.get(roleId);
+    if (!role) return { ok: false, reason: "Role not found." };
+    const botTop = botMember.roles.highest?.position ?? 0;
+    if (botTop <= role.position) return { ok: false, reason: "Bot role is below target role (hierarchy)." };
+    const member = await guild.members.fetch(userId);
+    await member.roles.add(roleId);
+    return { ok: true };
+  } catch {
+    return { ok: false, reason: "Discord rejected role add." };
+  }
+}
+async function tryRemoveRole(guild, userId, roleId) {
+  try {
+    const botMember = await guild.members.fetchMe();
+    if (!botMember.permissions.has("ManageRoles")) return { ok: false, reason: "Missing Manage Roles permission." };
+    const role = guild.roles.cache.get(roleId);
+    if (!role) return { ok: false, reason: "Role not found." };
+    const botTop = botMember.roles.highest?.position ?? 0;
+    if (botTop <= role.position) return { ok: false, reason: "Bot role is below target role (hierarchy)." };
+    const member = await guild.members.fetch(userId);
+    await member.roles.remove(roleId);
+    return { ok: true };
+  } catch {
+    return { ok: false, reason: "Discord rejected role remove." };
+  }
+}
+function ensureOwnedRole(player, roleId) {
+  if (!roleId) return;
+  const id = String(roleId);
+  if (!player.ownedRoles.includes(id)) player.ownedRoles.push(id);
+}
 
 module.exports = async function handleButtons(interaction) {
-  const id = interaction.customId;
+  // важно: deferUpdate для кнопок
+  try { await interaction.deferUpdate(); } catch {}
 
-  if (!interaction.deferred && !interaction.replied) {
-    await interaction.deferUpdate();
+  const channel = interaction.channel;
+  if (!channel || !channel.isTextBased()) return;
+
+  const cid = interaction.customId;
+
+  /* ===================== UI: CLOSE ===================== */
+  if (cid === "ui:close") {
+    // просто убираем components и делаем "закрыто"
+    return interaction.message.edit({ components: [], embeds: interaction.message.embeds }).catch(() => {});
   }
 
-  // ===== Store navigation
-  if (id.startsWith("store:nav:")) {
-    const section = id.split(":")[2] || "event";
-    const embed = await renderStore(interaction.user.id, section);
-    const rows = [buildStoreNavRow(section)];
-
-    if (section === "packs") {
-      const p = await getPlayer(interaction.user.id);
-      rows.push(...buildPackBuyRows(p));
-    }
-
-    return interaction.editReply({ embeds: [embed], components: rows });
+  /* ===================== UI: PROFILE NAV ===================== */
+  if (cid.startsWith("ui:profile:")) {
+    // пока кнопки не используем, профиль управляется select-меню
+    return;
   }
 
-  // ===== Profile navigation
-  if (id.startsWith("profile:nav:")) {
-    const section = id.split(":")[2] || "currency";
-    const embed = await renderProfile(interaction.user.id, section);
-    const rows = [buildProfileNavRow(section)];
-
-    if (section === "cards") {
-      const p = await getPlayer(interaction.user.id);
-      const menuRow = buildCardsSelectMenu(p);
-      if (menuRow) rows.push(menuRow);
-    }
-
-    if (section === "gears") {
-      const p = await getPlayer(interaction.user.id);
-      rows.push(...buildGearRows(p));
-    }
-
-    return interaction.editReply({ embeds: [embed], components: rows });
+  /* ===================== UI: STORE NAV ===================== */
+  if (cid.startsWith("ui:store:")) {
+    return;
   }
 
-  // ===== Buy packs
-  if (id.startsWith("packs:buy:")) {
-    const [, , type, event] = id.split(":");
-    const res = await packs.buyPack(interaction.user.id, type, event);
-    if (!res.ok) {
-      return interaction.followUp({ content: `❌ ${res.error}`, ephemeral: true }).catch(() => {});
-    }
-
-    const embed = await renderStore(interaction.user.id, "packs");
-    const p = await getPlayer(interaction.user.id);
-    const rows = [buildStoreNavRow("packs"), ...buildPackBuyRows(p)];
-
-    return interaction.editReply({
-      content: `✅ Bought **${type}** pack (${event.toUpperCase()}).`,
-      embeds: [embed],
-      components: rows,
-    });
+  /* ===================== Boss join / rules / actions (LEGACY) ===================== */
+  if (cid === CID.BOSS_JOIN || cid === CID.BOSS_RULES || cid.startsWith("boss_action:")) {
+    // отдаём в твой legacy обработчик (почти 1-в-1 как был)
+    const legacy = require("./buttons_legacy_boss_mob_shop_pvp");
+    return legacy(interaction);
   }
 
-  // ===== Open pack
-  if (id.startsWith("packs:open:")) {
-    const type = id.split(":")[2];
-    const result = await packs.openPack(interaction.user.id, type);
-    if (!result.ok) return interaction.followUp({ content: `❌ ${result.error}`, ephemeral: true }).catch(() => {});
-    return interaction.editReply({ embeds: result.embeds, components: result.components || [] });
+  /* ===================== Mob attack / PvP / Shop buys (LEGACY) ===================== */
+  if (
+    cid.startsWith(`${CID.MOB_ATTACK}:`) ||
+    cid.startsWith(`${CID.PVP_ACCEPT}:`) ||
+    cid.startsWith(`${CID.PVP_DECLINE}:`) ||
+    cid.startsWith("buy_")
+  ) {
+    const legacy = require("./buttons_legacy_boss_mob_shop_pvp");
+    return legacy(interaction);
   }
 
-  // ===== View card
-  if (id.startsWith("card:view:")) {
-    const instanceId = id.split(":")[2];
-    const res = await renderCardInstanceEmbed(interaction.user.id, instanceId);
-    if (!res.ok) return interaction.followUp({ content: `❌ ${res.error}`, ephemeral: true }).catch(() => {});
-    return interaction.editReply({ embeds: [res.embed], components: [backRow("profile:nav:cards")] });
-  }
-
-  // ===== Expedition confirm party
-  if (id === "expedition:confirm") {
-    const res = await expeditions.confirmParty(interaction);
-    return interaction.editReply(res);
-  }
-
-  if (id === "expedition:cancel") {
-    return interaction.editReply({ content: "❌ Expedition start cancelled.", embeds: [], components: [] });
-  }
-
-  // ===== Gear craft
-  if (id.startsWith("gear:craft:")) {
-    const type = id.split(":")[2]; // weapon/armor
-    const res = await gears.craft(interaction.user.id, type);
-    if (!res.ok) return interaction.followUp({ content: `❌ ${res.error}`, ephemeral: true }).catch(() => {});
-    // refresh gears page
-    const embed = await renderProfile(interaction.user.id, "gears");
-    const p = await getPlayer(interaction.user.id);
-    const rows = [buildProfileNavRow("gears"), ...buildGearRows(p)];
-    return interaction.editReply({ content: `✅ Crafted ${type}.`, embeds: [embed], components: rows });
-  }
-
-  // list gears
-  if (id === "gear:list") {
-    const p = await getPlayer(interaction.user.id);
-    const lines = (p.gears || []).slice(0, 25).map((g) => `• **${g.name}** (${g.type}) — ${g.type === "weapon" ? `+${g.atk} ATK` : `+${g.hp} HP`}`);
-    return interaction.followUp({ content: lines.length ? lines.join("\n") : "No gears.", ephemeral: true }).catch(() => {});
-  }
-
-  // start equip flow
-  if (id === "gear:assign:start") {
-    const res = await gears.startAssignFlow(interaction.user.id);
-    return interaction.editReply(res);
-  }
-
-  // back
-  if (id.startsWith("ui:back:")) {
-    const target = id.split(":").slice(2).join(":");
-    interaction.customId = target;
-    return module.exports(interaction);
-  }
-
-  return;
+  // fallback
 };
