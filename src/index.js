@@ -9,7 +9,11 @@ const handleButtons = require("./handlers/buttons");
 const handleSelects = require("./handlers/selects");
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildMessages, // ✅ полезно для fetch/edit в некоторых случаях
+  ],
   partials: [Partials.Channel],
 });
 
@@ -20,9 +24,9 @@ client.once(Events.ClientReady, async () => {
 
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
-    if (interaction.isChatInputCommand()) return await handleSlash(interaction, client);
-    if (interaction.isButton()) return await handleButtons(interaction, client);
-    if (interaction.isStringSelectMenu()) return await handleSelects(interaction, client);
+    if (interaction.isChatInputCommand()) return await handleSlash(interaction);
+    if (interaction.isButton()) return await handleButtons(interaction);
+    if (interaction.isStringSelectMenu()) return await handleSelects(interaction);
   } catch (e) {
     console.error("Interaction error:", e);
     try {
@@ -37,9 +41,4 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 });
 
-const token = process.env.DISCORD_TOKEN;
-if (!token) {
-  console.error("❌ Missing DISCORD_TOKEN in env");
-  process.exit(1);
-}
-client.login(token);
+client.login(process.env.DISCORD_TOKEN);
