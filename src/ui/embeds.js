@@ -1,230 +1,136 @@
+// src/ui/embeds.js
+const { EmbedBuilder } = require("discord.js");
 const {
-  EmbedBuilder,
-  StringSelectMenuBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-} = require("discord.js");
+  COLOR,
+  E_REIATSU,
+  E_CE,
+  E_DRAKO,
+  E_BLEACH,
+  E_JJK,
+} = require("../config");
 
-const cfg = require("../config");
-const { getPlayer } = require("../core/players");
-const { CARD_BY_ID } = require("../data/cards");
+const { CARD_FRAME_GIF } = require("./assets");
 
-function color() {
-  return cfg.COLOR || 0x8a2be2;
+function base(title, description = "") {
+  const e = new EmbedBuilder().setColor(COLOR).setTitle(title);
+  if (description) e.setDescription(description);
+  return e;
 }
 
-function rarityEmoji(r) {
-  if (r === "Mythic") return "💠";
-  if (r === "Legendary") return "🌟";
-  if (r === "Rare") return "🟣";
-  return "⚪";
+/* ===================== PROFILE ===================== */
+
+function profileHomeEmbed(user) {
+  return base(
+    "🏆 Profile",
+    `User: **${user.username}**\n\nSelect a section below.`
+  ).setThumbnail(user.displayAvatarURL({ size: 256 }));
 }
 
-function calcStarBonus(stars) {
-  return 1 + stars * 0.08;
-}
+function profileCurrencyEmbed(user, wallet) {
+  const rei = wallet?.reiatsu ?? 0;
+  const ce = wallet?.cursed_energy ?? 0;
+  const dr = wallet?.drako ?? 0;
 
-function calcFinalStats(base, stars) {
-  const m = calcStarBonus(stars);
-  return {
-    hp: Math.floor(base.hp * m),
-    atk: Math.floor(base.atk * m),
-    def: Math.floor(base.def * m),
-  };
-}
-
-async function renderStore(userId, section = "event") {
-  const p = await getPlayer(userId);
-
-  if (section === "packs") {
-    return new EmbedBuilder()
-      .setColor(color())
-      .setTitle("📦 Store — Card Packs")
-      .setDescription(
-        [
-          "Buy packs with event currency.",
-          "",
-          `**Basic Pack**`,
-          `• Bleach: **${cfg.PACK_BASIC_PRICE_BLEACH} Reiatsu**`,
-          `• JJK: **${cfg.PACK_BASIC_PRICE_JJK} Cursed Energy**`,
-          "",
-          `**Legendary Pack**`,
-          `• Bleach: **${cfg.PACK_LEGENDARY_PRICE_BLEACH} Reiatsu**`,
-          `• JJK: **${cfg.PACK_LEGENDARY_PRICE_JJK} Cursed Energy**`,
-          "",
-          `Inventory: **Basic ${p.packs.basic}**, **Legendary ${p.packs.legendary}**`,
-        ].join("\n")
-      );
-  }
-
-  if (section === "gear") {
-    return new EmbedBuilder()
-      .setColor(color())
-      .setTitle("🛡 Store — Gear Shop")
-      .setDescription("Gear Shop: craft in **/forge** and equip in **/profile → Gears**.");
-  }
-
-  return new EmbedBuilder()
-    .setColor(color())
-    .setTitle("🛒 Store — Event Shop")
-    .setDescription("Use **Card Packs** for the new system.\nOpen: **/store → Card Packs**");
-}
-
-function buildCardsSelectMenu(player) {
-  const owned = player.cards || [];
-  const options = owned.slice(0, 25).map((ci) => {
-    const c = CARD_BY_ID.get(ci.cardId);
-    return {
-      label: c ? `${c.name} (Lv.${ci.level} ⭐${ci.stars})` : `Unknown (${ci.cardId})`,
-      value: ci.instanceId,
-      description: c ? `${c.rarity} • ${c.role}` : "Unknown",
-    };
-  });
-
-  if (!options.length) return null;
-
-  const menu = new StringSelectMenuBuilder()
-    .setCustomId("profile:cards:select")
-    .setPlaceholder("Select a card…")
-    .addOptions(options);
-
-  return new ActionRowBuilder().addComponents(menu);
-}
-
-function buildGearRows(player) {
-  const gears = player.gears || [];
-  // кнопки: craft weapon / craft armor
-  const row1 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId("gear:craft:weapon").setLabel("Craft Weapon (+ATK)").setStyle(ButtonStyle.Success),
-    new ButtonBuilder().setCustomId("gear:craft:armor").setLabel("Craft Armor (+HP)").setStyle(ButtonStyle.Success),
-  );
-
-  // equip/unequip открываем через отдельный экран: выбрать карту → выбрать gear
-  const row2 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId("gear:assign:start").setLabel("Equip / Unequip").setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId("gear:list").setLabel(`List (${gears.length})`).setStyle(ButtonStyle.Secondary),
-  );
-
-  return [row1, row2];
-}
-
-async function renderProfile(userId, section = "currency") {
-  const p = await getPlayer(userId);
-
-  if (section === "currency") {
-    return new EmbedBuilder()
-      .setColor(color())
-      .setTitle("🏆 Profile — Currency")
-      .addFields(
-        { name: "Reiatsu (Bleach)", value: `${p.bleach.reiatsu}`, inline: true },
-        { name: "Cursed Energy (JJK)", value: `${p.jjk.cursedEnergy}`, inline: true },
-        { name: "Drako Coin", value: `${p.drako}`, inline: true },
-        { name: "Bleach Shards", value: `${p.shards.bleach}`, inline: true },
-        { name: "Cursed Shards", value: `${p.shards.jjk}`, inline: true },
-      );
-  }
-
-  if (section === "cards") {
-    const owned = p.cards || [];
-    const embed = new EmbedBuilder()
-      .setColor(color())
-      .setTitle("🃏 Profile — Cards")
-      .setDescription(
-        owned.length
-          ? `You own **${owned.length}** cards.\nSelect one from the menu below.`
-          : "You have **0** cards.\nBuy packs in **/store → Card Packs**."
-      );
-
-    if (owned.length) {
-      const preview = owned.slice(0, 10).map((ci) => {
-        const c = CARD_BY_ID.get(ci.cardId);
-        if (!c) return `• Unknown (${ci.cardId})`;
-        return `• ${rarityEmoji(c.rarity)} **${c.name}** — Lv.${ci.level} ⭐${ci.stars} — ${ci.dead ? "💀 dead" : ci.status}`;
-      });
-      embed.addFields({ name: "Preview", value: preview.join("\n") });
-    }
-
-    return embed;
-  }
-
-  if (section === "gears") {
-    const count = (p.gears || []).length;
-    return new EmbedBuilder()
-      .setColor(color())
-      .setTitle("🛡 Profile — Gears")
-      .setDescription(
-        [
-          `You have **${count}** gear items.`,
-          "",
-          "• Weapon = +ATK",
-          "• Armor = +HP",
-          "",
-          "Equip/Unequip via buttons below.",
-        ].join("\n")
-      );
-  }
-
-  if (section === "titles") {
-    const titles = p.titles || [];
-    return new EmbedBuilder()
-      .setColor(color())
-      .setTitle("🏷 Profile — Titles")
-      .setDescription(titles.length ? titles.map((t) => `• ${t}`).join("\n") : "No titles yet.");
-  }
-
-  if (section === "leaderboard") {
-    return new EmbedBuilder()
-      .setColor(color())
-      .setTitle("📊 Profile — Leaderboard")
-      .setDescription("Open via **/leaderboard** (bleach/jjk).");
-  }
-
-  return new EmbedBuilder().setColor(color()).setTitle("Profile").setDescription("Unknown section.");
-}
-
-async function renderCardInstanceEmbed(userId, instanceId) {
-  const p = await getPlayer(userId);
-  const inst = (p.cards || []).find((x) => x.instanceId === instanceId);
-  if (!inst) return { ok: false, error: "Card not found." };
-
-  const card = CARD_BY_ID.get(inst.cardId);
-  if (!card) return { ok: false, error: "Card base not found." };
-
-  const final = calcFinalStats(card.base, inst.stars);
-
-  const embed = new EmbedBuilder()
-    .setColor(color())
-    .setTitle(`${rarityEmoji(card.rarity)} ${card.name}`)
-    .setDescription(
-      [
-        `**Anime:** ${card.anime.toUpperCase()}`,
-        `**Rarity:** ${card.rarity}`,
-        `**Role:** ${card.role}`,
-        `**Level:** ${inst.level}   **XP:** ${inst.xp}`,
-        `**Stars:** ⭐ ${inst.stars} (+8% stats each)`,
-        `**Status:** ${inst.dead ? "💀 dead" : inst.status}`,
-        "",
-        `**HP:** ${final.hp}`,
-        `**ATK:** ${final.atk}`,
-        `**DEF:** ${final.def}`,
-        "",
-        `**Passive:** ${card.passive}`,
-      ].join("\n")
+  return base("💰 Currency", `User: **${user.username}**`)
+    .addFields(
+      { name: `${E_REIATSU} Reiatsu`, value: `**${rei}**`, inline: true },
+      { name: `${E_CE} Cursed Energy`, value: `**${ce}**`, inline: true },
+      { name: `${E_DRAKO} Drako Coin`, value: `**${dr}**`, inline: true }
     )
-    .setImage(card.art);
+    .setFooter({ text: "Tip: Use /dailyclaim to get daily Reiatsu (Bleach)" });
+}
 
-  if (card.evolvesTo) {
-    embed.addFields({ name: "Evolution", value: `✅ Can evolve → **${card.evolvesTo}** (use /forge evolve)` });
+function profileCardsEmbed(user, cardsSummaryText) {
+  return base("🃏 Cards", `User: **${user.username}**\n\n${cardsSummaryText || "No cards yet."}`)
+    .setFooter({ text: "Cards can permanently die in expeditions." });
+}
+
+function profileGearsEmbed(user, gearsText) {
+  return base("🛡 Gears", `User: **${user.username}**\n\n${gearsText || "No gear equipped."}`);
+}
+
+/**
+ * Titles = Wardrobe: роли/титулы которые можно надеть/снять
+ */
+function profileTitlesEmbed(user, titlesText) {
+  return base("🎖 Titles", `User: **${user.username}**\n\n${titlesText || "You don't own any titles yet."}`)
+    .setFooter({ text: "Titles are wearable roles (cosmetic)." });
+}
+
+function profileLeaderboardEmbed(eventName, lbText) {
+  return base(`📌 Leaderboard — ${eventName}`, lbText || "No data yet.");
+}
+
+/* ===================== STORE ===================== */
+
+function storeHomeEmbed(user) {
+  return base(
+    "🛒 Store",
+    `User: **${user.username}**\n\nSelect a section below.`
+  ).setThumbnail(user.displayAvatarURL({ size: 256 }));
+}
+
+function storeEventShopEmbed(text) {
+  return base("🎟 Event Shop", text || "No items available yet.");
+}
+
+function storePacksEmbed(text) {
+  return base("🎁 Card Packs", text || "Choose a pack from the menu below.");
+}
+
+function storeGearShopEmbed(text) {
+  return base("⚙ Gear Shop", text || "No gear items available yet.");
+}
+
+/* ===================== PACK OPEN / CARD VIEW ===================== */
+
+function packOpeningEmbed(packName) {
+  return base("✨ Opening Pack", `Pack: **${packName}**\n\nRevealing cards…`)
+    .setImage(CARD_FRAME_GIF);
+}
+
+/**
+ * Отображение одной карточки персонажа.
+ * Пока нет дизайна — используем гифку как фон/рамку и выводим статы текстом.
+ */
+function cardRevealEmbed(card) {
+  // card: { name, anime, rarity, role, level, stars, hp, atk, def, passive }
+  const animeTag = card.anime === "bleach" ? `${E_BLEACH} Bleach` : `${E_JJK} JJK`;
+
+  const e = base(
+    `🃏 ${card.name}`,
+    `${animeTag}\nRarity: **${card.rarity}**\nRole: **${card.role}**`
+  )
+    .addFields(
+      { name: "Level", value: `**${card.level ?? 1}**`, inline: true },
+      { name: "Stars", value: `**${card.stars ?? 0}⭐**`, inline: true },
+      { name: " ", value: " ", inline: true },
+      { name: "HP", value: `**${card.hp}**`, inline: true },
+      { name: "ATK", value: `**${card.atk}**`, inline: true },
+      { name: "DEF", value: `**${card.def}**`, inline: true }
+    )
+    .setImage(CARD_FRAME_GIF);
+
+  if (card.passive) {
+    e.addFields({ name: "Passive", value: card.passive });
   }
 
-  return { ok: true, embed };
+  return e;
 }
 
 module.exports = {
-  renderStore,
-  renderProfile,
-  renderCardInstanceEmbed,
-  buildCardsSelectMenu,
-  buildGearRows,
+  profileHomeEmbed,
+  profileCurrencyEmbed,
+  profileCardsEmbed,
+  profileGearsEmbed,
+  profileTitlesEmbed,
+  profileLeaderboardEmbed,
+
+  storeHomeEmbed,
+  storeEventShopEmbed,
+  storePacksEmbed,
+  storeGearShopEmbed,
+
+  packOpeningEmbed,
+  cardRevealEmbed,
 };
