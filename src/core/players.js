@@ -1,121 +1,152 @@
-// src/core/players.js
 const { initRedis, getRedis } = require("./redis");
-const { uid } = require("./utils");
 
-const REDIS_PLAYERS_KEY = "rpg:players";
-const REDIS_FALLBACK_KEYS = ["events:players", "players", "playerData", "users"];
+const REDIS_PLAYERS_KEY = "events:players";
+const REDIS_FALLBACK_KEYS = ["players", "playerData", "users"];
 
-function freshPlayer() {
+function normalizeGear(raw = {}) {
   return {
-    // currencies
-    bleach: {
-      reiatsu: 0,
-      shards: 0,
-    },
-    jjk: {
-      cursedEnergy: 0,
-      shards: 0,
-    },
-    // expedition keys (global)
-    keys: 0,
-
-    // inventory
-    cards: [], // array of card instances
-    gears: [], // later
-    ownedRoles: [], // kept from old system
-
-    // daily systems
-    expeditions: {
-      dailyUsed: 0,
-      lastReset: 0, // timestamp of last daily reset
-      active: null, // { id, status, startedAt, startAt, nextTickAt, partyCardIds: [], log: [] }
-    },
+    id: String(raw.id || ""),
+    type: raw.type === "weapon" ? "weapon" : "armor",
+    rarity: raw.rarity || "Common",
+    bonusAtk: Number.isFinite(raw.bonusAtk) ? raw.bonusAtk : 0,
+    bonusHp: Number.isFinite(raw.bonusHp) ? raw.bonusHp : 0,
+    equippedTo: raw.equippedTo ? String(raw.equippedTo) : null, // cardInstanceId
   };
 }
 
-/**
- * Card instance shape:
- * {
- *   id, charKey, anime, rarity, role,
- *   level, xp, stars, evolution, // evolution = charKey of evolved form or null
- *   base: {hp,atk,def},
- *   status: "idle" | "expedition" | "dead",
- *   gear: { weaponId: null, armorId: null }
- * }
- */
+function normalizeCardInstance(raw = {}) {
+  return {
+    instanceId: String(raw.instanceId || ""),
+    cardId: String(raw.cardId || ""),
+    level: Number.isFinite(raw.level) ? raw.level : 1,
+    xp: Number.isFinite(raw.xp) ? raw.xp : 0,
+    stars: Number.isFinite(raw.stars) ? raw.stars : 0, // +1 star each 10 lv
+    dead: !!raw.dead,
+    status: raw.status || "idle", // idle / expedition / dead
+    weaponGearId: raw.weaponGearId ? String(raw.weaponGearId) : null,
+    armorGearId: raw.armorGearId ? String(raw.armorGearId) : null,
+  };
+}
+
+function normalizeExpedition(raw = {}) {
+  return {
+    active: !!raw.active,
+    startedAt: Number.isFinite(raw.startedAt) ? raw.startedAt : 0,
+    startAt: Number.isFinite(raw.startAt) ? raw.startAt : 0, // starts after 1 hour
+    channelId: raw.channelId ? String(raw.channelId) : null,
+    messageId: raw.messageId ? String(raw.messageId) : null,
+    ticksDone: Number.isFinite(raw.ticksDone) ? raw.ticksDone : 0,
+    party: Array.isArray(raw.party) ? raw.party.map(String).slice(0, 3) : [], // cardInstanceIds
+    log: Array.isArray(raw.log) ? raw.log.slice(0, 20) : [],
+  };
+}
 
 function normalizePlayer(raw = {}) {
-  const p = freshPlayer();
+  const ownedRoles = Array.isArray(raw.ownedRoles)
+    ? raw.ownedRoles.filter(Boolean).map(String)
+    : [];
 
-  // ---- migrate old ownedRoles
-  const ownedRoles = Array.isArray(raw.ownedRoles) ? raw.ownedRoles.filter(Boolean).map(String) : [];
-  p.ownedRoles = [...new Set(ownedRoles)];
+  const bleach = raw.bleach && typeof raw.bleach === "object" ? raw.bleach : {};
+  const jjk = raw.jjk && typeof raw.jjk === "object" ? raw.jjk : {};
 
-  // ---- migrate old economy (your previous bot)
-  // old: raw.drako, raw.bleach.reiatsu, raw.jjk.cursedEnergy, raw.jjk.materials.cursedShards, expeditionKeys...
-  // We keep only what matters for new RPG:
-  if (raw.bleach && typeof raw.bleach === "object") {
-    if (Number.isFinite(raw.bleach.reiatsu)) p.bleach.reiatsu = raw.bleach.reiatsu;
-  }
-  if (raw.jjk && typeof raw.jjk === "object") {
-    if (Number.isFinite(raw.jjk.cursedEnergy)) p.jjk.cursedEnergy = raw.jjk.cursedEnergy;
-  }
+  const bleachItems = bleach.items && typeof bleach.items === "object" ? bleach.items : {};
+  const jjkItems = jjk.items && typeof jjk.items === "object" ? jjk.items : {};
 
-  // shards migration
-  // from old: jjk.materials.cursedShards
-  const jjkMat = raw?.jjk?.materials && typeof raw.jjk.materials === "object" ? raw.jjk.materials : {};
-  if (Number.isFinite(jjkMat.cursedShards)) p.jjk.shards = Math.max(0, Math.floor(jjkMat.cursedShards));
+  const jjkMaterials = jjk.materials && typeof jjk.materials === "object" ? jjk.materials : {};
+  const cursedShards =
+    Number.isFinite(jjkMaterials.cursedShards) ? jjkMaterials.cursedShards :
+    (Number.isFinite(jjk.cursedShards) ? jjk.cursedShards : 0);
 
-  const expKeysOld = Number.isFinite(jjkMat.expeditionKeys) ? jjkMat.expeditionKeys : 0;
-  if (Number.isFinite(expKeysOld)) p.keys = Math.max(0, Math.floor(expKeysOld));
+  const expeditionKeys =
+    Number.isFinite(jjkMaterials.expeditionKeys) ? jjkMaterials.expeditionKeys :
+    (Number.isFinite(jjk.expeditionKeys) ? jjk.expeditionKeys : 0);
 
-  // allow direct new fields if already present
-  if (raw.bleach && Number.isFinite(raw.bleach.shards)) p.bleach.shards = Math.max(0, Math.floor(raw.bleach.shards));
-  if (raw.jjk && Number.isFinite(raw.jjk.shards)) p.jjk.shards = Math.max(0, Math.floor(raw.jjk.shards));
-  if (Number.isFinite(raw.keys)) p.keys = Math.max(0, Math.floor(raw.keys));
+  // NEW shards (separate from jjk materials)
+  const shards = raw.shards && typeof raw.shards === "object" ? raw.shards : {};
+  const bleachShards = Number.isFinite(shards.bleach) ? shards.bleach : 0;
+  const jjkShards2 = Number.isFinite(shards.jjk) ? shards.jjk : cursedShards; // keep compatibility
 
-  // cards
-  if (Array.isArray(raw.cards)) {
-    p.cards = raw.cards
-      .filter((c) => c && typeof c === "object")
-      .map((c) => ({
-        id: String(c.id || uid()),
-        charKey: String(c.charKey || "unknown"),
-        anime: c.anime === "bleach" ? "bleach" : (c.anime === "jjk" ? "jjk" : "bleach"),
-        rarity: String(c.rarity || "Common"),
-        role: String(c.role || "DPS"),
-        level: Number.isFinite(c.level) ? Math.max(1, Math.floor(c.level)) : 1,
-        xp: Number.isFinite(c.xp) ? Math.max(0, Math.floor(c.xp)) : 0,
-        stars: Number.isFinite(c.stars) ? Math.max(0, Math.floor(c.stars)) : 0,
-        evolution: c.evolution ? String(c.evolution) : null,
-        base: {
-          hp: Number.isFinite(c.base?.hp) ? Math.max(1, Math.floor(c.base.hp)) : 1,
-          atk: Number.isFinite(c.base?.atk) ? Math.max(1, Math.floor(c.base.atk)) : 1,
-          def: Number.isFinite(c.base?.def) ? Math.max(0, Math.floor(c.base.def)) : 0,
-        },
-        status: c.status === "expedition" ? "expedition" : "idle",
-        gear: {
-          weaponId: c.gear?.weaponId ? String(c.gear.weaponId) : null,
-          armorId: c.gear?.armorId ? String(c.gear.armorId) : null,
-        },
-      }));
-  }
+  // NEW cards
+  const cards = Array.isArray(raw.cards) ? raw.cards.map(normalizeCardInstance) : [];
+  const gears = Array.isArray(raw.gears) ? raw.gears.map(normalizeGear) : [];
 
-  // gears (later expanded)
-  if (Array.isArray(raw.gears)) {
-    p.gears = raw.gears
-      .filter((g) => g && typeof g === "object")
-      .map((g) => ({ ...g, id: String(g.id || uid()) }));
-  }
+  // pack inventory (counts)
+  const packs = raw.packs && typeof raw.packs === "object" ? raw.packs : {};
+  const basicPacks = Number.isFinite(packs.basic) ? packs.basic : 0;
+  const legendaryPacks = Number.isFinite(packs.legendary) ? packs.legendary : 0;
 
-  // expeditions
-  if (raw.expeditions && typeof raw.expeditions === "object") {
-    p.expeditions.dailyUsed = Number.isFinite(raw.expeditions.dailyUsed) ? raw.expeditions.dailyUsed : 0;
-    p.expeditions.lastReset = Number.isFinite(raw.expeditions.lastReset) ? raw.expeditions.lastReset : 0;
-    p.expeditions.active = raw.expeditions.active && typeof raw.expeditions.active === "object" ? raw.expeditions.active : null;
-  }
+  const titles = Array.isArray(raw.titles) ? raw.titles.map(String) : [];
+  const equippedTitle = raw.equippedTitle ? String(raw.equippedTitle) : null;
 
-  return p;
+  const expedition = normalizeExpedition(raw.expedition || {});
+
+  const daily = raw.daily && typeof raw.daily === "object" ? raw.daily : {};
+  const dailyExpeditionsUsed = Number.isFinite(daily.expeditionsUsed) ? daily.expeditionsUsed : 0;
+  const dailyResetAt = Number.isFinite(daily.resetAt) ? daily.resetAt : 0;
+
+  return {
+    drako: Number.isFinite(raw.drako) ? raw.drako : 0,
+    ownedRoles: [...new Set(ownedRoles)],
+
+    bleach: {
+      reiatsu: Number.isFinite(bleach.reiatsu)
+        ? bleach.reiatsu
+        : (Number.isFinite(raw.reiatsu) ? raw.reiatsu : 0),
+      survivalBonus: Number.isFinite(bleach.survivalBonus)
+        ? bleach.survivalBonus
+        : (Number.isFinite(raw.survivalBonus) ? raw.survivalBonus : 0),
+      lastDaily: Number.isFinite(bleach.lastDaily)
+        ? bleach.lastDaily
+        : (Number.isFinite(raw.lastDaily) ? raw.lastDaily : 0),
+      items: {
+        zanpakuto_basic: !!bleachItems.zanpakuto_basic,
+        hollow_mask_fragment: !!bleachItems.hollow_mask_fragment,
+        soul_reaper_cloak: !!bleachItems.soul_reaper_cloak,
+        reiatsu_amplifier: !!bleachItems.reiatsu_amplifier,
+        cosmetic_role: !!bleachItems.cosmetic_role,
+      },
+    },
+
+    jjk: {
+      cursedEnergy: Number.isFinite(jjk.cursedEnergy) ? jjk.cursedEnergy : 0,
+      survivalBonus: Number.isFinite(jjk.survivalBonus) ? jjk.survivalBonus : 0,
+      materials: {
+        cursedShards: Math.max(0, Math.floor(cursedShards)),
+        expeditionKeys: Math.max(0, Math.floor(expeditionKeys)),
+      },
+      items: {
+        black_flash_manual: !!jjkItems.black_flash_manual,
+        domain_charm: !!jjkItems.domain_charm,
+        cursed_tool: !!jjkItems.cursed_tool,
+        reverse_talisman: !!jjkItems.reverse_talisman,
+        binding_vow_seal: !!jjkItems.binding_vow_seal,
+      },
+    },
+
+    // NEW
+    shards: {
+      bleach: Math.max(0, Math.floor(bleachShards)),
+      jjk: Math.max(0, Math.floor(jjkShards2)),
+    },
+
+    packs: {
+      basic: Math.max(0, Math.floor(basicPacks)),
+      legendary: Math.max(0, Math.floor(legendaryPacks)),
+    },
+
+    cards,
+    gears,
+
+    titles,
+    equippedTitle,
+
+    expedition,
+
+    daily: {
+      expeditionsUsed: Math.max(0, Math.floor(dailyExpeditionsUsed)),
+      resetAt: Math.max(0, Math.floor(dailyResetAt)),
+    },
+  };
 }
 
 async function getPlayer(userId) {
@@ -124,7 +155,6 @@ async function getPlayer(userId) {
 
   let raw = await redis.hGet(REDIS_PLAYERS_KEY, userId);
 
-  // migrate from older keys
   if (!raw) {
     for (const k of REDIS_FALLBACK_KEYS) {
       const oldRaw = await redis.hGet(k, userId);
@@ -162,9 +192,30 @@ async function setPlayer(userId, obj) {
   return p;
 }
 
+async function getTopPlayers(eventKey, limit = 10) {
+  await initRedis();
+  const redis = getRedis();
+  const all = await redis.hGetAll(REDIS_PLAYERS_KEY);
+
+  const rows = Object.entries(all).map(([userId, json]) => {
+    let p = {};
+    try { p = normalizePlayer(JSON.parse(json)); } catch {}
+
+    let score = 0;
+    if (eventKey === "bleach") score = p.bleach?.reiatsu || 0;
+    if (eventKey === "jjk") score = p.jjk?.cursedEnergy || 0;
+
+    return { userId, score };
+  });
+
+  rows.sort((a, b) => b.score - a.score);
+  return rows.slice(0, limit);
+}
+
 module.exports = {
+  normalizePlayer,
   getPlayer,
   setPlayer,
-  normalizePlayer,
+  getTopPlayers,
   REDIS_PLAYERS_KEY,
 };
