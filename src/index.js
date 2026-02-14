@@ -1,4 +1,3 @@
-// src/index.js
 require("dotenv").config();
 const { Client, GatewayIntentBits, Partials, Events } = require("discord.js");
 const { initRedis } = require("./core/redis");
@@ -9,7 +8,7 @@ const handleSelects = require("./handlers/selects");
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
-  partials: [Partials.Channel],
+  partials: [Partials.Channel]
 });
 
 client.once(Events.ClientReady, async () => {
@@ -19,20 +18,9 @@ client.once(Events.ClientReady, async () => {
 
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
-    // ✅ СЛЭШ КОМАНДЫ
-    if (interaction.isChatInputCommand()) {
-      return await handleSlash(interaction);
-    }
-
-    // ✅ КНОПКИ (boss/shop/pvp/mob)
-    if (interaction.isButton()) {
-      return await handleButtons(interaction);
-    }
-
-    // ✅ SELECT MENUS (titles)
-    if (interaction.isStringSelectMenu()) {
-      return await handleSelects(interaction);
-    }
+    if (interaction.isChatInputCommand()) return await handleSlash(interaction);
+    if (interaction.isButton()) return await handleButtons(interaction);
+    if (interaction.isStringSelectMenu()) return await handleSelects(interaction);
   } catch (e) {
     console.error("Interaction error:", e);
     try {
