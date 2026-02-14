@@ -5,7 +5,7 @@ const BLEACH_CHANNEL_ID = "1469757595031179314";
 const JJK_CHANNEL_ID = "1469757629390651686";
 
 /* ===================== ROLES / PERMS ===================== */
-const EVENT_ROLE_IDS = ["1259865441405501571", "1287879457025163325"];
+const EVENT_ROLE_IDS = ["1259865441405501571", "1287879457025163325"]; // staff roles allowed to spawn
 const PING_BOSS_ROLE_ID = "1467575062826586205";
 const PING_HOLLOW_ROLE_ID = "1467575020275368131";
 const BOOSTER_ROLE_ID = "1267266564961341501";
@@ -38,7 +38,7 @@ const DAILY_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const DAILY_NORMAL = 100;
 const DAILY_BOOSTER = 200;
 
-/* ===================== DROPS / ROLES ===================== */
+/* ===================== ROLE DROPS (BOSSES) ===================== */
 const VASTO_DROP_ROLE_ID = "1467426528584405103";
 const ULQ_DROP_ROLE_ID = "1469573731301986367";
 
@@ -57,6 +57,10 @@ const JJK_MOB_HIT = 22;
 const JJK_MOB_MISS = 9;
 const JJK_BONUS_PER_KILL = 1;
 const JJK_BONUS_MAX = 30;
+
+/* ===================== CARDS PLACEHOLDER GIF ===================== */
+const CARD_GIF_URL =
+  "https://media.discordapp.net/attachments/1468153576353431615/1471828355153268759/Your_paragraph_text.gif?width=388&height=582";
 
 module.exports = {
   BLEACH_CHANNEL_ID,
@@ -107,4 +111,6 @@ module.exports = {
   JJK_MOB_MISS,
   JJK_BONUS_PER_KILL,
   JJK_BONUS_MAX,
+
+  CARD_GIF_URL
 };
