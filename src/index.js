@@ -1,44 +1,22 @@
 // src/index.js
-require("dotenv").config();
-
-const { Client, GatewayIntentBits, Partials, Events } = require("discord.js");
-const { initRedis } = require("./core/redis");
-
-const handleSlash = require("./handlers/slash");
-const handleButtons = require("./handlers/buttons");
-const handleSelects = require("./handlers/selects");
+const { Client, GatewayIntentBits } = require("discord.js");
+const { TOKEN } = require("./config");
+const { initDB } = require("./services/db");
+const { loadCommands, handleInteraction } = require("./handlers/slash");
 
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.GuildMessages, // ✅ полезно для fetch/edit в некоторых случаях
-  ],
-  partials: [Partials.Channel],
+  intents: [GatewayIntentBits.Guilds],
 });
 
-client.once(Events.ClientReady, async () => {
+const registry = loadCommands();
+
+client.once("ready", async () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
-  await initRedis();
+  await initDB().catch((e) => console.log("⚠️ Redis init skipped/failed:", e?.message));
 });
 
-client.on(Events.InteractionCreate, async (interaction) => {
-  try {
-    if (interaction.isChatInputCommand()) return await handleSlash(interaction);
-    if (interaction.isButton()) return await handleButtons(interaction);
-    if (interaction.isStringSelectMenu()) return await handleSelects(interaction);
-  } catch (e) {
-    console.error("Interaction error:", e);
-    try {
-      if (interaction.isRepliable()) {
-        if (interaction.deferred || interaction.replied) {
-          await interaction.followUp({ content: "⚠️ Error handling this action.", ephemeral: true });
-        } else {
-          await interaction.reply({ content: "⚠️ Error handling this action.", ephemeral: true });
-        }
-      }
-    } catch {}
-  }
+client.on("interactionCreate", async (interaction) => {
+  await handleInteraction(interaction, registry);
 });
 
-client.login(process.env.DISCORD_TOKEN);
+client.login(TOKEN);
