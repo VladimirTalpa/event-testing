@@ -1,4 +1,3 @@
-// src/index.js
 require("dotenv").config();
 
 const { Client, GatewayIntentBits, Partials, Events } = require("discord.js");
@@ -8,6 +7,9 @@ const handleSlash = require("./handlers/slash");
 const handleButtons = require("./handlers/buttons");
 const handleSelects = require("./handlers/selects");
 
+// ✅ NEW: expedition engine will need client
+const { initExpeditionsEngine } = require("./systems/expeditions_engine");
+
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
   partials: [Partials.Channel],
@@ -16,6 +18,9 @@ const client = new Client({
 client.once(Events.ClientReady, async () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
   await initRedis();
+
+  // ✅ bind client here (это и есть “привязать client для экспедиций”)
+  initExpeditionsEngine(client);
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
