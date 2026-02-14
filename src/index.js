@@ -1,22 +1,18 @@
 // src/index.js
 const { Client, GatewayIntentBits } = require("discord.js");
+const { handleSlash } = require("./handlers/slash");
 const { TOKEN } = require("./config");
-const { initDB } = require("./services/db");
-const { loadCommands, handleInteraction } = require("./handlers/slash");
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds],
 });
 
-const registry = loadCommands();
-
-client.once("ready", async () => {
+client.once("ready", () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
-  await initDB().catch((e) => console.log("⚠️ Redis init skipped/failed:", e?.message));
 });
 
 client.on("interactionCreate", async (interaction) => {
-  await handleInteraction(interaction, registry);
+  await handleSlash(interaction);
 });
 
 client.login(TOKEN);
