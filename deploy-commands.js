@@ -1,5 +1,6 @@
 require("dotenv").config();
 const { REST, Routes, SlashCommandBuilder } = require("discord.js");
+const cfg = require("./src/config");
 
 const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
@@ -9,6 +10,11 @@ if (!TOKEN || !CLIENT_ID || !GUILD_ID) {
   console.error("❌ Missing env vars. Need: DISCORD_TOKEN, CLIENT_ID, GUILD_ID");
   process.exit(1);
 }
+
+const EVENT_CHOICES_EXCHANGE = [
+  { name: `Bleach — Rate: ${cfg.DRAKO_RATE_BLEACH} Reiatsu → 1 Drako`, value: "bleach" },
+  { name: `Jujutsu Kaisen — Rate: ${cfg.DRAKO_RATE_JJK} CE → 1 Drako`, value: "jjk" },
+];
 
 const EVENT_CHOICES = [
   { name: "Bleach", value: "bleach" },
@@ -36,17 +42,18 @@ const commands = [
     .addUserOption((opt) => opt.setName("user").setDescription("User to check").setRequired(false)),
 
   new SlashCommandBuilder()
-    .setName("dailyclaim")
-    .setDescription("Claim your daily Reiatsu reward (Bleach)"),
+    .setName("inventory")
+    .setDescription("View your inventory and bonuses (choose event)")
+    .addStringOption((opt) => opt.setName("event").setDescription("Which event inventory?").setRequired(true).addChoices(...EVENT_CHOICES)),
 
   new SlashCommandBuilder()
-    .setName("inventory")
-    .setDescription("View your inventory (event)")
-    .addStringOption((opt) => opt.setName("event").setDescription("Which inventory?").setRequired(true).addChoices(...EVENT_CHOICES)),
+    .setName("shop")
+    .setDescription("Open shop (choose event)")
+    .addStringOption((opt) => opt.setName("event").setDescription("Which shop?").setRequired(true).addChoices(...EVENT_CHOICES)),
 
   new SlashCommandBuilder()
     .setName("leaderboard")
-    .setDescription("Leaderboard (event currency)")
+    .setDescription("Leaderboard (choose event currency)")
     .addStringOption((opt) => opt.setName("event").setDescription("Which event leaderboard?").setRequired(true).addChoices(...EVENT_CHOICES)),
 
   new SlashCommandBuilder()
@@ -59,32 +66,13 @@ const commands = [
   new SlashCommandBuilder()
     .setName("exchange_drako")
     .setDescription("Buy Drako Coin using event currency (NO reverse exchange)")
-    .addStringOption((opt) =>
-      opt
-        .setName("event")
-        .setDescription("Pay with which event currency?")
-        .setRequired(true)
-        .addChoices(
-          { name: "Bleach (Reiatsu -> Drako)", value: "bleach" },
-          { name: "JJK (CE -> Drako)", value: "jjk" }
-        )
-    )
+    .addStringOption((opt) => opt.setName("event").setDescription("Pay with which event currency?").setRequired(true).addChoices(...EVENT_CHOICES_EXCHANGE))
     .addIntegerOption((opt) => opt.setName("drako").setDescription("How many Drako you want to buy").setRequired(true).setMinValue(1)),
 
-  // ✅ NEW MENU COMMANDS
   new SlashCommandBuilder()
-    .setName("profile")
-    .setDescription("Open your profile menu (Currency / Cards / Gears / Titles / Leaderboard)"),
+    .setName("dailyclaim")
+    .setDescription("Claim your daily Reiatsu reward (Bleach)"),
 
-  new SlashCommandBuilder()
-    .setName("store")
-    .setDescription("Open store (Event Shop / Card Packs / Gear Shop)"),
-
-  new SlashCommandBuilder()
-    .setName("forge")
-    .setDescription("Open forge (Craft / Evolve)"),
-
-  // staff-only
   new SlashCommandBuilder()
     .setName("spawnboss")
     .setDescription("Spawn a boss (event staff only)")
@@ -95,7 +83,20 @@ const commands = [
     .setDescription("Spawn a mob (event staff only)")
     .addStringOption((opt) => opt.setName("event").setDescription("Which event mob?").setRequired(true).addChoices(...EVENT_CHOICES)),
 
-  // kept (future)
+  // ✅ NEW
+  new SlashCommandBuilder()
+    .setName("profile")
+    .setDescription("Open your profile (buttons UI)"),
+
+  new SlashCommandBuilder()
+    .setName("store")
+    .setDescription("Open store (Event Shop / Packs / Gear Shop)"),
+
+  new SlashCommandBuilder()
+    .setName("forge")
+    .setDescription("Forge (craft gear / evolve cards)"),
+
+  // keep pvp if you want
   new SlashCommandBuilder()
     .setName("pvpclash")
     .setDescription("Challenge a player to a PvP clash (stake currency)")
