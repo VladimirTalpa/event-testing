@@ -1,45 +1,44 @@
-require("dotenv").config();
-
-const { Client, GatewayIntentBits, Partials, Events } = require("discord.js");
-const { initRedis } = require("./core/redis");
+const { Client, GatewayIntentBits, Partials, Collection } = require("discord.js");
+const cfg = require("./config");
 
 const handleSlash = require("./handlers/slash");
 const handleButtons = require("./handlers/buttons");
 const handleSelects = require("./handlers/selects");
 
-// ✅ NEW: expedition engine will need client
-const { initExpeditionsEngine } = require("./systems/expeditions_engine");
+const expeditions = require("./systems/expeditions");
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+  ],
   partials: [Partials.Channel],
 });
 
-client.once(Events.ClientReady, async () => {
-  console.log(`✅ Logged in as ${client.user.tag}`);
-  await initRedis();
+client.commands = new Collection();
 
-  // ✅ bind client here (это и есть “привязать client для экспедиций”)
-  initExpeditionsEngine(client);
+client.once("ready", async () => {
+  console.log(`✅ Logged in as ${client.user.tag}`);
+
+  // ✅ ВОТ ЭТО и есть “привязать client для экспедиций”
+  expeditions.init(client);
 });
 
-client.on(Events.InteractionCreate, async (interaction) => {
+client.on("interactionCreate", async (interaction) => {
   try {
-    if (interaction.isChatInputCommand()) return await handleSlash(interaction);
-    if (interaction.isButton()) return await handleButtons(interaction);
-    if (interaction.isStringSelectMenu()) return await handleSelects(interaction);
+    if (interaction.isChatInputCommand()) return handleSlash(interaction);
+    if (interaction.isButton()) return handleButtons(interaction);
+    if (interaction.isStringSelectMenu()) return handleSelects(interaction);
   } catch (e) {
-    console.error("Interaction error:", e);
+    console.error("interactionCreate error:", e);
     try {
-      if (interaction.isRepliable()) {
-        if (interaction.deferred || interaction.replied) {
-          await interaction.followUp({ content: "⚠️ Error handling this action.", ephemeral: true });
-        } else {
-          await interaction.reply({ content: "⚠️ Error handling this action.", ephemeral: true });
-        }
+      if (interaction.deferred || interaction.replied) {
+        await interaction.editReply({ content: "❌ Error. Check console." });
+      } else {
+        await interaction.reply({ content: "❌ Error. Check console.", ephemeral: true });
       }
     } catch {}
   }
 });
 
-client.login(process.env.DISCORD_TOKEN);
+client.login(cfg.TOKEN);
