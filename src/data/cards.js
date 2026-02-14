@@ -1,39 +1,165 @@
-// src/config.js
-require("dotenv").config();
+const TEST_GIF = "https://media.discordapp.net/attachments/1468153576353431615/1471828355153268759/Your_paragraph_text.gif?ex=69905a79&is=698f08f9&hm=9d059092959a3446edcf38507f1a71b5577e85a97a8ee08292da323f238d513b&=&width=388&height=582";
 
-module.exports = {
-  // ================== REQUIRED ==================
-  TOKEN: process.env.TOKEN,
+const CARDS = [
+  // ================= JJK =================
+  {
+    id: "jjk_miwa",
+    name: "Kasumi Miwa",
+    anime: "jjk",
+    rarity: "Common",
+    role: "Support",
+    base: { hp: 95, atk: 22, def: 18 },
+    passive: "Sometimes reduces incoming damage (good for expeditions).",
+    art: TEST_GIF,
+    evolvesTo: null,
+  },
+  {
+    id: "jjk_momo",
+    name: "Momo Nishimiya",
+    anime: "jjk",
+    rarity: "Common",
+    role: "Support",
+    base: { hp: 85, atk: 20, def: 16 },
+    passive: "Support chance: small survival bonus for the party.",
+    art: TEST_GIF,
+    evolvesTo: null,
+  },
+  {
+    id: "jjk_mai",
+    name: "Mai Zenin",
+    anime: "jjk",
+    rarity: "Common",
+    role: "DPS",
+    base: { hp: 80, atk: 28, def: 14 },
+    passive: "Precision hit chance: higher success in PvE events.",
+    art: TEST_GIF,
+    evolvesTo: null,
+  },
+  {
+    id: "jjk_todo",
+    name: "Aoi Todo",
+    anime: "jjk",
+    rarity: "Rare",
+    role: "Tank",
+    base: { hp: 140, atk: 30, def: 32 },
+    passive: "Team guard: better at absorbing hits in expeditions.",
+    art: TEST_GIF,
+    evolvesTo: "Legendary",
+  },
+  {
+    id: "jjk_panda",
+    name: "Panda",
+    anime: "jjk",
+    rarity: "Rare",
+    role: "Tank",
+    base: { hp: 130, atk: 27, def: 30 },
+    passive: "High endurance: ideal for long expeditions.",
+    art: TEST_GIF,
+    evolvesTo: "Legendary",
+  },
+  {
+    id: "jjk_toji",
+    name: "Toji Fushiguro",
+    anime: "jjk",
+    rarity: "Legendary",
+    role: "DPS",
+    base: { hp: 160, atk: 55, def: 28 },
+    passive: "High chance of winning combat events.",
+    art: TEST_GIF,
+    evolvesTo: "Mythic",
+  },
+  {
+    id: "jjk_toji_m",
+    name: "Toji (Mythic)",
+    anime: "jjk",
+    rarity: "Mythic",
+    role: "DPS",
+    base: { hp: 260, atk: 95, def: 45 },
+    passive: "Breaks content; bosses will scale harder.",
+    art: TEST_GIF,
+    evolvesTo: null,
+  },
 
-  // ================== UI ==================
-  COLOR: 0x8a2be2, // фиолетовый (можешь поменять)
+  // ================= BLEACH =================
+  {
+    id: "bl_ikkaku",
+    name: "Ikkaku Madarame",
+    anime: "bleach",
+    rarity: "Common",
+    role: "Tank",
+    base: { hp: 120, atk: 24, def: 24 },
+    passive: "Stable tanking, good for early progression.",
+    art: TEST_GIF,
+    evolvesTo: null,
+  },
+  {
+    id: "bl_hisagi",
+    name: "Shuuhei Hisagi",
+    anime: "bleach",
+    rarity: "Common",
+    role: "DPS",
+    base: { hp: 95, atk: 30, def: 16 },
+    passive: "High chance of successful actions in PvE.",
+    art: TEST_GIF,
+    evolvesTo: null,
+  },
+  {
+    id: "bl_ganju",
+    name: "Ganju Shiba",
+    anime: "bleach",
+    rarity: "Common",
+    role: "Support",
+    base: { hp: 90, atk: 20, def: 18 },
+    passive: "Luck: slightly increases resource findings.",
+    art: TEST_GIF,
+    evolvesTo: null,
+  },
+  {
+    id: "bl_chad",
+    name: "Yasutora Sado (Chad)",
+    anime: "bleach",
+    rarity: "Rare",
+    role: "Tank",
+    base: { hp: 170, atk: 30, def: 35 },
+    passive: "Super survivability.",
+    art: TEST_GIF,
+    evolvesTo: "Legendary",
+  },
+  {
+    id: "bl_orihime",
+    name: "Orihime Inoue",
+    anime: "bleach",
+    rarity: "Rare",
+    role: "Support/Healer",
+    base: { hp: 110, atk: 18, def: 22 },
+    passive: "Heal chance: can save from death / reduce consequences.",
+    art: TEST_GIF,
+    evolvesTo: "Legendary",
+  },
+  {
+    id: "bl_ichigo",
+    name: "Ichigo Kurosaki",
+    anime: "bleach",
+    rarity: "Legendary",
+    role: "DPS",
+    base: { hp: 190, atk: 60, def: 28 },
+    passive: "Carry: strong in expeditions/raids.",
+    art: TEST_GIF,
+    evolvesTo: "Mythic",
+  },
+  {
+    id: "bl_ichigo_m",
+    name: "Ichigo (Mythic)",
+    anime: "bleach",
+    rarity: "Mythic",
+    role: "DPS",
+    base: { hp: 300, atk: 100, def: 45 },
+    passive: "Very high success chance; near-guaranteed expeditions if prepared.",
+    art: TEST_GIF,
+    evolvesTo: null,
+  },
+];
 
-  // ================== PACK PRICES ==================
-  // цены за пак (покупка в /store -> Card Packs)
-  PACK_BASIC_PRICE_BLEACH: 250,
-  PACK_BASIC_PRICE_JJK: 250,
+const CARD_BY_ID = new Map(CARDS.map((c) => [c.id, c]));
 
-  PACK_LEGENDARY_PRICE_BLEACH: 1200,
-  PACK_LEGENDARY_PRICE_JJK: 1200,
-
-  // ================== EVOLVE COSTS ==================
-  // forge evolve (cost)
-  EVOLVE_RARE_TO_LEGENDARY_SHARDS: 120,
-  EVOLVE_LEGENDARY_TO_MYTHIC_SHARDS: 280,
-
-  EVOLVE_RARE_TO_LEGENDARY_DRKO: 25,
-  EVOLVE_LEGENDARY_TO_MYTHIC_DRKO: 60,
-
-  // ================== EXPEDITION SETTINGS ==================
-  // лимит экспедиций в день
-  EXPEDITION_DAILY_LIMIT: 2,
-
-  // старт через 1 час
-  EXPEDITION_START_DELAY_MIN: 60,
-
-  // обновление сообщения каждые 10 минут
-  EXPEDITION_TICK_MIN: 10,
-
-  // сколько тиков всего (6 тиков = 60 минут при 10 мин)
-  EXPEDITION_TOTAL_TICKS: 6,
-};
+module.exports = { CARDS, CARD_BY_ID, TEST_GIF };
