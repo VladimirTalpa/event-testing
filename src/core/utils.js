@@ -1,9 +1,11 @@
-// src/core/utils.js
-const crypto = require("crypto");
+function safeName(str) {
+  if (!str) return "Unknown";
+  return String(str).replace(/[`*_~|]/g, "");
+}
 
-function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
-function safeName(name) { return String(name || "Unknown").replace(/@/g, "").replace(/#/g, "＃"); }
-function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
-function uid() { return crypto.randomUUID(); }
+function clampInt(n, min, max) {
+  const x = Math.floor(Number(n || 0));
+  return Math.max(min, Math.min(max, x));
+}
 
-module.exports = { clamp, safeName, sleep, uid };
+module.exports = { safeName, clampInt };
