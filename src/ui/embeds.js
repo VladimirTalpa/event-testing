@@ -1,169 +1,158 @@
 // src/ui/embeds.js
 const { EmbedBuilder } = require("discord.js");
-const { closeRow, row, navButton } = require("./components");
+const { COLOR, CARD_GIF_URL } = require("../config");
 
-// твоя гифка (как внешний вид карточек пока нет дизайна)
-const CARD_GIF =
-  "https://media.discordapp.net/attachments/1468153576353431615/1471828355153268759/Your_paragraph_text.gif?ex=69905a79&is=698f08f9&hm=9d059092959a3446edcf38507f1a71b5577e85a97a8ee08292da323f238d513b&=&width=388&height=582";
+function baseEmbed(title, description) {
+  const e = new EmbedBuilder()
+    .setColor(COLOR)
+    .setTitle(title)
+    .setDescription(description);
 
-const DEFAULT_COLOR = 0xdb2b2b;
-
-/**
- * Безопасно достаём апгрейд, чтобы не было:
- * Cannot read properties of undefined (reading 'black_flash_manual')
- */
-function getUpgradeLevel(upgrades, key) {
-  if (!upgrades || typeof upgrades !== "object") return 0;
-  const v = upgrades[key];
-  if (typeof v !== "number") return 0;
-  return v;
+  if (CARD_GIF_URL) e.setImage(CARD_GIF_URL);
+  return e;
 }
 
-/**
- * JJK множитель (пример). Главное — не крашится, даже если upgrades undefined.
- * Ты можешь потом поменять формулу как хочешь.
- */
-function calcJjkCEMultiplier(upgrades) {
-  const blackFlashManual = getUpgradeLevel(upgrades, "black_flash_manual"); // <= фикс
-  const base = 1.0;
+/** PROFILE **/
+function profileHomeEmbed(user, snapshot) {
+  const {
+    money = 0,
+    bleach = 0,
+    jjk = 0,
+    bleachShards = 0,
+    cursedShards = 0,
+    cards = 0,
+    gears = 0,
+    titles = 0,
+  } = snapshot || {};
 
-  // пример: каждый уровень +3%
-  const bonus = blackFlashManual * 0.03;
-
-  return base + bonus;
+  return baseEmbed(
+    `👤 Profile — ${user.username}`,
+    [
+      `**Wallet**`,
+      `🪙 Money: **${money}**`,
+      `🩸 Bleach Currency: **${bleach}**`,
+      `🟣 JJK Currency: **${jjk}**`,
+      ``,
+      `**Shards**`,
+      `🩸 Bleach Shards: **${bleachShards}**`,
+      `🟣 Cursed Shards: **${cursedShards}**`,
+      ``,
+      `**Inventory**`,
+      `🃏 Cards: **${cards}**`,
+      `🛡️ Gears: **${gears}**`,
+      `🏷️ Titles owned: **${titles}**`,
+      ``,
+      `Use buttons to navigate.`,
+    ].join("\n")
+  );
 }
 
-/**
- * Embed карточки персонажа (пока общий дизайн = GIF)
- */
-function cardEmbed({ name, anime, rarity, role, hp, atk, def, stars = 0, level = 1 }) {
-  return new EmbedBuilder()
-    .setColor(DEFAULT_COLOR)
-    .setTitle(`${name} — ${rarity}`)
-    .setDescription(
-      [
-        `**Anime:** ${anime}`,
-        `**Role:** ${role}`,
-        `**Level:** ${level}   **Stars:** ${"⭐".repeat(Math.min(10, stars)) || "—"}`,
-        ``,
-        `❤️ **HP:** ${hp}`,
-        `⚔️ **ATK:** ${atk}`,
-        `🛡️ **DEF:** ${def}`,
-      ].join("\n")
-    )
-    .setImage(CARD_GIF)
-    .setFooter({ text: "Card preview placeholder (GIF) — будет заменено твоим дизайном" });
+function profileCardsEmbed(user, cardsPreviewLines) {
+  return baseEmbed(
+    `🃏 Cards — ${user.username}`,
+    cardsPreviewLines?.length
+      ? cardsPreviewLines.join("\n")
+      : `You don’t have cards yet.\nOpen packs in **Store → Card Packs**.`
+  );
 }
 
-/**
- * Embed спавна босса
- */
-function bossSpawnEmbed(boss) {
-  return new EmbedBuilder()
-    .setColor(0xff3b3b)
-    .setTitle(`👹 ${boss?.name || "Boss"}`)
-    .setDescription(
-      [
-        `**Faction:** ${boss?.faction || "—"}`,
-        `**Tier:** ${boss?.tier || "—"}`,
-        ``,
-        `**HP:** ${boss?.hpPercent ?? 100}%`,
-        `**Round:** ${boss?.round ?? 1}/${boss?.rounds ?? 4}`,
-      ].join("\n")
-    );
+function profileGearsEmbed(user, gearsPreviewLines) {
+  return baseEmbed(
+    `🛡️ Gears — ${user.username}`,
+    gearsPreviewLines?.length
+      ? gearsPreviewLines.join("\n")
+      : `You don’t have gear yet.\nCraft in **Forge** or buy in **Store → Gear Shop**.`
+  );
 }
 
-/**
- * Кнопки для босса (ВАЖНО: это ФУНКЦИЯ, чтобы не было "bossButtons is not a function")
- */
-function bossButtons({ disabled = false } = {}) {
-  const block = navButton("boss_block", "Block", "Primary", "🛡️");
-  const dodge = navButton("boss_dodge", "Dodge", "Secondary", "💨");
-  const hit = navButton("boss_hit", "Attack", "Success", "⚔️");
-
-  block.setDisabled(disabled);
-  dodge.setDisabled(disabled);
-  hit.setDisabled(disabled);
-
-  // + обязательный Close
-  return [
-    row(block, dodge, hit),
-    closeRow("Close"),
-  ];
+function profileTitlesEmbed(user, titlesLines, equippedTitle) {
+  return baseEmbed(
+    `🏷️ Titles — ${user.username}`,
+    [
+      equippedTitle ? `**Equipped:** ${equippedTitle}` : `**Equipped:** *(none)*`,
+      ``,
+      titlesLines?.length ? titlesLines.join("\n") : `No titles yet.`,
+      ``,
+      `Tip: Titles are like roles/labels you can equip/unequip.`,
+    ].join("\n")
+  );
 }
 
-/**
- * Profile меню (пример норм вида + close)
- */
-function profileEmbed(user, data) {
-  const coins = data?.coins ?? 0;
-  const bleach = data?.bleachCoins ?? 0;
-  const jjk = data?.jjkCoins ?? 0;
-
-  return new EmbedBuilder()
-    .setColor(0x6a3efa)
-    .setTitle(`🏆 Profile — ${user.username}`)
-    .setDescription(
-      [
-        `💰 **Coins:** ${coins}`,
-        `🩸 **Bleach Currency:** ${bleach}`,
-        `🟣 **JJK Currency:** ${jjk}`,
-        ``,
-        `Use buttons to navigate sections.`,
-      ].join("\n")
-    );
+/** STORE **/
+function storeHomeEmbed() {
+  return baseEmbed(
+    `📦 Store`,
+    `Choose a category.\n\n- 🎁 Card Packs\n- 🛡️ Gear Shop\n- 🎟️ Event Shop`
+  );
 }
 
-function profileButtons() {
-  return [
-    row(
-      navButton("profile_cards", "Cards", "Secondary", "🃏"),
-      navButton("profile_gears", "Gears", "Secondary", "🛡️"),
-      navButton("profile_titles", "Titles", "Secondary", "🏷️"),
-      navButton("profile_lb", "Leaderboard", "Secondary", "📊")
-    ),
-    closeRow("Close"),
-  ];
+function storePacksEmbed() {
+  return baseEmbed(
+    `🎁 Card Packs`,
+    [
+      `**Basic Pack** — cheap, mostly Common/Rare.`,
+      `**Legendary Pack** — expensive, higher шанс Legendary/Mythic.`,
+      ``,
+      `Open packs to get characters.`,
+    ].join("\n")
+  );
 }
 
-/**
- * Store меню (пример + close)
- */
-function storeEmbed() {
-  return new EmbedBuilder()
-    .setColor(0xffc800)
-    .setTitle(`📦 Store`)
-    .setDescription(`Choose a section below.`);
+function storeGearEmbed() {
+  return baseEmbed(
+    `🛡️ Gear Shop`,
+    [
+      `Buy gear for your characters:`,
+      `⚔ Weapon → +ATK`,
+      `🛡 Armor → +HP`,
+    ].join("\n")
+  );
 }
 
-function storeButtons() {
-  return [
-    row(
-      navButton("store_event", "Event Shop", "Secondary", "🎟️"),
-      navButton("store_packs", "Card Packs", "Secondary", "🎁"),
-      navButton("store_gear", "Gear Shop", "Secondary", "⚙️")
-    ),
-    closeRow("Close"),
-  ];
+function storeEventEmbed() {
+  return baseEmbed(
+    `🎟️ Event Shop`,
+    `Event-only items.\nTitles, shards, limited packs.`
+  );
+}
+
+/** ECONOMY **/
+function balanceEmbed(user, snapshot) {
+  const { money = 0, bleach = 0, jjk = 0 } = snapshot || {};
+  return baseEmbed(
+    `💰 Balance — ${user.username}`,
+    [
+      `🪙 Money: **${money}**`,
+      `🩸 Bleach Currency: **${bleach}**`,
+      `🟣 JJK Currency: **${jjk}**`,
+    ].join("\n")
+  );
+}
+
+function dailyEmbed(user, amount, nextText) {
+  return baseEmbed(
+    `🎁 Daily — ${user.username}`,
+    [
+      `You claimed: **${amount}** 🪙`,
+      nextText ? `Next claim: **${nextText}**` : ``,
+    ].filter(Boolean).join("\n")
+  );
 }
 
 module.exports = {
-  // utils
-  calcJjkCEMultiplier,
+  // profile
+  profileHomeEmbed,
+  profileCardsEmbed,
+  profileGearsEmbed,
+  profileTitlesEmbed,
 
-  // cards
-  cardEmbed,
+  // store
+  storeHomeEmbed,
+  storePacksEmbed,
+  storeGearEmbed,
+  storeEventEmbed,
 
-  // boss
-  bossSpawnEmbed,
-  bossButtons,
-
-  // profile / store ui
-  profileEmbed,
-  profileButtons,
-  storeEmbed,
-  storeButtons,
-
-  // export gif in case you want to reuse
-  CARD_GIF,
+  // economy
+  balanceEmbed,
+  dailyEmbed,
 };
