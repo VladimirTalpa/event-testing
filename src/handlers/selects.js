@@ -1,49 +1,36 @@
-// src/handlers/selects.js
-const { getPlayer } = require("../core/players");
-const { cardDetailsEmbed } = require("../ui/embeds");
+const { renderCardInstanceEmbed, renderProfile } = require("../ui/embeds");
+const { buildProfileNavRow, backRow } = require("../ui/components");
 
 module.exports = async function handleSelects(interaction) {
-  const cid = interaction.customId;
+  const id = interaction.customId;
 
-  /* ===================== PROFILE -> CARD VIEW ===================== */
-  if (cid === "profile_cards_select") {
-    const cardId = interaction.values?.[0];
-    if (!cardId) return;
-
-    const p = await getPlayer(interaction.user.id);
-    const card = (p.cards || []).find((c) => c.id === cardId);
-    if (!card) {
-      return interaction.reply({ content: "❌ Card not found.", ephemeral: true }).catch(() => {});
-    }
-
-    return interaction.reply({
-      embeds: [cardDetailsEmbed(card, card.charKey)],
-      ephemeral: true,
-    }).catch(() => {});
+  if (!interaction.deferred && !interaction.replied) {
+    await interaction.deferUpdate();
   }
 
-  /* ===================== EXPEDITION PARTY PICK ===================== */
-  if (cid.startsWith("expedition_party_select:")) {
-    const anime = cid.split(":")[1];
-    const ids = interaction.values || [];
-    if (ids.length !== 3) {
-      return interaction.reply({ content: "❌ You must pick exactly 3 heroes.", ephemeral: true }).catch(() => {});
+  // profile:cards:select => value = cardInstanceId
+  if (id === "profile:cards:select") {
+    const instanceId = interaction.values?.[0];
+    const res = await renderCardInstanceEmbed(interaction.user.id, instanceId);
+
+    if (!res.ok) {
+      return interaction.followUp({ content: `❌ ${res.error}`, ephemeral: true }).catch(() => {});
     }
 
-    // show start button with those ids embedded
-    const startId = `ui_expe:start:${anime}:${ids.join(",")}`;
-
-    return interaction.reply({
-      content: `✅ Party selected. Start expedition? (Starts in **1 hour**, ticks every **10 minutes**)`,
-      components: [
-        {
-          type: 1,
-          components: [
-            { type: 2, style: 3, custom_id: startId, label: "Start Expedition", emoji: { name: "🧭" } },
-          ],
-        },
-      ],
-      ephemeral: true,
-    }).catch(() => {});
+    return interaction.editReply({
+      embeds: [res.embed],
+      components: [backRow("profile:nav:cards")],
+    });
   }
+
+  // fallback: if select breaks, re-render cards page
+  if (id === "profile:cards:filter") {
+    const embed = await renderProfile(interaction.user.id, "cards");
+    return interaction.editReply({
+      embeds: [embed],
+      components: [buildProfileNavRow("cards")],
+    });
+  }
+
+  return;
 };
