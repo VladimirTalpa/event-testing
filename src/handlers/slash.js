@@ -1,140 +1,360 @@
-const { EmbedBuilder } = require("discord.js");
-const cfg = require("../config");
+// src/handlers/slash.js
+const { BOSSES } = require("../data/bosses");
+const { MOBS } = require("../data/mobs");
+
+const {
+  BLEACH_CHANNEL_ID,
+  JJK_CHANNEL_ID,
+  DAILY_COOLDOWN_MS,
+  DAILY_NORMAL,
+  DAILY_BOOSTER,
+  DRAKO_RATE_BLEACH,
+  DRAKO_RATE_JJK,
+
+  E_REIATSU,
+  E_CE,
+  E_DRAKO,
+  BLEACH_BONUS_MAX,
+  JJK_BONUS_MAX,
+} = require("../config");
 
 const { getPlayer, setPlayer, getTopPlayers } = require("../core/players");
-const { renderStore, renderProfile, buildCardsSelectMenu, buildGearRows } = require("../ui/embeds");
-const { buildStoreNavRow, buildProfileNavRow, buildPackBuyRows } = require("../ui/components");
+const { safeName } = require("../core/utils");
 
-const packs = require("../systems/packs");
-const expeditions = require("../systems/expeditions");
-const forge = require("../systems/forge");
-const bosses = require("../systems/bosses");
+const { spawnBoss } = require("../events/boss");
+const { spawnMob } = require("../events/mob");
+const { pvpById } = require("../core/state");
+
+// UI
+const {
+  closeRow,
+  profileTabsSelect,
+  storeTabsSelect,
+  packSelect,
+} = require("../ui/components");
+
+const {
+  profileHomeEmbed,
+  profileCurrencyEmbed,
+  profileCardsEmbed,
+  profileGearsEmbed,
+  profileTitlesEmbed,
+  profileLeaderboardEmbed,
+
+  storeHomeEmbed,
+  storeEventShopEmbed,
+  storePacksEmbed,
+  storeGearShopEmbed,
+} = require("../ui/embeds");
+
+const { getCardsSummaryText, getTitlesText } = require("../core/profile_helpers");
+const { BLEACH_SHOP_ITEMS, JJK_SHOP_ITEMS } = require("../data/shop");
+
+function isAllowedSpawnChannel(eventKey, channelId) {
+  if (eventKey === "bleach") return channelId === BLEACH_CHANNEL_ID;
+  if (eventKey === "jjk") return channelId === JJK_CHANNEL_ID;
+  return false;
+}
+
+function walletFromPlayer(p) {
+  return {
+    reiatsu: p?.bleach?.reiatsu ?? 0,
+    cursed_energy: p?.jjk?.cursedEnergy ?? 0,
+    drako: p?.drako ?? 0,
+  };
+}
 
 module.exports = async function handleSlash(interaction) {
-  const name = interaction.commandName;
-
-  if (!interaction.deferred && !interaction.replied) {
-    await interaction.deferReply({ ephemeral: false });
+  const channel = interaction.channel;
+  if (!channel || !channel.isTextBased()) {
+    return interaction.reply({ content: "❌ Use commands in a text channel.", ephemeral: true });
   }
 
-  if (name === "store") {
-    const section = interaction.options.getString("section") || "event";
-    const embed = await renderStore(interaction.user.id, section);
-    const rows = [buildStoreNavRow(section)];
+  /* ===================== BALANCE (FIXED) ===================== */
+  if (interaction.commandName === "balance") {
+    const target = interaction.options.getUser("user") || interaction.user;
+    const p = await getPlayer(target.id);
 
-    if (section === "packs") {
-      const p = await getPlayer(interaction.user.id);
-      rows.push(...buildPackBuyRows(p));
+    return interaction.reply({
+      content:
+        `**${safeName(target.username)}**\n` +
+        `${E_REIATSU} Reiatsu: **${p.bleach.reiatsu}**\n` +
+        `${E_CE} Cursed Energy: **${p.jjk.cursedEnergy}**\n` +
+        `${E_DRAKO} Drako: **${p.drako}**`,
+      ephemeral: false,
+    });
+  }
+
+  /* ===================== INVENTORY (оставил как было) ===================== */
+  if (interaction.commandName === "inventory") {
+    const eventKey = interaction.options.getString("event", true);
+    const { inventoryEmbed } = require("../ui/old_embeds_inventory_shop"); // см. примечание ниже
+    const p = await getPlayer(interaction.user.id);
+    return interaction.reply({ embeds: [inventoryEmbed(eventKey, p, BLEACH_BONUS_MAX, JJK_BONUS_MAX)], ephemeral: true });
+  }
+
+  /* ===================== SHOP (оставил как было) ===================== */
+  if (interaction.commandName === "shop") {
+    const eventKey = interaction.options.getString("event", true);
+    const { shopEmbed } = require("../ui/old_embeds_inventory_shop");
+    const { shopButtons } = require("../ui/old_components_shop_mob_boss");
+    const p = await getPlayer(interaction.user.id);
+    return interaction.reply({
+      embeds: [shopEmbed(eventKey, p)],
+      components: [...shopButtons(eventKey, p), closeRow()],
+      ephemeral: true,
+    });
+  }
+
+  /* ===================== LEADERBOARD ===================== */
+  if (interaction.commandName === "leaderboard") {
+    const eventKey = interaction.options.getString("event", true);
+    const rows = await getTopPlayers(eventKey, 10);
+
+    const entries = [];
+    for (const r of rows) {
+      let name = r.userId;
+      try {
+        const m = await interaction.guild.members.fetch(r.userId);
+        name = safeName(m?.displayName || m?.user?.username || r.userId);
+      } catch {}
+      entries.push({ name, score: r.score });
     }
 
-    return interaction.editReply({ embeds: [embed], components: rows });
+    const tag = eventKey === "bleach" ? "Bleach" : "JJK";
+    const currency = eventKey === "bleach" ? E_REIATSU : E_CE;
+    const text = entries.map((e, i) => `**#${i + 1}** — ${e.name}: **${currency} ${e.score}**`).join("\n") || "No data yet.";
+
+    return interaction.reply({ embeds: [profileLeaderboardEmbed(tag, text)], components: [closeRow()], ephemeral: false });
   }
 
-  if (name === "profile") {
-    const section = interaction.options.getString("section") || "currency";
-    const embed = await renderProfile(interaction.user.id, section);
-    const rows = [buildProfileNavRow(section)];
+  /* ===================== DAILY CLAIM (FIXED) ===================== */
+  if (interaction.commandName === "dailyclaim") {
+    const p = await getPlayer(interaction.user.id);
+    const now = Date.now();
 
-    if (section === "cards") {
-      const p = await getPlayer(interaction.user.id);
-      const menuRow = buildCardsSelectMenu(p);
-      if (menuRow) rows.push(menuRow);
+    if (now - p.bleach.lastDaily < DAILY_COOLDOWN_MS) {
+      const hrs = Math.ceil((DAILY_COOLDOWN_MS - (now - p.bleach.lastDaily)) / 3600000);
+      return interaction.reply({ content: `⏳ Come back in **${hrs}h**.`, ephemeral: true });
     }
 
-    if (section === "gears") {
-      const p = await getPlayer(interaction.user.id);
-      rows.push(...buildGearRows(p));
+    const member = interaction.member;
+    const boosterRoleId = require("../config").BOOSTER_ROLE_ID;
+    const isBooster = !!member?.roles?.cache?.has(boosterRoleId);
+
+    const amount = isBooster ? DAILY_BOOSTER : DAILY_NORMAL;
+    p.bleach.reiatsu += amount;
+    p.bleach.lastDaily = now;
+
+    await setPlayer(interaction.user.id, p);
+    return interaction.reply({ content: `🎁 You claimed **${E_REIATSU} ${amount} Reiatsu**!`, ephemeral: false });
+  }
+
+  /* ===================== GIVE ===================== */
+  if (interaction.commandName === "give") {
+    const currency = interaction.options.getString("currency", true);
+    const target = interaction.options.getUser("user", true);
+    const amount = interaction.options.getInteger("amount", true);
+
+    if (amount < 1) return interaction.reply({ content: "❌ Amount must be >= 1.", ephemeral: true });
+    if (target.bot) return interaction.reply({ content: "❌ You can't transfer to a bot.", ephemeral: true });
+    if (target.id === interaction.user.id) return interaction.reply({ content: "❌ You can't transfer to yourself.", ephemeral: true });
+
+    const sender = await getPlayer(interaction.user.id);
+    const receiver = await getPlayer(target.id);
+
+    function getBal(p) {
+      if (currency === "reiatsu") return p.bleach.reiatsu;
+      if (currency === "cursed_energy") return p.jjk.cursedEnergy;
+      if (currency === "drako") return p.drako;
+      return 0;
+    }
+    function setBal(p, v) {
+      if (currency === "reiatsu") p.bleach.reiatsu = v;
+      if (currency === "cursed_energy") p.jjk.cursedEnergy = v;
+      if (currency === "drako") p.drako = v;
     }
 
-    return interaction.editReply({ embeds: [embed], components: rows });
+    const s = getBal(sender);
+    if (s < amount) return interaction.reply({ content: `❌ Not enough funds. You have ${s}.`, ephemeral: true });
+
+    setBal(sender, s - amount);
+    setBal(receiver, getBal(receiver) + amount);
+
+    await setPlayer(interaction.user.id, sender);
+    await setPlayer(target.id, receiver);
+
+    const emoji = currency === "reiatsu" ? E_REIATSU : currency === "cursed_energy" ? E_CE : E_DRAKO;
+
+    return interaction.reply({
+      content: `${emoji} **${safeName(interaction.user.username)}** sent **${amount}** to **${safeName(target.username)}**.`,
+      ephemeral: false,
+    });
   }
 
-  if (name === "packs") {
-    const sub = interaction.options.getSubcommand();
-    if (sub !== "open") return interaction.editReply({ content: "Unknown packs command." });
+  /* ===================== EXCHANGE DRAKO ===================== */
+  if (interaction.commandName === "exchange_drako") {
+    const eventKey = interaction.options.getString("event", true);
+    const drakoWanted = interaction.options.getInteger("drako", true);
 
-    const type = interaction.options.getString("type");
-    const result = await packs.openPack(interaction.user.id, type);
-    if (!result.ok) return interaction.editReply({ content: `❌ ${result.error}` });
+    const rate = eventKey === "bleach" ? DRAKO_RATE_BLEACH : DRAKO_RATE_JJK;
+    const cost = drakoWanted * rate;
+    const currencyEmoji = eventKey === "bleach" ? E_REIATSU : E_CE;
 
-    return interaction.editReply({ embeds: result.embeds, components: result.components || [] });
-  }
+    const p = await getPlayer(interaction.user.id);
 
-  if (name === "forge") {
-    const section = interaction.options.getString("section") || "craft";
+    if (eventKey === "bleach") {
+      if (p.bleach.reiatsu < cost) {
+        return interaction.reply({
+          content:
+            `❌ Need ${currencyEmoji} **${cost}** to buy ${E_DRAKO} **${drakoWanted} Drako**.\n` +
+            `Rate: **${rate} ${currencyEmoji} = 1 ${E_DRAKO}** (one-way)\n` +
+            `You have ${currencyEmoji} **${p.bleach.reiatsu}**.`,
+          ephemeral: true,
+        });
+      }
+      p.bleach.reiatsu -= cost;
+      p.drako += drakoWanted;
+      await setPlayer(interaction.user.id, p);
 
-    if (section === "craft") {
-      return interaction.editReply({
-        embeds: [
-          new EmbedBuilder()
-            .setColor(cfg.COLOR || 0x8a2be2)
-            .setTitle("🔨 Forge — Craft")
-            .setDescription("Craft gear via **/profile → Gears** buttons (Craft Weapon / Craft Armor)."),
-        ],
+      return interaction.reply({
+        content:
+          `✅ Exchanged ${currencyEmoji} **${cost}** → ${E_DRAKO} **${drakoWanted} Drako**.\n` +
+          `Now: ${currencyEmoji} **${p.bleach.reiatsu}** • ${E_DRAKO} **${p.drako}**`,
+        ephemeral: false,
+      });
+    } else {
+      if (p.jjk.cursedEnergy < cost) {
+        return interaction.reply({
+          content:
+            `❌ Need ${currencyEmoji} **${cost}** to buy ${E_DRAKO} **${drakoWanted} Drako**.\n` +
+            `Rate: **${rate} ${currencyEmoji} = 1 ${E_DRAKO}** (one-way)\n` +
+            `You have ${currencyEmoji} **${p.jjk.cursedEnergy}**.`,
+          ephemeral: true,
+        });
+      }
+      p.jjk.cursedEnergy -= cost;
+      p.drako += drakoWanted;
+      await setPlayer(interaction.user.id, p);
+
+      return interaction.reply({
+        content:
+          `✅ Exchanged ${currencyEmoji} **${cost}** → ${E_DRAKO} **${drakoWanted} Drako**.\n` +
+          `Now: ${currencyEmoji} **${p.jjk.cursedEnergy}** • ${E_DRAKO} **${p.drako}**`,
+        ephemeral: false,
       });
     }
-
-    if (section === "evolve") {
-      // запускаем evolve flow (выбор карточки select-menu)
-      const p = await getPlayer(interaction.user.id);
-      if (!p.cards.length) return interaction.editReply({ content: "❌ You have 0 cards." });
-
-      const embed = new EmbedBuilder()
-        .setColor(cfg.COLOR || 0x8a2be2)
-        .setTitle("🔺 Forge — Evolve")
-        .setDescription(
-          [
-            "Select a card to evolve.",
-            "",
-            `Costs:`,
-            `• Rare → Legendary: **${cfg.EVOLVE_RARE_TO_LEGENDARY_SHARDS} shards** + **${cfg.EVOLVE_RARE_TO_LEGENDARY_DRKO} drako**`,
-            `• Legendary → Mythic: **${cfg.EVOLVE_LEGENDARY_TO_MYTHIC_SHARDS} shards** + **${cfg.EVOLVE_LEGENDARY_TO_MYTHIC_DRKO} drako**`,
-          ].join("\n")
-        );
-
-      const menuRow = forge.buildEvolveSelectMenu(p);
-      return interaction.editReply({ embeds: [embed], components: [menuRow] });
-    }
   }
 
-  if (name === "expedition") {
-    const sub = interaction.options.getSubcommand();
+  /* ===================== SPAWN BOSS ===================== */
+  if (interaction.commandName === "spawnboss") {
+    const allowedRoleIds = require("../config").EVENT_ROLE_IDS;
+    const hasPerm = allowedRoleIds.some((rid) => interaction.member?.roles?.cache?.has(rid));
+    if (!hasPerm) return interaction.reply({ content: "⛔ You don’t have the required role.", ephemeral: true });
 
-    if (sub === "status") {
-      const p = await getPlayer(interaction.user.id);
-      const e = p.expedition || {};
-      const text = e.active
-        ? `🧭 Expedition active.\nStarts/started: <t:${Math.floor(e.startingAt / 1000)}:R>\nTicks: **${e.ticksDone}/${e.totalTicks}**`
-        : "🧭 No active expedition.";
+    const bossId = interaction.options.getString("boss", true);
+    const def = BOSSES[bossId];
+    if (!def) return interaction.reply({ content: "❌ Unknown boss.", ephemeral: true });
 
-      return interaction.editReply({
-        embeds: [new EmbedBuilder().setColor(cfg.COLOR || 0x8a2be2).setTitle("🧭 Expeditions").setDescription(text)],
-      });
+    if (!isAllowedSpawnChannel(def.event, channel.id)) {
+      const needed = def.event === "bleach" ? `<#${BLEACH_CHANNEL_ID}>` : `<#${JJK_CHANNEL_ID}>`;
+      return interaction.reply({ content: `❌ This boss can only be spawned in ${needed}.`, ephemeral: true });
     }
 
-    if (sub === "start") {
-      const res = await expeditions.startFlow(interaction);
-      return interaction.editReply(res);
+    await interaction.reply({ content: `✅ Spawned **${def.name}**.`, ephemeral: true });
+    await spawnBoss(channel, bossId, true);
+    return;
+  }
+
+  /* ===================== SPAWN MOB ===================== */
+  if (interaction.commandName === "spawnmob") {
+    const allowedRoleIds = require("../config").EVENT_ROLE_IDS;
+    const hasPerm = allowedRoleIds.some((rid) => interaction.member?.roles?.cache?.has(rid));
+    if (!hasPerm) return interaction.reply({ content: "⛔ You don’t have the required role.", ephemeral: true });
+
+    const eventKey = interaction.options.getString("event", true);
+    if (!MOBS[eventKey]) return interaction.reply({ content: "❌ Unknown event.", ephemeral: true });
+
+    if (!isAllowedSpawnChannel(eventKey, channel.id)) {
+      const needed = eventKey === "bleach" ? `<#${BLEACH_CHANNEL_ID}>` : `<#${JJK_CHANNEL_ID}>`;
+      return interaction.reply({ content: `❌ This mob can only be spawned in ${needed}.`, ephemeral: true });
     }
+
+    await interaction.reply({ content: `✅ Mob spawned (${eventKey}).`, ephemeral: true });
+    await spawnMob(channel, eventKey, { bleachChannelId: BLEACH_CHANNEL_ID, jjkChannelId: JJK_CHANNEL_ID, withPing: true });
+    return;
   }
 
-  // ==== old basic commands kept alive ====
-  if (name === "leaderboard") {
-    const event = interaction.options.getString("event");
-    const top = await getTopPlayers(event, 10);
-    const lines = top.map((r, i) => `**${i + 1}.** <@${r.userId}> — **${r.score}**`);
-    const embed = new EmbedBuilder().setColor(cfg.COLOR || 0x8a2be2).setTitle(`🏆 Leaderboard — ${event.toUpperCase()}`).setDescription(lines.join("\n") || "No data.");
-    return interaction.editReply({ embeds: [embed] });
+  /* ===================== /profile (NEW UI, красивый) ===================== */
+  if (interaction.commandName === "profile") {
+    return interaction.reply({
+      embeds: [profileHomeEmbed(interaction.user)],
+      components: [profileTabsSelect(), closeRow()],
+      ephemeral: true,
+    });
   }
 
-  if (name === "spawnboss") {
-    if (typeof bosses.spawnBoss === "function") {
-      const boss = interaction.options.getString("boss");
-      const res = await bosses.spawnBoss(interaction, boss);
-      return interaction.editReply(res);
-    }
-    return interaction.editReply({ content: "⚠️ Boss system file missing." });
+  /* ===================== /store (NEW UI, красивый) ===================== */
+  if (interaction.commandName === "store") {
+    return interaction.reply({
+      embeds: [storeHomeEmbed(interaction.user)],
+      components: [storeTabsSelect(), closeRow()],
+      ephemeral: true,
+    });
   }
 
-  return interaction.editReply({ content: "❌ Unknown command." });
+  /* ===================== /forge (пока заглушка, но работает) ===================== */
+  if (interaction.commandName === "forge") {
+    return interaction.reply({
+      content: "🔨 Forge is coming next step: Craft Gear + Evolve Cards.\n(Кнопки сделаем после того как ты скажешь список рецептов/цен.)",
+      components: [closeRow()],
+      ephemeral: true,
+    });
+  }
+
+  /* ===================== /pvpclash (оставил как было) ===================== */
+  if (interaction.commandName === "pvpclash") {
+    const currency = interaction.options.getString("currency", true);
+    const amount = interaction.options.getInteger("amount", true);
+    const target = interaction.options.getUser("user", true);
+
+    if (target.bot) return interaction.reply({ content: "❌ You can't duel a bot.", ephemeral: true });
+    if (target.id === interaction.user.id) return interaction.reply({ content: "❌ You can't duel yourself.", ephemeral: true });
+    if (amount < 1) return interaction.reply({ content: "❌ Amount must be >= 1.", ephemeral: true });
+
+    const { pvpButtons } = require("../ui/old_components_shop_mob_boss");
+    const key = `${channel.id}:${interaction.user.id}:${target.id}`;
+    pvpById.set(key, { createdAt: Date.now(), done: false });
+
+    return interaction.reply({
+      content: `⚔️ <@${target.id}> you were challenged by <@${interaction.user.id}>!\nStake: **${amount} ${currency}**`,
+      components: [...pvpButtons(currency, amount, interaction.user.id, target.id, false), closeRow()],
+      ephemeral: false,
+    });
+  }
+
+  /* ===================== ADMINADD ===================== */
+  if (interaction.commandName === "adminadd") {
+    const allowed = interaction.member?.roles?.cache?.has("1259865441405501571");
+    if (!allowed) return interaction.reply({ content: "⛔ No permission.", ephemeral: true });
+
+    const currency = interaction.options.getString("currency", true);
+    const amount = interaction.options.getInteger("amount", true);
+    const target = interaction.options.getUser("user") || interaction.user;
+
+    const p = await getPlayer(target.id);
+
+    if (currency === "drako") p.drako += amount;
+    if (currency === "reiatsu") p.bleach.reiatsu += amount;
+    if (currency === "cursed_energy") p.jjk.cursedEnergy += amount;
+
+    await setPlayer(target.id, p);
+
+    return interaction.reply({
+      content:
+        `✅ Added **${amount}** to <@${target.id}>.\n` +
+        `${E_REIATSU} Reiatsu: **${p.bleach.reiatsu}** • ${E_CE} CE: **${p.jjk.cursedEnergy}** • ${E_DRAKO} Drako: **${p.drako}**`,
+      ephemeral: false,
+    });
+  }
 };
