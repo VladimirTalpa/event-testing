@@ -3,13 +3,13 @@ require("dotenv").config();
 
 const { Client, GatewayIntentBits, Partials, Events } = require("discord.js");
 const { initRedis } = require("./core/redis");
-const interactionCreateHandler = require("./handlers/interactionCreate");
+
+const handleSlash = require("./handlers/slash");
+const handleButtons = require("./handlers/buttons");
+const handleSelects = require("./handlers/selects");
 
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers,
-  ],
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
   partials: [Partials.Channel],
 });
 
@@ -19,7 +19,22 @@ client.once(Events.ClientReady, async () => {
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
-  await interactionCreateHandler(client, interaction);
+  try {
+    if (interaction.isChatInputCommand()) return await handleSlash(interaction);
+    if (interaction.isButton()) return await handleButtons(interaction);
+    if (interaction.isStringSelectMenu()) return await handleSelects(interaction);
+  } catch (e) {
+    console.error("Interaction error:", e);
+    try {
+      if (interaction.isRepliable()) {
+        if (interaction.deferred || interaction.replied) {
+          await interaction.followUp({ content: "⚠️ Error handling this action.", ephemeral: true });
+        } else {
+          await interaction.reply({ content: "⚠️ Error handling this action.", ephemeral: true });
+        }
+      }
+    } catch {}
+  }
 });
 
 client.login(process.env.DISCORD_TOKEN);
