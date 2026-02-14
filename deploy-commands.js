@@ -1,4 +1,3 @@
-// deploy-commands.js
 require("dotenv").config();
 const { REST, Routes, SlashCommandBuilder } = require("discord.js");
 const cfg = require("./src/config");
@@ -14,12 +13,12 @@ if (!TOKEN || !CLIENT_ID || !GUILD_ID) {
 
 const EVENT_CHOICES = [
   { name: "Bleach", value: "bleach" },
-  { name: "Jujutsu Kaisen", value: "jjk" },
+  { name: "Jujutsu Kaisen", value: "jjk" }
 ];
 
 const EVENT_CHOICES_EXCHANGE = [
   { name: `Bleach — Rate: ${cfg.DRAKO_RATE_BLEACH} Reiatsu → 1 Drako`, value: "bleach" },
-  { name: `Jujutsu Kaisen — Rate: ${cfg.DRAKO_RATE_JJK} CE → 1 Drako`, value: "jjk" },
+  { name: `Jujutsu Kaisen — Rate: ${cfg.DRAKO_RATE_JJK} CE → 1 Drako`, value: "jjk" }
 ];
 
 const BOSS_CHOICES = [
@@ -27,13 +26,13 @@ const BOSS_CHOICES = [
   { name: "Ulquiorra (Bleach)", value: "ulquiorra" },
   { name: "Grimmjow (Bleach)", value: "grimmjow" },
   { name: "Mahoraga (JJK)", value: "mahoraga" },
-  { name: "Special Grade Curse (JJK)", value: "specialgrade" },
+  { name: "Special Grade Curse (JJK)", value: "specialgrade" }
 ];
 
 const CURRENCY_CHOICES = [
   { name: "Reiatsu (Bleach)", value: "reiatsu" },
   { name: "Cursed Energy (JJK)", value: "cursed_energy" },
-  { name: "Drako Coin (Global)", value: "drako" },
+  { name: "Drako Coin (Global)", value: "drako" }
 ];
 
 const commands = [
@@ -84,7 +83,6 @@ const commands = [
     .setDescription("Spawn a mob (event staff only)")
     .addStringOption((opt) => opt.setName("event").setDescription("Which event mob?").setRequired(true).addChoices(...EVENT_CHOICES)),
 
-  // ✅ вместо wardrobe -> titles
   new SlashCommandBuilder()
     .setName("titles")
     .setDescription("Open your Titles (equip/unequip saved roles)"),
@@ -101,7 +99,7 @@ const commands = [
     .setDescription("Admin: add currency to a user (role-restricted)")
     .addStringOption((opt) => opt.setName("currency").setDescription("Which currency?").setRequired(true).addChoices(...CURRENCY_CHOICES))
     .addIntegerOption((opt) => opt.setName("amount").setDescription("Amount to add").setRequired(true).setMinValue(1))
-    .addUserOption((opt) => opt.setName("user").setDescription("Target user").setRequired(false)),
+    .addUserOption((opt) => opt.setName("user").setDescription("Target user").setRequired(false))
 ].map((c) => c.toJSON());
 
 const rest = new REST({ version: "10" }).setToken(TOKEN);
