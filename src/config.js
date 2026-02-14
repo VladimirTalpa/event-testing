@@ -1,14 +1,110 @@
 // src/config.js
+
+/* ===================== CHANNEL LOCKS ===================== */
+const BLEACH_CHANNEL_ID = "1469757595031179314";
+const JJK_CHANNEL_ID = "1469757629390651686";
+
+/* ===================== ROLES / PERMS ===================== */
+const EVENT_ROLE_IDS = ["1259865441405501571", "1287879457025163325"];
+const PING_BOSS_ROLE_ID = "1467575062826586205";
+const PING_HOLLOW_ROLE_ID = "1467575020275368131";
+const BOOSTER_ROLE_ID = "1267266564961341501";
+
+/* ===================== THEME / EMOJIS ===================== */
+const COLOR = 0x7b2cff;
+
+const E_BLEACH = "<:event:1470018874408964119>";
+const E_JJK = "<:event:1470018845245968434>";
+
+const E_VASTO = "<:event:1469832084418727979>";
+const E_ULQ = "<:event:1469831975446511648>";
+const E_GRIMJOW = "<:event:1469831949857325097>";
+
+const E_REIATSU = "<:event:1469821285079978045>";
+const E_CE = "<:event:1469821211872727040>";
+const E_DRAKO = "<:event:1469812070542217389>";
+const E_MEMBERS = "👥";
+
+/* ===================== ECONOMY RATES ===================== */
+const DRAKO_RATE_BLEACH = 47;
+const DRAKO_RATE_JJK = 19;
+
+/* ===================== COMMON GAME CONFIG ===================== */
+const ROUND_COOLDOWN_MS = 10 * 1000;
+const MAX_HITS = 2;
+
+/* ===================== DAILY (BLEACH ONLY) ===================== */
+const DAILY_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+const DAILY_NORMAL = 100;
+const DAILY_BOOSTER = 200;
+
+/* ===================== DROPS / ROLES ===================== */
+const VASTO_DROP_ROLE_ID = "1467426528584405103";
+const ULQ_DROP_ROLE_ID = "1469573731301986367";
+
+/* ===================== SHOP ROLE ===================== */
+const SHOP_COSMETIC_ROLE_ID = "1467438527200497768";
+
+/* ===================== MOB CONFIG ===================== */
+const BLEACH_MOB_MS = 2 * 60 * 1000;
+const BLEACH_MOB_HIT = 25;
+const BLEACH_MOB_MISS = 10;
+const BLEACH_BONUS_PER_KILL = 1;
+const BLEACH_BONUS_MAX = 30;
+
+const JJK_MOB_MS = 2 * 60 * 1000;
+const JJK_MOB_HIT = 22;
+const JJK_MOB_MISS = 9;
+const JJK_BONUS_PER_KILL = 1;
+const JJK_BONUS_MAX = 30;
+
 module.exports = {
-  TOKEN: process.env.TOKEN,
+  BLEACH_CHANNEL_ID,
+  JJK_CHANNEL_ID,
 
-  // Redis (если нет — будет память)
-  REDIS_URL: process.env.REDIS_URL || "",
+  EVENT_ROLE_IDS,
+  PING_BOSS_ROLE_ID,
+  PING_HOLLOW_ROLE_ID,
+  BOOSTER_ROLE_ID,
 
-  // UI
-  COLOR: 0x9b59ff,
+  COLOR,
 
-  // твоя гифка карточки (как внешний вид всех карточек)
-  CARD_GIF_URL:
-    "https://media.discordapp.net/attachments/1468153576353431615/1471828355153268759/Your_paragraph_text.gif?ex=69905a79&is=698f08f9&hm=9d059092959a3446edcf38507f1a71b5577e85a97a8ee08292da323f238d513b&=&width=388&height=582",
+  E_VASTO,
+  E_ULQ,
+  E_GRIMJOW,
+
+  E_REIATSU,
+  E_CE,
+  E_DRAKO,
+
+  E_MEMBERS,
+  E_BLEACH,
+  E_JJK,
+
+  DRAKO_RATE_BLEACH,
+  DRAKO_RATE_JJK,
+
+  ROUND_COOLDOWN_MS,
+  MAX_HITS,
+
+  DAILY_COOLDOWN_MS,
+  DAILY_NORMAL,
+  DAILY_BOOSTER,
+
+  VASTO_DROP_ROLE_ID,
+  ULQ_DROP_ROLE_ID,
+
+  SHOP_COSMETIC_ROLE_ID,
+
+  BLEACH_MOB_MS,
+  BLEACH_MOB_HIT,
+  BLEACH_MOB_MISS,
+  BLEACH_BONUS_PER_KILL,
+  BLEACH_BONUS_MAX,
+
+  JJK_MOB_MS,
+  JJK_MOB_HIT,
+  JJK_MOB_MISS,
+  JJK_BONUS_PER_KILL,
+  JJK_BONUS_MAX,
 };
