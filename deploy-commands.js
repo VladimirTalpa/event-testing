@@ -1,116 +1,99 @@
-require("dotenv").config();
-const { REST, Routes, SlashCommandBuilder } = require("discord.js");
-const cfg = require("./src/config");
+require('dotenv').config();
+const { REST, Routes, SlashCommandBuilder } = require('discord.js');
 
 const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const GUILD_ID = process.env.GUILD_ID;
 
 if (!TOKEN || !CLIENT_ID || !GUILD_ID) {
-  console.error("❌ Missing env vars. Need: DISCORD_TOKEN, CLIENT_ID, GUILD_ID");
+  console.error('❌ Missing env vars. Need: DISCORD_TOKEN, CLIENT_ID, GUILD_ID');
   process.exit(1);
 }
 
+const cfg = require('./src/config');
+
 const EVENT_CHOICES = [
-  { name: "Bleach", value: "bleach" },
-  { name: "Jujutsu Kaisen", value: "jjk" }
+  { name: 'Bleach', value: 'bleach' },
+  { name: 'Jujutsu Kaisen', value: 'jjk' },
 ];
 
 const EVENT_CHOICES_EXCHANGE = [
-  { name: `Bleach — Rate: ${cfg.DRAKO_RATE_BLEACH} Reiatsu → 1 Drako`, value: "bleach" },
-  { name: `Jujutsu Kaisen — Rate: ${cfg.DRAKO_RATE_JJK} CE → 1 Drako`, value: "jjk" }
-];
-
-const BOSS_CHOICES = [
-  { name: "Vasto Lorde (Bleach)", value: "vasto" },
-  { name: "Ulquiorra (Bleach)", value: "ulquiorra" },
-  { name: "Grimmjow (Bleach)", value: "grimmjow" },
-  { name: "Mahoraga (JJK)", value: "mahoraga" },
-  { name: "Special Grade Curse (JJK)", value: "specialgrade" }
+  { name: `Bleach — Rate: ${cfg.DRAKO_RATE_BLEACH} Reiatsu → 1 Drako`, value: 'bleach' },
+  { name: `Jujutsu Kaisen — Rate: ${cfg.DRAKO_RATE_JJK} CE → 1 Drako`, value: 'jjk' },
 ];
 
 const CURRENCY_CHOICES = [
-  { name: "Reiatsu (Bleach)", value: "reiatsu" },
-  { name: "Cursed Energy (JJK)", value: "cursed_energy" },
-  { name: "Drako Coin (Global)", value: "drako" }
+  { name: 'Reiatsu (Bleach)', value: 'reiatsu' },
+  { name: 'Cursed Energy (JJK)', value: 'cursed_energy' },
+  { name: 'Drako Coin (Global)', value: 'drako' },
 ];
+
+const BOSS_CHOICES = Object.values(cfg.BOSS_IDS).map((b) => ({ name: b.label, value: b.id }));
 
 const commands = [
   new SlashCommandBuilder()
-    .setName("balance")
-    .setDescription("Check balance")
-    .addUserOption((opt) => opt.setName("user").setDescription("User to check").setRequired(false)),
+    .setName('balance')
+    .setDescription('Check your balance (Reiatsu / Cursed Energy / Drako)')
+    .addUserOption((opt) => opt.setName('user').setDescription('User to check').setRequired(false)),
 
   new SlashCommandBuilder()
-    .setName("inventory")
-    .setDescription("View your inventory (choose event)")
-    .addStringOption((opt) => opt.setName("event").setDescription("Which event?").setRequired(true).addChoices(...EVENT_CHOICES)),
+    .setName('dailyclaim')
+    .setDescription('Claim your daily reward for the selected faction')
+    .addStringOption((opt) => opt.setName('event').setDescription('Which faction?').setRequired(true).addChoices(...EVENT_CHOICES)),
 
   new SlashCommandBuilder()
-    .setName("shop")
-    .setDescription("Open shop (choose event)")
-    .addStringOption((opt) => opt.setName("event").setDescription("Which shop?").setRequired(true).addChoices(...EVENT_CHOICES)),
+    .setName('profile')
+    .setDescription('Open your profile (buttons)')
+    .addUserOption((opt) => opt.setName('user').setDescription('User to view').setRequired(false)),
 
   new SlashCommandBuilder()
-    .setName("leaderboard")
-    .setDescription("Leaderboard (event currency)")
-    .addStringOption((opt) => opt.setName("event").setDescription("Which event?").setRequired(true).addChoices(...EVENT_CHOICES)),
+    .setName('store')
+    .setDescription('Open store (Event Shop / Card Packs / Gear)')
+    .addStringOption((opt) => opt.setName('event').setDescription('Faction store context').setRequired(true).addChoices(...EVENT_CHOICES)),
 
   new SlashCommandBuilder()
-    .setName("give")
-    .setDescription("Transfer currency to another player")
-    .addStringOption((opt) => opt.setName("currency").setDescription("Which currency?").setRequired(true).addChoices(...CURRENCY_CHOICES))
-    .addIntegerOption((opt) => opt.setName("amount").setDescription("Amount to send").setRequired(true).setMinValue(1))
-    .addUserOption((opt) => opt.setName("user").setDescription("Target player").setRequired(true)),
+    .setName('inventory')
+    .setDescription('Quick inventory view')
+    .addStringOption((opt) => opt.setName('event').setDescription('Which faction?').setRequired(true).addChoices(...EVENT_CHOICES)),
 
   new SlashCommandBuilder()
-    .setName("exchange_drako")
-    .setDescription("Buy Drako Coin using event currency (NO reverse)")
-    .addStringOption((opt) => opt.setName("event").setDescription("Pay with which event currency?").setRequired(true).addChoices(...EVENT_CHOICES_EXCHANGE))
-    .addIntegerOption((opt) => opt.setName("drako").setDescription("How many Drako to buy").setRequired(true).setMinValue(1)),
+    .setName('leaderboard')
+    .setDescription('Leaderboard for selected faction currency')
+    .addStringOption((opt) => opt.setName('event').setDescription('Which faction?').setRequired(true).addChoices(...EVENT_CHOICES)),
 
   new SlashCommandBuilder()
-    .setName("dailyclaim")
-    .setDescription("Claim your daily Reiatsu reward (Bleach)"),
+    .setName('give')
+    .setDescription('Transfer currency to another player')
+    .addStringOption((opt) => opt.setName('currency').setDescription('Which currency?').setRequired(true).addChoices(...CURRENCY_CHOICES))
+    .addIntegerOption((opt) => opt.setName('amount').setDescription('Amount to send').setRequired(true).setMinValue(1))
+    .addUserOption((opt) => opt.setName('user').setDescription('Target player').setRequired(true)),
 
   new SlashCommandBuilder()
-    .setName("spawnboss")
-    .setDescription("Spawn a boss (event staff only)")
-    .addStringOption((opt) => opt.setName("boss").setDescription("Choose boss").setRequired(true).addChoices(...BOSS_CHOICES)),
+    .setName('exchange_drako')
+    .setDescription('Buy Drako Coin using faction currency (NO reverse exchange)')
+    .addStringOption((opt) => opt.setName('event').setDescription('Pay with which faction currency?').setRequired(true).addChoices(...EVENT_CHOICES_EXCHANGE))
+    .addIntegerOption((opt) => opt.setName('drako').setDescription('How many Drako you want to buy').setRequired(true).setMinValue(1)),
 
   new SlashCommandBuilder()
-    .setName("spawnmob")
-    .setDescription("Spawn a mob (event staff only)")
-    .addStringOption((opt) => opt.setName("event").setDescription("Which event mob?").setRequired(true).addChoices(...EVENT_CHOICES)),
+    .setName('spawnboss')
+    .setDescription('Spawn a boss (event staff only)')
+    .addStringOption((opt) => opt.setName('boss').setDescription('Choose boss').setRequired(true).addChoices(...BOSS_CHOICES)),
 
   new SlashCommandBuilder()
-    .setName("titles")
-    .setDescription("Open your Titles (equip/unequip saved roles)"),
-
-  new SlashCommandBuilder()
-    .setName("pvpclash")
-    .setDescription("Challenge a player to PvP clash (stake currency)")
-    .addStringOption((opt) => opt.setName("currency").setDescription("Which currency?").setRequired(true).addChoices(...CURRENCY_CHOICES))
-    .addIntegerOption((opt) => opt.setName("amount").setDescription("Stake amount").setRequired(true).setMinValue(1))
-    .addUserOption((opt) => opt.setName("user").setDescription("Opponent").setRequired(true)),
-
-  new SlashCommandBuilder()
-    .setName("adminadd")
-    .setDescription("Admin: add currency to a user (role-restricted)")
-    .addStringOption((opt) => opt.setName("currency").setDescription("Which currency?").setRequired(true).addChoices(...CURRENCY_CHOICES))
-    .addIntegerOption((opt) => opt.setName("amount").setDescription("Amount to add").setRequired(true).setMinValue(1))
-    .addUserOption((opt) => opt.setName("user").setDescription("Target user").setRequired(false))
+    .setName('spawnmob')
+    .setDescription('Spawn a mob (event staff only)')
+    .addStringOption((opt) => opt.setName('event').setDescription('Which faction mob?').setRequired(true).addChoices(...EVENT_CHOICES)),
 ].map((c) => c.toJSON());
 
-const rest = new REST({ version: "10" }).setToken(TOKEN);
+const rest = new REST({ version: '10' }).setToken(TOKEN);
 
 (async () => {
   try {
-    console.log("🔄 Deploying slash commands...");
+    console.log('🔄 Deploying slash commands...');
     await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: commands });
-    console.log("✅ Slash commands successfully deployed!");
+    console.log('✅ Slash commands successfully deployed!');
   } catch (e) {
-    console.error("❌ Failed to deploy commands:", e);
+    console.error('❌ Failed to deploy commands:', e);
     process.exit(1);
   }
 })();
