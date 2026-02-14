@@ -1,18 +1,50 @@
 // src/index.js
-const { Client, GatewayIntentBits } = require("discord.js");
-const { handleSlash } = require("./handlers/slash");
-const { TOKEN } = require("./config");
+require("dotenv").config();
+const { Client, GatewayIntentBits, Partials, Events } = require("discord.js");
+const { initRedis } = require("./core/redis");
+
+const handleSlash = require("./handlers/slash");
+const handleButtons = require("./handlers/buttons");
+const handleSelects = require("./handlers/selects");
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds],
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
+  partials: [Partials.Channel],
 });
 
-client.once("ready", () => {
+client.once(Events.ClientReady, async () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
+  await initRedis();
 });
 
-client.on("interactionCreate", async (interaction) => {
-  await handleSlash(interaction);
+client.on(Events.InteractionCreate, async (interaction) => {
+  try {
+    // ✅ СЛЭШ КОМАНДЫ
+    if (interaction.isChatInputCommand()) {
+      return await handleSlash(interaction);
+    }
+
+    // ✅ КНОПКИ (boss/shop/pvp/mob)
+    if (interaction.isButton()) {
+      return await handleButtons(interaction);
+    }
+
+    // ✅ SELECT MENUS (titles)
+    if (interaction.isStringSelectMenu()) {
+      return await handleSelects(interaction);
+    }
+  } catch (e) {
+    console.error("Interaction error:", e);
+    try {
+      const msg = "⚠️ Error handling this action.";
+      if (!interaction.isRepliable()) return;
+      if (interaction.deferred || interaction.replied) {
+        await interaction.followUp({ content: msg, ephemeral: true });
+      } else {
+        await interaction.reply({ content: msg, ephemeral: true });
+      }
+    } catch {}
+  }
 });
 
-client.login(TOKEN);
+client.login(process.env.DISCORD_TOKEN);
