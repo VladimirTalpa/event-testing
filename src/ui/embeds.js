@@ -15,11 +15,12 @@ const {
   DRAKO_RATE_JJK,
 } = require("../config");
 
+// ✅ FIX: правильный путь + файл должен существовать
 const { BLEACH_SHOP_ITEMS, JJK_SHOP_ITEMS } = require("../data/shop");
+
 const { safeName } = require("../core/utils");
 
-/* ===== bonuses / multipliers ===== */
-// ✅ SAFE: items can be undefined
+/* ===== bonuses / multipliers (FIX: items всегда safe) ===== */
 function calcBleachSurvivalBonus(items = {}) {
   let bonus = 0;
   if (items.zanpakuto_basic) bonus += 4;
@@ -39,7 +40,6 @@ function calcBleachDropLuckMultiplier(items = {}) {
   return mult;
 }
 
-// ✅ SAFE: items can be undefined
 function calcJjkSurvivalBonus(items = {}) {
   let bonus = 0;
   if (items.black_flash_manual) bonus += 2;
@@ -49,6 +49,8 @@ function calcJjkSurvivalBonus(items = {}) {
   if (items.binding_vow_seal) bonus += 15;
   return bonus;
 }
+
+// ✅ FIX: чтобы не крашилось если items undefined
 function calcJjkCEMultiplier(items = {}) {
   let mult = 1.0;
   if (items.black_flash_manual) mult *= 1.20;
@@ -61,6 +63,7 @@ function calcJjkDropLuckMultiplier(items = {}) {
   return mult;
 }
 
+/* ===================== BOSS EMBEDS ===================== */
 function bossSpawnEmbed(def, channelName, joinedCount, fightersText) {
   const eventTag = def.event === "bleach" ? `${E_BLEACH} BLEACH` : `${E_JJK} JJK`;
   const currency = def.event === "bleach" ? E_REIATSU : E_CE;
@@ -123,6 +126,7 @@ function bossDefeatEmbed(def) {
     .setImage(def.defeatMedia);
 }
 
+/* ===================== MOB / INVENTORY / SHOP / LEADERBOARD ===================== */
 function mobEmbed(eventKey, joinedCount, mob) {
   const eventTag = eventKey === "bleach" ? `${E_BLEACH} BLEACH` : `${E_JJK} JJK`;
   const actionWord = eventKey === "jjk" ? "Exorcise" : "Attack";
@@ -254,7 +258,7 @@ function leaderboardEmbed(eventKey, entries) {
 }
 
 function wardrobeEmbed(guild, player) {
-  const roles = player.ownedRoles.map((rid) => guild.roles.cache.get(rid)).filter(Boolean);
+  const roles = (player.ownedRoles || []).map((rid) => guild.roles.cache.get(rid)).filter(Boolean);
   const lines = roles.length ? roles.map((r) => `• <@&${r.id}>`).join("\n") : "_No saved roles yet._";
 
   return new EmbedBuilder()
@@ -272,6 +276,7 @@ module.exports = {
   bossRoundEmbed,
   bossVictoryEmbed,
   bossDefeatEmbed,
+
   mobEmbed,
   inventoryEmbed,
   shopEmbed,
@@ -281,6 +286,7 @@ module.exports = {
   calcBleachSurvivalBonus,
   calcBleachReiatsuMultiplier,
   calcBleachDropLuckMultiplier,
+
   calcJjkSurvivalBonus,
   calcJjkCEMultiplier,
   calcJjkDropLuckMultiplier,
