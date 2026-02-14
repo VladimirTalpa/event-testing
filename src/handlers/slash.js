@@ -1,85 +1,149 @@
 // src/handlers/slash.js
-const path = require("path");
 const fs = require("fs");
+const path = require("path");
+
+const {
+  profileHomeEmbed,
+  storeHomeEmbed,
+  simpleErrorEmbed,
+} = require("../ui/embeds");
+
+const { closeRow, homeRow } = require("../ui/components");
 
 function loadCommands() {
-  const commands = new Map();
-  const buttonHandlers = new Map();
+  const dir = path.join(__dirname, "..", "commands");
+  const files = fs
+    .readdirSync(dir)
+    .filter((f) => f.endsWith(".js") && !f.startsWith("_"));
 
-  const cmdDir = path.join(__dirname, "..", "commands");
-  const files = fs.readdirSync(cmdDir).filter((f) => f.endsWith(".js"));
-
+  const map = new Map();
   for (const file of files) {
-    const mod = require(path.join(cmdDir, file));
-    if (!mod?.data?.name || !mod?.execute) continue;
+    const cmd = require(path.join(dir, file));
+    if (!cmd?.data?.name || typeof cmd.execute !== "function") continue;
+    map.set(cmd.data.name, cmd);
+  }
+  return map;
+}
 
-    commands.set(mod.data.name, mod);
+const COMMANDS = loadCommands();
 
-    // если модуль умеет кнопки
-    if (typeof mod.onButton === "function") {
-      // сохраняем по префиксу (profile:, store: и т.д.)
-      const prefix = mod.data.name + ":";
-      buttonHandlers.set(prefix, mod.onButton);
-      // и ещё кастомные (например profile:home)
-      buttonHandlers.set(mod.data.name, mod.onButton);
+/**
+ * customId format:
+ *  ui:close
+ *  ui:home:<screen>
+ *  profile:home
+ *  store:home
+ */
+async function handleComponent(interaction) {
+  const raw = interaction.customId || "";
+  const parts = raw.split(":");
+  const scope = parts[0];
+  const action = parts[1];
+
+  // Always ACK fast (no "application did not respond")
+  if (!interaction.deferred && !interaction.replied) {
+    await interaction.deferUpdate().catch(() => null);
+  }
+
+  // ---------- Universal UI ----------
+  if (scope === "ui" && action === "close") {
+    // delete message if possible, else just remove components
+    const msg = interaction.message;
+    if (msg?.deletable) {
+      await msg.delete().catch(() => null);
+      return;
     }
+    await interaction.editReply({ components: [] }).catch(() => null);
+    return;
   }
 
-  return { commands, buttonHandlers };
+  if (scope === "ui" && action === "home") {
+    const screen = parts[2] || "profile";
+    if (screen === "store") {
+      const view = storeHomeEmbed(interaction.user);
+      await interaction.editReply({
+        ...view,
+        components: [homeRow("profile"), closeRow()],
+      });
+      return;
+    }
+    // default: profile
+    const view = profileHomeEmbed(interaction.user);
+    await interaction.editReply({
+      ...view,
+      components: [homeRow("store"), closeRow()],
+    });
+    return;
+  }
+
+  // ---------- Profile ----------
+  if (scope === "profile" && action === "home") {
+    const view = profileHomeEmbed(interaction.user);
+    await interaction.editReply({
+      ...view,
+      components: [homeRow("store"), closeRow()],
+    });
+    return;
+  }
+
+  // ---------- Store ----------
+  if (scope === "store" && action === "home") {
+    const view = storeHomeEmbed(interaction.user);
+    await interaction.editReply({
+      ...view,
+      components: [homeRow("profile"), closeRow()],
+    });
+    return;
+  }
+
+  // unknown component → just ignore safely
+  return;
 }
 
-function pickButtonHandler(buttonHandlers, customId) {
-  // точное совпадение
-  for (const [k, fn] of buttonHandlers.entries()) {
-    if (k === customId) return fn;
-  }
-  // по префиксу
-  for (const [k, fn] of buttonHandlers.entries()) {
-    if (customId.startsWith(k)) return fn;
-  }
-  return null;
-}
+async function handleSlash(interaction) {
+  try {
+    // Slash commands
+    if (interaction.isChatInputCommand()) {
+      const cmd = COMMANDS.get(interaction.commandName);
 
-module.exports = {
-  loadCommands,
-  async handleInteraction(interaction, registry) {
-    try {
-      // CLOSE
-      if (interaction.isButton() && interaction.customId === "ui:close") {
-        return interaction.update({ components: [], embeds: interaction.message.embeds }).catch(async () => {
-          // если update нельзя (например истёкло), просто ответим
-          if (!interaction.replied) {
-            await interaction.reply({ content: "Closed.", ephemeral: true });
-          }
+      if (!cmd) {
+        return interaction.reply({
+          embeds: [
+            simpleErrorEmbed(
+              "Command is not implemented.",
+              `/${interaction.commandName}`
+            ),
+          ],
+          ephemeral: true,
         });
       }
 
-      // SLASH
-      if (interaction.isChatInputCommand()) {
-        const cmd = registry.commands.get(interaction.commandName);
-        if (!cmd) {
-          return interaction.reply({
-            content: `❌ Command /${interaction.commandName} is not implemented.`,
-            ephemeral: true,
-          });
-        }
-        return cmd.execute(interaction, registry);
-      }
-
-      // BUTTONS
-      if (interaction.isButton()) {
-        const fn = pickButtonHandler(registry.buttonHandlers, interaction.customId);
-        if (!fn) {
-          return interaction.reply({ content: "❌ This button is not handled.", ephemeral: true });
-        }
-        return fn(interaction, registry);
-      }
-    } catch (err) {
-      console.error("Interaction error:", err);
-      if (!interaction.replied && !interaction.deferred) {
-        return interaction.reply({ content: "⚠️ Error handling this action.", ephemeral: true }).catch(() => {});
-      }
-      return interaction.followUp({ content: "⚠️ Error handling this action.", ephemeral: true }).catch(() => {});
+      // each command отвечает сам (reply/defer)
+      await cmd.execute(interaction);
+      return;
     }
-  },
-};
+
+    // Buttons / Selects
+    if (interaction.isButton() || interaction.isStringSelectMenu()) {
+      await handleComponent(interaction);
+      return;
+    }
+  } catch (err) {
+    console.error("Interaction error:", err);
+
+    // If already responded → try edit
+    const payload = {
+      embeds: [simpleErrorEmbed("Error handling this action.", "Check logs.")],
+      components: [closeRow()],
+      ephemeral: true,
+    };
+
+    if (interaction.deferred || interaction.replied) {
+      await interaction.editReply(payload).catch(() => null);
+    } else {
+      await interaction.reply(payload).catch(() => null);
+    }
+  }
+}
+
+module.exports = { handleSlash };
