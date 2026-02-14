@@ -1,12 +1,6 @@
 // src/data/shop.js
 const { E_REIATSU, E_CE, SHOP_COSMETIC_ROLE_ID } = require("../config");
 
-/**
- * Пока оставляем Event Shop как раньше.
- * Packs / Gears / Forge / Expeditions добавим позже отдельными файлами,
- * но сейчас главное — чтобы проект стартовал без краша.
- */
-
 const BLEACH_SHOP_ITEMS = [
   { key: "zanpakuto_basic", name: "Zanpakutō (Basic)", price: 350, desc: `+4% survive vs Bleach bosses • +5% drop luck` },
   { key: "hollow_mask_fragment", name: "Hollow Mask Fragment", price: 900, desc: `+7% survive vs Bleach bosses • +10% drop luck` },
