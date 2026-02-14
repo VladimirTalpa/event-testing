@@ -1,35 +1,50 @@
 // src/ui/components.js
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
+const {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  StringSelectMenuBuilder,
+} = require("discord.js");
 
-/**
- * Универсальная кнопка закрытия для любых меню/ивентов.
- * customId одинаковый везде, чтобы твой collector в slash.js мог
- * просто ловить "ui_close".
- */
-function closeButton(label = "Close") {
-  return new ButtonBuilder()
-    .setCustomId("ui_close")
-    .setLabel(label)
-    .setStyle(ButtonStyle.Danger);
+function closeRow(customId = "ui:close") {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(customId)
+      .setLabel("Close")
+      .setStyle(ButtonStyle.Secondary)
+  );
 }
 
-function row(...buttons) {
-  return new ActionRowBuilder().addComponents(...buttons);
+function navRow({ backId, closeId = "ui:close" }) {
+  const row = new ActionRowBuilder();
+  if (backId) {
+    row.addComponents(
+      new ButtonBuilder()
+        .setCustomId(backId)
+        .setLabel("Back")
+        .setStyle(ButtonStyle.Secondary)
+    );
+  }
+  row.addComponents(
+    new ButtonBuilder()
+      .setCustomId(closeId)
+      .setLabel("Close")
+      .setStyle(ButtonStyle.Secondary)
+  );
+  return row;
 }
 
-function closeRow(label = "Close") {
-  return row(closeButton(label));
-}
-
-function navButton(customId, label, style = ButtonStyle.Secondary, emoji = null) {
-  const b = new ButtonBuilder().setCustomId(customId).setLabel(label).setStyle(style);
-  if (emoji) b.setEmoji(emoji);
-  return b;
+function mainMenuSelect(customId, placeholder, options) {
+  return new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId(customId)
+      .setPlaceholder(placeholder)
+      .addOptions(options)
+  );
 }
 
 module.exports = {
-  row,
   closeRow,
-  closeButton,
-  navButton,
+  navRow,
+  mainMenuSelect,
 };
