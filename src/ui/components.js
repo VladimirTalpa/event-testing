@@ -1,116 +1,113 @@
+// src/ui/components.js
 const {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  StringSelectMenuBuilder,
 } = require("discord.js");
 
-function buildStoreNavRow(active = "event") {
-  return new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("store:nav:event")
-      .setLabel("Event Shop")
-      .setStyle(active === "event" ? ButtonStyle.Primary : ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId("store:nav:packs")
-      .setLabel("Card Packs")
-      .setStyle(active === "packs" ? ButtonStyle.Primary : ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId("store:nav:gear")
-      .setLabel("Gear Shop")
-      .setStyle(active === "gear" ? ButtonStyle.Primary : ButtonStyle.Secondary),
+function btn(customId, label, style = ButtonStyle.Secondary, disabled = false, emoji = null) {
+  const b = new ButtonBuilder().setCustomId(customId).setLabel(label).setStyle(style).setDisabled(disabled);
+  if (emoji) b.setEmoji(emoji);
+  return b;
+}
+
+function row(...buttons) {
+  return new ActionRowBuilder().addComponents(buttons);
+}
+
+function closeRow() {
+  return row(btn("ui:close", "Close", ButtonStyle.Danger));
+}
+
+function backCloseRow(backId) {
+  return row(
+    btn(backId, "Back", ButtonStyle.Secondary),
+    btn("ui:close", "Close", ButtonStyle.Danger)
   );
 }
 
-function buildProfileNavRow(active = "currency") {
+function navRow(backId, nextId, extraClose = true) {
+  const buttons = [
+    btn(backId, "Back", ButtonStyle.Secondary),
+    btn(nextId, "Next", ButtonStyle.Secondary),
+  ];
+  if (extraClose) buttons.push(btn("ui:close", "Close", ButtonStyle.Danger));
+  return row(...buttons);
+}
+
+function menu(customId, placeholder, options, minValues = 1, maxValues = 1, disabled = false) {
   return new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("profile:nav:currency")
-      .setLabel("Currency")
-      .setStyle(active === "currency" ? ButtonStyle.Primary : ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId("profile:nav:cards")
-      .setLabel("Cards")
-      .setStyle(active === "cards" ? ButtonStyle.Primary : ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId("profile:nav:gears")
-      .setLabel("Gears")
-      .setStyle(active === "gears" ? ButtonStyle.Primary : ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId("profile:nav:titles")
-      .setLabel("Titles")
-      .setStyle(active === "titles" ? ButtonStyle.Primary : ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId("profile:nav:leaderboard")
-      .setLabel("Leaderboard")
-      .setStyle(active === "leaderboard" ? ButtonStyle.Primary : ButtonStyle.Secondary),
+    new StringSelectMenuBuilder()
+      .setCustomId(customId)
+      .setPlaceholder(placeholder)
+      .setMinValues(minValues)
+      .setMaxValues(maxValues)
+      .setDisabled(disabled)
+      .addOptions(options)
   );
 }
 
-function buildPackBuyRows(player) {
-  const rows = [];
-
-  // buy basic
-  rows.push(
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("packs:buy:basic:bleach")
-        .setLabel("Buy Basic (Bleach)")
-        .setStyle(ButtonStyle.Success),
-      new ButtonBuilder()
-        .setCustomId("packs:buy:basic:jjk")
-        .setLabel("Buy Basic (JJK)")
-        .setStyle(ButtonStyle.Success),
-    )
+/**
+ * Стандартные вкладки для Profile (одно красивое меню)
+ */
+function profileTabsSelect() {
+  return menu(
+    "ui:profile:tabs",
+    "Choose a section…",
+    [
+      { label: "Currency", value: "currency", description: "Reiatsu / CE / Drako" },
+      { label: "Cards", value: "cards", description: "Your characters collection" },
+      { label: "Gears", value: "gears", description: "Weapon / Armor" },
+      { label: "Titles", value: "titles", description: "Roles you can wear (Wardrobe)" },
+      { label: "Leaderboard", value: "leaderboard", description: "Top players (event)" },
+    ],
+    1,
+    1
   );
-
-  // buy legendary
-  rows.push(
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("packs:buy:legendary:bleach")
-        .setLabel("Buy Legendary (Bleach)")
-        .setStyle(ButtonStyle.Danger),
-      new ButtonBuilder()
-        .setCustomId("packs:buy:legendary:jjk")
-        .setLabel("Buy Legendary (JJK)")
-        .setStyle(ButtonStyle.Danger),
-    )
-  );
-
-  // open from inventory
-  const basic = player?.packs?.basic || 0;
-  const legendary = player?.packs?.legendary || 0;
-
-  rows.push(
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("packs:open:basic")
-        .setLabel(`Open Basic (${basic})`)
-        .setStyle(ButtonStyle.Primary)
-        .setDisabled(basic <= 0),
-      new ButtonBuilder()
-        .setCustomId("packs:open:legendary")
-        .setLabel(`Open Legendary (${legendary})`)
-        .setStyle(ButtonStyle.Primary)
-        .setDisabled(legendary <= 0),
-    )
-  );
-
-  return rows;
 }
 
-function backRow(targetCustomId) {
-  return new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`ui:back:${targetCustomId}`)
-      .setLabel("⬅ Back")
-      .setStyle(ButtonStyle.Secondary)
+/**
+ * Стандартные вкладки для Store
+ */
+function storeTabsSelect() {
+  return menu(
+    "ui:store:tabs",
+    "Choose a store section…",
+    [
+      { label: "Event Shop", value: "event_shop", description: "Event items & cosmetics" },
+      { label: "Card Packs", value: "packs", description: "Buy packs and open them" },
+      { label: "Gear Shop", value: "gear_shop", description: "Buy gear materials/items" },
+    ],
+    1,
+    1
+  );
+}
+
+/**
+ * Мини-меню для Card Packs
+ */
+function packSelect() {
+  return menu(
+    "ui:store:packs",
+    "Choose a pack…",
+    [
+      { label: "Basic Pack", value: "basic", description: "Cheaper, common/rare focused" },
+      { label: "Legendary Pack", value: "legendary", description: "Higher chance for Legendary/Mythic" },
+    ],
+    1,
+    1
   );
 }
 
 module.exports = {
-  buildStoreNavRow,
-  buildProfileNavRow,
-  buildPackBuyRows,
-  backRow,
+  btn,
+  row,
+  closeRow,
+  backCloseRow,
+  navRow,
+  menu,
+  profileTabsSelect,
+  storeTabsSelect,
+  packSelect,
 };
