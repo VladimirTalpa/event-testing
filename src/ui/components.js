@@ -1,4 +1,3 @@
-// src/ui/components.js
 const {
   ActionRowBuilder,
   ButtonBuilder,
@@ -13,13 +12,12 @@ const CID = {
   BOSS_RULES: "boss_rules",
   BOSS_ACTION: "boss_action",
   MOB_ATTACK: "mob_attack",
-
   PVP_ACCEPT: "pvp_accept",
   PVP_DECLINE: "pvp_decline",
 
-  // ✅ MENUS
-  MENU: "menu", // menu:<name>:<page>
-  MENU_CLOSE: "menu_close", // menu_close:<name>
+  MENU_PROFILE: "menu_profile",
+  MENU_STORE: "menu_store",
+  MENU_FORGE: "menu_forge",
 };
 
 function hasEventRole(member) {
@@ -94,7 +92,6 @@ function mobButtons(eventKey, disabled = false) {
   ];
 }
 
-/* ===================== SHOP UI (unchanged) ===================== */
 function shopButtons(eventKey, player) {
   if (eventKey === "bleach") {
     const inv = player.bleach.items;
@@ -123,7 +120,6 @@ function shopButtons(eventKey, player) {
   return [row1, row2];
 }
 
-/* ===================== WARDROBE UI ===================== */
 function wardrobeComponents(guild, member, player) {
   const roles = player.ownedRoles.map((rid) => guild.roles.cache.get(rid)).filter(Boolean);
   if (!roles.length) return [];
@@ -145,7 +141,6 @@ function wardrobeComponents(guild, member, player) {
   return [new ActionRowBuilder().addComponents(menu)];
 }
 
-/* ===================== PVP UI ===================== */
 function pvpButtons(currency, amount, challengerId, targetId, disabled = false) {
   return [
     new ActionRowBuilder().addComponents(
@@ -165,49 +160,40 @@ function pvpButtons(currency, amount, challengerId, targetId, disabled = false) 
   ];
 }
 
-/* ===================== NEW MENUS ===================== */
-function menuButtons(menuName) {
-  // menu:<name>:<page>
-  const mk = (page) => `${CID.MENU}:${menuName}:${page}`;
-  const close = `${CID.MENU_CLOSE}:${menuName}`;
+function profileMenuButtons() {
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`${CID.MENU_PROFILE}:currency`).setLabel("Currency").setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId(`${CID.MENU_PROFILE}:cards`).setLabel("Cards").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(`${CID.MENU_PROFILE}:gears`).setLabel("Gears").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(`${CID.MENU_PROFILE}:titles`).setLabel("Titles").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(`${CID.MENU_PROFILE}:close`).setLabel("Close").setStyle(ButtonStyle.Danger)
+    ),
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`${CID.MENU_PROFILE}:drako_lb`).setLabel("Drako Leaderboard").setStyle(ButtonStyle.Secondary)
+    ),
+  ];
+}
 
-  if (menuName === "profile") {
-    return [
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(mk("currency")).setLabel("Currency").setEmoji("💰").setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId(mk("cards")).setLabel("Cards").setEmoji("🃏").setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId(mk("gears")).setLabel("Gears").setEmoji("🛡️").setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId(mk("titles")).setLabel("Titles").setEmoji("🎖️").setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId(close).setLabel("Close").setEmoji("✖️").setStyle(ButtonStyle.Danger)
-      ),
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(mk("drako_lb")).setLabel("Drako Leaderboard").setEmoji("🏆").setStyle(ButtonStyle.Secondary)
-      ),
-    ];
-  }
+function storeMenuButtons() {
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`${CID.MENU_STORE}:eventshop`).setLabel("Event Shop").setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId(`${CID.MENU_STORE}:cardpacks`).setLabel("Card Packs").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(`${CID.MENU_STORE}:gearshop`).setLabel("Gear Shop").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(`${CID.MENU_STORE}:close`).setLabel("Close").setStyle(ButtonStyle.Danger)
+    ),
+  ];
+}
 
-  if (menuName === "store") {
-    return [
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(mk("event_shop")).setLabel("Event Shop").setEmoji("🛒").setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId(mk("card_packs")).setLabel("Card Packs").setEmoji("🎴").setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId(mk("gear_shop")).setLabel("Gear Shop").setEmoji("⚙️").setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId(close).setLabel("Close").setEmoji("✖️").setStyle(ButtonStyle.Danger)
-      ),
-    ];
-  }
-
-  if (menuName === "forge") {
-    return [
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(mk("craft")).setLabel("Craft").setEmoji("🔨").setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId(mk("evolve")).setLabel("Evolve").setEmoji("🧬").setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId(close).setLabel("Close").setEmoji("✖️").setStyle(ButtonStyle.Danger)
-      ),
-    ];
-  }
-
-  return [];
+function forgeMenuButtons() {
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`${CID.MENU_FORGE}:craft`).setLabel("Craft").setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId(`${CID.MENU_FORGE}:evolve`).setLabel("Evolve").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(`${CID.MENU_FORGE}:close`).setLabel("Close").setStyle(ButtonStyle.Danger)
+    ),
+  ];
 }
 
 module.exports = {
@@ -223,5 +209,7 @@ module.exports = {
   shopButtons,
   wardrobeComponents,
   pvpButtons,
-  menuButtons,
+  profileMenuButtons,
+  storeMenuButtons,
+  forgeMenuButtons,
 };
