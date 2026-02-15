@@ -1,22 +1,41 @@
-// src/index.js
 require("dotenv").config();
-const { Client, GatewayIntentBits, Partials, Events } = require("discord.js");
-const { initRedis } = require("./core/redis");
+const { REST, Routes, SlashCommandBuilder } = require("discord.js");
 
-const onInteraction = require("./handlers/interactions");
+const TOKEN = process.env.DISCORD_TOKEN;
+const CLIENT_ID = process.env.CLIENT_ID;
+const GUILD_ID = process.env.GUILD_ID;
 
-const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
-  partials: [Partials.Channel],
-});
+if (!TOKEN || !CLIENT_ID || !GUILD_ID) {
+  console.error("Missing env vars: DISCORD_TOKEN, CLIENT_ID, GUILD_ID");
+  process.exit(1);
+}
 
-client.once(Events.ClientReady, async () => {
-  console.log(`✅ Logged in as ${client.user.tag}`);
-  await initRedis();
-});
+const BOSS_CHOICES = [
+  { name: "Vasto Lorde (Bleach)", value: "vasto" },
+  { name: "Ulquiorra (Bleach)", value: "ulquiorra" },
+  { name: "Grimmjow (Bleach)", value: "grimmjow" },
+  { name: "Mahoraga (JJK)", value: "mahoraga" },
+  { name: "Special Grade Curse (JJK)", value: "specialgrade" }
+];
 
-client.on(Events.InteractionCreate, onInteraction);
+const commands = [
+  new SlashCommandBuilder().setName("profile").setDescription("Open profile menu"),
+  new SlashCommandBuilder().setName("store").setDescription("Open store menu"),
+  new SlashCommandBuilder().setName("forge").setDescription("Open forge menu"),
+  new SlashCommandBuilder()
+    .setName("spawnboss")
+    .setDescription("Spawn a boss")
+    .addStringOption((o) => o.setName("boss").setDescription("Choose boss").setRequired(true).addChoices(...BOSS_CHOICES))
+].map((c) => c.toJSON());
 
-client.login(process.env.DISCORD_TOKEN);
+const rest = new REST({ version: "10" }).setToken(TOKEN);
 
-
+(async () => {
+  try {
+    await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: commands });
+    console.log("Commands deployed");
+  } catch (e) {
+    console.error(e);
+    process.exit(1);
+  }
+})();
