@@ -25,8 +25,8 @@ const {
 
 const { getPlayer, setPlayer, getTopPlayers } = require("../core/players");
 const { safeName } = require("../core/utils");
-const { hasBoosterRole, shopButtons, wardrobeComponents, pvpButtons } = require("../ui/components");
-const { inventoryEmbed, shopEmbed, leaderboardEmbed, wardrobeEmbed } = require("../ui/embeds");
+const { hasBoosterRole, shopButtons, wardrobeComponents, pvpButtons, menuButtons } = require("../ui/components");
+const { inventoryEmbed, shopEmbed, leaderboardEmbed, wardrobeEmbed, profileEmbed, storeEmbed, forgeEmbed } = require("../ui/embeds");
 
 const { spawnBoss } = require("../events/boss");
 const { spawnMob } = require("../events/mob");
@@ -64,10 +64,7 @@ module.exports = async function handleSlash(interaction) {
   if (interaction.commandName === "inventory") {
     const eventKey = interaction.options.getString("event", true);
     const p = await getPlayer(interaction.user.id);
-    return interaction.reply({
-      embeds: [inventoryEmbed(eventKey, p, BLEACH_BONUS_MAX, JJK_BONUS_MAX)],
-      ephemeral: true,
-    });
+    return interaction.reply({ embeds: [inventoryEmbed(eventKey, p, BLEACH_BONUS_MAX, JJK_BONUS_MAX)], ephemeral: true });
   }
 
   if (interaction.commandName === "shop") {
@@ -114,7 +111,6 @@ module.exports = async function handleSlash(interaction) {
     return interaction.reply({ content: `🎁 You claimed **${E_REIATSU} ${amount} Reiatsu**!`, ephemeral: false });
   }
 
-  /* ===================== /give ===================== */
   if (interaction.commandName === "give") {
     const currency = interaction.options.getString("currency", true);
     const target = interaction.options.getUser("user", true);
@@ -156,7 +152,6 @@ module.exports = async function handleSlash(interaction) {
     });
   }
 
-  /* ===================== /exchange_drako ===================== */
   if (interaction.commandName === "exchange_drako") {
     const eventKey = interaction.options.getString("event", true);
     const drakoWanted = interaction.options.getInteger("drako", true);
@@ -214,7 +209,6 @@ module.exports = async function handleSlash(interaction) {
     }
   }
 
-  /* ===================== /spawnboss ===================== */
   if (interaction.commandName === "spawnboss") {
     if (!canSpawn(interaction)) {
       return interaction.reply({ content: "⛔ You don’t have permission to spawn bosses.", ephemeral: true });
@@ -230,11 +224,12 @@ module.exports = async function handleSlash(interaction) {
     }
 
     await interaction.reply({ content: `✅ Spawned **${def.name}**.`, ephemeral: true });
-    await spawnBoss(channel, bossId, true);
+
+    // ✅ no ping
+    await spawnBoss(channel, bossId, false);
     return;
   }
 
-  /* ===================== /spawnmob ===================== */
   if (interaction.commandName === "spawnmob") {
     if (!canSpawn(interaction)) {
       return interaction.reply({ content: "⛔ You don’t have permission to spawn mobs.", ephemeral: true });
@@ -249,15 +244,12 @@ module.exports = async function handleSlash(interaction) {
     }
 
     await interaction.reply({ content: `✅ Mob spawned (${eventKey}).`, ephemeral: true });
-    await spawnMob(channel, eventKey, {
-      bleachChannelId: BLEACH_CHANNEL_ID,
-      jjkChannelId: JJK_CHANNEL_ID,
-      withPing: true,
-    });
+
+    // ✅ no ping
+    await spawnMob(channel, eventKey, { bleachChannelId: BLEACH_CHANNEL_ID, jjkChannelId: JJK_CHANNEL_ID, withPing: false });
     return;
   }
 
-  /* ===================== /wardrobe ===================== */
   if (interaction.commandName === "wardrobe") {
     const p = await getPlayer(interaction.user.id);
     const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
@@ -270,7 +262,6 @@ module.exports = async function handleSlash(interaction) {
     });
   }
 
-  /* ===================== /pvpclash ===================== */
   if (interaction.commandName === "pvpclash") {
     const currency = interaction.options.getString("currency", true);
     const amount = interaction.options.getInteger("amount", true);
@@ -284,15 +275,12 @@ module.exports = async function handleSlash(interaction) {
     pvpById.set(key, { createdAt: Date.now(), done: false });
 
     return interaction.reply({
-      content:
-        `⚔️ <@${target.id}> you were challenged by <@${interaction.user.id}>!\n` +
-        `Stake: **${amount} ${currency}**`,
+      content: `⚔️ <@${target.id}> you were challenged by <@${interaction.user.id}>!\nStake: **${amount} ${currency}**`,
       components: pvpButtons(currency, amount, interaction.user.id, target.id, false),
       ephemeral: false,
     });
   }
 
-  /* ===================== /adminadd ===================== */
   if (interaction.commandName === "adminadd") {
     const allowed = interaction.member?.roles?.cache?.has("1259865441405501571");
     if (!allowed) return interaction.reply({ content: "⛔ No permission.", ephemeral: true });
@@ -314,6 +302,32 @@ module.exports = async function handleSlash(interaction) {
         `✅ Added **${amount}** to <@${target.id}>.\n` +
         `${E_REIATSU} Reiatsu: **${p.bleach.reiatsu}** • ${E_CE} CE: **${p.jjk.cursedEnergy}** • ${E_DRAKO} Drako: **${p.drako}**`,
       ephemeral: false,
+    });
+  }
+
+  /* ===================== NEW COMMANDS ===================== */
+  if (interaction.commandName === "profile") {
+    const p = await getPlayer(interaction.user.id);
+    return interaction.reply({
+      embeds: [profileEmbed("currency", p, interaction.guild?.name || "")],
+      components: menuButtons("profile"),
+      ephemeral: true,
+    });
+  }
+
+  if (interaction.commandName === "store") {
+    return interaction.reply({
+      embeds: [storeEmbed("event_shop")],
+      components: menuButtons("store"),
+      ephemeral: true,
+    });
+  }
+
+  if (interaction.commandName === "forge") {
+    return interaction.reply({
+      embeds: [forgeEmbed("craft")],
+      components: menuButtons("forge"),
+      ephemeral: true,
     });
   }
 };
