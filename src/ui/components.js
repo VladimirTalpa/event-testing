@@ -1,3 +1,4 @@
+// src/ui/components.js
 const {
   ActionRowBuilder,
   ButtonBuilder,
@@ -13,32 +14,12 @@ const CID = {
   BOSS_ACTION: "boss_action",
   MOB_ATTACK: "mob_attack",
 
-  // pvp
   PVP_ACCEPT: "pvp_accept",
   PVP_DECLINE: "pvp_decline",
 
-  // store / forge / profile
-  STORE_HOME: "store:home",
-  STORE_EVENT: "store:event",
-  STORE_PACKS: "store:packs",
-  STORE_GEAR: "store:gear",
-  STORE_EVENT_BLEACH: "store:event:bleach",
-  STORE_EVENT_JJK: "store:event:jjk",
-
-  FORGE_HOME: "forge:home",
-  FORGE_CRAFT: "forge:craft",
-  FORGE_EVOLVE: "forge:evolve",
-
-  PROFILE_HOME: "profile:home",
-  PROFILE_CURRENCY: "profile:currency",
-  PROFILE_CARDS: "profile:cards",
-  PROFILE_GEARS: "profile:gears",
-  PROFILE_TITLES: "profile:titles",
-  PROFILE_DRAKO_LB: "profile:drako_lb",
-  PROFILE_CLOSE: "profile:close",
-
-  // Titles select
-  TITLES_SELECT: "titles_select",
+  // ✅ MENUS
+  MENU: "menu", // menu:<name>:<page>
+  MENU_CLOSE: "menu_close", // menu_close:<name>
 };
 
 function hasEventRole(member) {
@@ -49,7 +30,6 @@ function hasBoosterRole(member) {
   return !!member?.roles?.cache?.has(BOOSTER_ROLE_ID);
 }
 
-/* ===================== EXISTING BOSS/MOB/PVP ===================== */
 function bossButtons(disabled = false) {
   return [
     new ActionRowBuilder().addComponents(
@@ -114,6 +94,7 @@ function mobButtons(eventKey, disabled = false) {
   ];
 }
 
+/* ===================== SHOP UI (unchanged) ===================== */
 function shopButtons(eventKey, player) {
   if (eventKey === "bleach") {
     const inv = player.bleach.items;
@@ -142,8 +123,8 @@ function shopButtons(eventKey, player) {
   return [row1, row2];
 }
 
-/* ===================== TITLES (ex-wardrobe) UI ===================== */
-function titlesComponents(guild, member, player) {
+/* ===================== WARDROBE UI ===================== */
+function wardrobeComponents(guild, member, player) {
   const roles = player.ownedRoles.map((rid) => guild.roles.cache.get(rid)).filter(Boolean);
   if (!roles.length) return [];
 
@@ -157,8 +138,8 @@ function titlesComponents(guild, member, player) {
   });
 
   const menu = new StringSelectMenuBuilder()
-    .setCustomId(CID.TITLES_SELECT)
-    .setPlaceholder("Choose a title (role) to equip/unequip")
+    .setCustomId("wardrobe_select")
+    .setPlaceholder("Choose a role to equip/unequip")
     .addOptions(options);
 
   return [new ActionRowBuilder().addComponents(menu)];
@@ -184,76 +165,63 @@ function pvpButtons(currency, amount, challengerId, targetId, disabled = false) 
   ];
 }
 
-/* ===================== STORE MENU ===================== */
-function storeMenuComponents(ownerId) {
-  return [
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`${CID.STORE_EVENT}:${ownerId}`).setLabel("Event Shop").setEmoji("🎟️").setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId(`${CID.STORE_PACKS}:${ownerId}`).setLabel("Card Packs").setEmoji("🃏").setStyle(ButtonStyle.Secondary).setDisabled(true),
-      new ButtonBuilder().setCustomId(`${CID.STORE_GEAR}:${ownerId}`).setLabel("Gear Shop").setEmoji("⚙️").setStyle(ButtonStyle.Secondary).setDisabled(true)
-    ),
-  ];
-}
-function storeEventComponents(ownerId) {
-  return [
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`${CID.STORE_EVENT_BLEACH}:${ownerId}`).setLabel("Bleach Shop").setEmoji("🩸").setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId(`${CID.STORE_EVENT_JJK}:${ownerId}`).setLabel("JJK Shop").setEmoji("🟣").setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId(`${CID.STORE_HOME}:${ownerId}`).setLabel("Back").setEmoji("⬅️").setStyle(ButtonStyle.Secondary)
-    ),
-  ];
-}
+/* ===================== NEW MENUS ===================== */
+function menuButtons(menuName) {
+  // menu:<name>:<page>
+  const mk = (page) => `${CID.MENU}:${menuName}:${page}`;
+  const close = `${CID.MENU_CLOSE}:${menuName}`;
 
-/* ===================== FORGE MENU ===================== */
-function forgeMenuComponents(ownerId) {
-  return [
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`${CID.FORGE_CRAFT}:${ownerId}`).setLabel("Craft").setEmoji("🔨").setStyle(ButtonStyle.Primary).setDisabled(true),
-      new ButtonBuilder().setCustomId(`${CID.FORGE_EVOLVE}:${ownerId}`).setLabel("Evolve").setEmoji("🧬").setStyle(ButtonStyle.Primary).setDisabled(true),
-      new ButtonBuilder().setCustomId(`${CID.FORGE_HOME}:${ownerId}`).setLabel("Home").setEmoji("🏠").setStyle(ButtonStyle.Secondary)
-    ),
-  ];
-}
+  if (menuName === "profile") {
+    return [
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(mk("currency")).setLabel("Currency").setEmoji("💰").setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId(mk("cards")).setLabel("Cards").setEmoji("🃏").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId(mk("gears")).setLabel("Gears").setEmoji("🛡️").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId(mk("titles")).setLabel("Titles").setEmoji("🎖️").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId(close).setLabel("Close").setEmoji("✖️").setStyle(ButtonStyle.Danger)
+      ),
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(mk("drako_lb")).setLabel("Drako Leaderboard").setEmoji("🏆").setStyle(ButtonStyle.Secondary)
+      ),
+    ];
+  }
 
-/* ===================== PROFILE MENU ===================== */
-function profileMenuComponents(ownerId) {
-  return [
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`${CID.PROFILE_CURRENCY}:${ownerId}`).setLabel("Currency").setEmoji("💰").setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId(`${CID.PROFILE_TITLES}:${ownerId}`).setLabel("Titles").setEmoji("🎖️").setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId(`${CID.PROFILE_DRAKO_LB}:${ownerId}`).setLabel("Leaderboard").setEmoji("🏆").setStyle(ButtonStyle.Secondary)
-    ),
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`${CID.PROFILE_CARDS}:${ownerId}`).setLabel("Cards").setEmoji("🃏").setStyle(ButtonStyle.Secondary).setDisabled(true),
-      new ButtonBuilder().setCustomId(`${CID.PROFILE_GEARS}:${ownerId}`).setLabel("Gears").setEmoji("⚙️").setStyle(ButtonStyle.Secondary).setDisabled(true),
-      new ButtonBuilder().setCustomId(`${CID.PROFILE_CLOSE}:${ownerId}`).setLabel("Close").setEmoji("✖️").setStyle(ButtonStyle.Danger)
-    ),
-  ];
+  if (menuName === "store") {
+    return [
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(mk("event_shop")).setLabel("Event Shop").setEmoji("🛒").setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId(mk("card_packs")).setLabel("Card Packs").setEmoji("🎴").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId(mk("gear_shop")).setLabel("Gear Shop").setEmoji("⚙️").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId(close).setLabel("Close").setEmoji("✖️").setStyle(ButtonStyle.Danger)
+      ),
+    ];
+  }
+
+  if (menuName === "forge") {
+    return [
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(mk("craft")).setLabel("Craft").setEmoji("🔨").setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId(mk("evolve")).setLabel("Evolve").setEmoji("🧬").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId(close).setLabel("Close").setEmoji("✖️").setStyle(ButtonStyle.Danger)
+      ),
+    ];
+  }
+
+  return [];
 }
 
 module.exports = {
   CID,
   hasEventRole,
   hasBoosterRole,
-
   bossButtons,
   singleActionRow,
   dualChoiceRow,
   triChoiceRow,
   comboDefenseRows,
-
   mobButtons,
   shopButtons,
-
-  // titles
-  titlesComponents,
-
-  // pvp
+  wardrobeComponents,
   pvpButtons,
-
-  // store/forge/profile
-  storeMenuComponents,
-  storeEventComponents,
-  forgeMenuComponents,
-  profileMenuComponents,
+  menuButtons,
 };
