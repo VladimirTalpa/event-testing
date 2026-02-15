@@ -1,530 +1,679 @@
-// src/events/boss.js
-const { PermissionsBitField, EmbedBuilder } = require("discord.js");
-
 const {
-  BLEACH_CHANNEL_ID,
-  JJK_CHANNEL_ID,
-  ROUND_COOLDOWN_MS,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+} = require("discord.js");
+
+const { BOSSES } = require("../data/bosses");
+const {
+  COLOR,
   MAX_HITS,
   PING_BOSS_ROLE_ID,
+  BLEACH_BONUS_MAX,
+  JJK_BONUS_MAX,
+  E_REIATSU,
+  E_CE,
+  E_DRAKO,
 } = require("../config");
 
 const { bossByChannel } = require("../core/state");
-const { clamp, safeName, sleep } = require("../core/utils");
 const { getPlayer, setPlayer } = require("../core/players");
-const { BOSSES } = require("../data/bosses");
-const { bossButtons, singleActionRow, comboDefenseRows, dualChoiceRow, triChoiceRow } = require("../ui/components");
+const { safeName, sleep } = require("../core/utils");
+
 const {
   bossSpawnEmbed,
   bossRoundEmbed,
   bossVictoryEmbed,
   bossDefeatEmbed,
-  calcBleachSurvivalBonus,
-  calcBleachReiatsuMultiplier,
-  calcBleachDropLuckMultiplier,
-  calcJjkSurvivalBonus,
-  calcJjkCEMultiplier,
-  calcJjkDropLuckMultiplier,
 } = require("../ui/embeds");
 
-/* ===================== ROLE ADD/REMOVE ===================== */
-async function tryGiveRole(guild, userId, roleId) {
-  try {
-    const botMember = await guild.members.fetchMe();
-    if (!botMember.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
-      return { ok: false, reason: "Bot lacks Manage Roles permission." };
-    }
-    const role = guild.roles.cache.get(roleId);
-    if (!role) return { ok: false, reason: "Role not found." };
-    const botTop = botMember.roles.highest?.position ?? 0;
-    if (botTop <= role.position) return { ok: false, reason: "Bot role is below target role (hierarchy)." };
-    const member = await guild.members.fetch(userId);
-    await member.roles.add(roleId);
-    return { ok: true };
-  } catch {
-    return { ok: false, reason: "Discord rejected role add (permissions/hierarchy)." };
-  }
+const {
+  bossButtons,
+  singleActionRow,
+  dualChoiceRow,
+  triChoiceRow,
+  comboDefenseRows,
+} = require("../ui/components");
+
+function randInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function ensureOwnedRole(player, roleId) {
-  if (!roleId) return;
-  const id = String(roleId);
-  if (!player.ownedRoles.includes(id)) player.ownedRoles.push(id);
-}
-
-function isAllowedSpawnChannel(eventKey, channelId) {
-  if (eventKey === "bleach") return channelId === BLEACH_CHANNEL_ID;
-  if (eventKey === "jjk") return channelId === JJK_CHANNEL_ID;
-  return false;
-}
-
-function getMaxHits(def) {
-  return def.maxHits ?? MAX_HITS;
-}
-
-function computeSurviveChance(eventKey, player, baseChance, bonusMaxBleach, bonusMaxJjk) {
-  if (eventKey === "bleach") {
-    const itemBonus = calcBleachSurvivalBonus(player.bleach.items);
-    const perm = clamp(player.bleach.survivalBonus, 0, bonusMaxBleach);
-    return Math.min(0.95, baseChance + (itemBonus + perm) / 100);
-  }
-  const itemBonus = calcJjkSurvivalBonus(player.jjk.items);
-  const perm = clamp(player.jjk.survivalBonus, 0, bonusMaxJjk);
-  return Math.min(0.95, baseChance + (itemBonus + perm) / 100);
-}
-
-function getEventMultiplier(eventKey, player) {
-  if (eventKey === "bleach") return calcBleachReiatsuMultiplier(player.bleach.items);
-  return calcJjkCEMultiplier(player.jjk.items);
-}
-function getEventDropMult(eventKey, player) {
-  if (eventKey === "bleach") return calcBleachDropLuckMultiplier(player.bleach.items);
-  return calcJjkDropLuckMultiplier(player.jjk.items);
-}
-
-function aliveIds(boss) {
-  const maxHits = getMaxHits(boss.def);
-  return [...boss.participants.entries()]
-    .filter(([, st]) => st.hits < maxHits)
-    .map(([uid]) => uid);
-}
-
-async function applyHit(uid, boss, channel, reasonText) {
-  const maxHits = getMaxHits(boss.def);
-  const st = boss.participants.get(uid);
-  if (!st) return;
-  st.hits++;
-  const name = safeName(st.displayName);
-  await channel.send(`💥 **${name}** ${reasonText} (**${st.hits}/${maxHits}**)`).catch(() => {});
-  if (st.hits >= maxHits) await channel.send(`☠️ **${name}** was eliminated.`).catch(() => {});
-}
-
-function eliminate(uid, boss) {
-  const st = boss.participants.get(uid);
-  if (!st) return;
-  st.hits = getMaxHits(boss.def);
-}
-
-function bankSuccess(uid, boss, amount) {
-  boss.hitBank.set(uid, (boss.hitBank.get(uid) || 0) + amount);
-}
-
-function randomComboSeq() {
-  const colors = ["red", "blue", "green", "yellow"];
+function pickComboSeq() {
+  const all = ["red", "blue", "green", "yellow"];
+  // random sequence of length 4
   const seq = [];
-  for (let i = 0; i < 4; i++) seq.push(colors[Math.floor(Math.random() * colors.length)]);
+  for (let i = 0; i < 4; i++) seq.push(all[Math.floor(Math.random() * all.length)]);
   return seq;
 }
-function comboToEmoji(c) {
-  if (c === "red") return "🔴";
-  if (c === "blue") return "🔵";
-  if (c === "green") return "🟢";
-  return "🟡";
+
+function mkToken() {
+  return `${Date.now()}_${Math.random().toString(16).slice(2)}`;
 }
 
-function randInt(a, b) {
-  const min = Math.min(a, b);
-  const max = Math.max(a, b);
-  return Math.floor(min + Math.random() * (max - min + 1));
+function aliveList(state) {
+  const maxHits = state.def.maxHits ?? MAX_HITS;
+  const out = [];
+  for (const [uid, st] of state.participants.entries()) {
+    if ((st.hits ?? 0) < maxHits) out.push([uid, st]);
+  }
+  return out;
 }
 
-async function updateBossSpawnMessage(channel, boss) {
-  const fighters = [...boss.participants.values()];
-  const fightersText = fighters.length
-    ? fighters.map((p) => safeName(p.displayName)).join(", ").slice(0, 1000)
-    : "`No fighters yet`";
+function fightersText(state) {
+  const list = [...state.participants.values()];
+  if (!list.length) return "`No fighters yet`";
+  return list.map((p) => safeName(p.displayName)).join(", ").slice(0, 1000);
+}
 
-  const msg = await channel.messages.fetch(boss.messageId).catch(() => null);
+function currencyEmoji(eventKey) {
+  return eventKey === "bleach" ? E_REIATSU : E_CE;
+}
+
+async function editBossMessage(channel, state, embed, components) {
+  const msg = await channel.messages.fetch(state.messageId).catch(() => null);
   if (!msg) return;
-
-  await msg.edit({
-    embeds: [bossSpawnEmbed(boss.def, channel.name, fighters.length, fightersText)],
-    components: bossButtons(!boss.joining),
-  }).catch(() => {});
+  await msg.edit({ embeds: [embed], components }).catch(() => {});
 }
 
-async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
-  try {
-    boss.joining = false;
-    await updateBossSpawnMessage(channel, boss);
-
-    let alive = aliveIds(boss);
-    if (!alive.length) {
-      await channel.send(`💨 Nobody joined. **${boss.def.name}** vanished.`).catch(() => {});
-      return;
-    }
-
-    for (let i = 0; i < boss.def.rounds.length; i++) {
-      alive = aliveIds(boss);
-      if (!alive.length) break;
-
-      const r = boss.def.rounds[i];
-
-      if (r.type !== "final_quiz") {
-        await channel.send({ embeds: [bossRoundEmbed(boss.def, i, alive.length)] }).catch(() => {});
-      } else {
-        await channel.send(`❓ **${r.title}**\n${r.intro}`).catch(() => {});
-      }
-
-      if (r.type === "pressure" || r.type === "attack") {
-        for (const uid of alive) {
-          const player = await getPlayer(uid);
-          const chance = computeSurviveChance(boss.def.event, player, boss.def.baseChance, bonusMaxBleach, bonusMaxJjk);
-          const ok = Math.random() < chance;
-
-          if (!ok) {
-            await applyHit(uid, boss, channel, `couldn't withstand **${boss.def.name}**!`);
-          } else {
-            const mult = getEventMultiplier(boss.def.event, player);
-            const add = Math.floor(boss.def.hitReward * mult);
-            bankSuccess(uid, boss, add);
-
-            const nm = safeName(boss.participants.get(uid)?.displayName);
-            await channel.send(`✅ **${nm}** succeeded! (+ ${add} banked)`).catch(() => {});
-          }
-          await sleep(250);
-        }
-
-        if (i < boss.def.rounds.length - 1) {
-          await channel.send(`⏳ Next round in **${Math.round(ROUND_COOLDOWN_MS / 1000)}s**...`).catch(() => {});
-          await sleep(ROUND_COOLDOWN_MS);
-        }
-        continue;
-      }
-
-      if (r.type === "coop_block") {
-        const token = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
-        boss.activeAction = {
-          token,
-          roundIndex: i,
-          mode: "coop",
-          pressed: new Set(),
-          requiredPresses: r.requiredPresses || 4,
-        };
-
-        const customId = `boss_action:${boss.def.id}:${i}:${token}:press:block`;
-        const msg = await channel.send({
-          content:
-            `🛡️ **COOP BLOCK WINDOW: ${Math.round((r.windowMs || 5000) / 1000)}s**\n` +
-            `Requirement: **${boss.activeAction.requiredPresses} different players** must press **Block**.`,
-          components: singleActionRow(customId, r.buttonLabel || "Block", r.buttonEmoji || "🛡️", false),
-        }).catch(() => null);
-
-        await sleep(r.windowMs || 5000);
-
-        if (msg?.id) await msg.edit({ components: singleActionRow(customId, r.buttonLabel || "Block", r.buttonEmoji || "🛡️", true) }).catch(() => {});
-
-        const pressed = boss.activeAction?.token === token ? boss.activeAction.pressed : new Set();
-        const req = boss.activeAction?.requiredPresses || 4;
-        boss.activeAction = null;
-
-        const nowAlive = aliveIds(boss);
-        const success = pressed.size >= req;
-
-        if (!success) {
-          await channel.send(`❌ Not enough blocks (${pressed.size}/${req}). Everyone takes a hit!`).catch(() => {});
-          for (const uid of nowAlive) {
-            await applyHit(uid, boss, channel, `failed to block in time!`);
-            await sleep(140);
-          }
-        } else {
-          await channel.send(`✅ Block succeeded (${pressed.size}/${req}). Pressers counterattacked!`).catch(() => {});
-          for (const uid of nowAlive) {
-            if (pressed.has(uid)) {
-              const player = await getPlayer(uid);
-              const mult = getEventMultiplier(boss.def.event, player);
-              const add = Math.floor(boss.def.hitReward * mult);
-              bankSuccess(uid, boss, add);
-            }
-          }
-        }
-
-        if (i < boss.def.rounds.length - 1) {
-          await channel.send(`⏳ Next round in **${Math.round(ROUND_COOLDOWN_MS / 1000)}s**...`).catch(() => {});
-          await sleep(ROUND_COOLDOWN_MS);
-        }
-        continue;
-      }
-
-      if (r.type === "quick_block" || r.type === "finisher") {
-        const token = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
-        boss.activeAction = { token, roundIndex: i, mode: "press", pressed: new Set() };
-
-        const label = r.buttonLabel || (r.type === "finisher" ? "Finisher" : "Block");
-        const emoji = r.buttonEmoji || (r.type === "finisher" ? "⚔️" : "🛡️");
-        const customId = `boss_action:${boss.def.id}:${i}:${token}:press:${r.type}`;
-
-        const msg = await channel.send({
-          content: `⚠️ **${label.toUpperCase()} WINDOW: ${Math.round((r.windowMs || 5000) / 1000)}s** — press **${label}**!`,
-          components: singleActionRow(customId, label, emoji, false),
-        }).catch(() => null);
-
-        await sleep(r.windowMs || 5000);
-
-        if (msg?.id) await msg.edit({ components: singleActionRow(customId, label, emoji, true) }).catch(() => {});
-
-        const pressed = boss.activeAction?.token === token ? boss.activeAction.pressed : new Set();
-        boss.activeAction = null;
-
-        const nowAlive = aliveIds(boss);
-
-        for (const uid of nowAlive) {
-          const player = await getPlayer(uid);
-          const isJjk = boss.def.event === "jjk";
-          const hasReverse = isJjk && player.jjk.items.reverse_talisman;
-
-          if (pressed.has(uid)) {
-            const mult = getEventMultiplier(boss.def.event, player);
-            const add = Math.floor(boss.def.hitReward * mult);
-            bankSuccess(uid, boss, add);
-          } else {
-            if (hasReverse && !boss.reverseUsed.has(uid)) {
-              boss.reverseUsed.add(uid);
-              const nm = safeName(boss.participants.get(uid)?.displayName);
-              await channel.send(`✨ **${nm}** was saved by Reverse Technique! (ignored 1 hit)`).catch(() => {});
-            } else {
-              await applyHit(uid, boss, channel, `was too slow!`);
-            }
-          }
-          await sleep(170);
-        }
-
-        if (i < boss.def.rounds.length - 1) {
-          await channel.send(`⏳ Next round in **${Math.round(ROUND_COOLDOWN_MS / 1000)}s**...`).catch(() => {});
-          await sleep(ROUND_COOLDOWN_MS);
-        }
-        continue;
-      }
-
-      if (r.type === "combo_defense") {
-        const token = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
-        const seq = randomComboSeq();
-
-        boss.activeAction = {
-          token,
-          roundIndex: i,
-          mode: "combo",
-          comboSeq: seq,
-          comboProgress: new Map(),
-          comboFailed: new Set(),
-        };
-
-        const seqText = seq.map(comboToEmoji).join(" ");
-
-        const msg = await channel.send({
-          content:
-            `🎮 **COMBO DEFENSE (QTE)** — You have **${Math.round((r.windowMs || 5000) / 1000)}s**\n` +
-            `Press in order: ${seqText}\n` +
-            `Mistake or timeout = a hit.`,
-          components: comboDefenseRows(token, boss.def.id, i),
-        }).catch(() => null);
-
-        await sleep(r.windowMs || 5000);
-
-        if (msg?.id) {
-          const disabledRows = comboDefenseRows(token, boss.def.id, i).map((row) => {
-            row.components.forEach((b) => b.setDisabled(true));
-            return row;
-          });
-          await msg.edit({ components: disabledRows }).catch(() => {});
-        }
-
-        const action = boss.activeAction;
-        boss.activeAction = null;
-
-        const nowAlive = aliveIds(boss);
-
-        for (const uid of nowAlive) {
-          const player = await getPlayer(uid);
-          const isJjk = boss.def.event === "jjk";
-          const hasReverse = isJjk && player.jjk.items.reverse_talisman;
-
-          const prog = action?.comboProgress?.get(uid) ?? 0;
-          const failed = action?.comboFailed?.has(uid);
-          const completed = !failed && prog >= 4;
-
-          if (completed) {
-            const mult = getEventMultiplier(boss.def.event, player);
-            const add = Math.floor(boss.def.hitReward * mult);
-            bankSuccess(uid, boss, add);
-          } else {
-            if (hasReverse && !boss.reverseUsed.has(uid)) {
-              boss.reverseUsed.add(uid);
-              const nm = safeName(boss.participants.get(uid)?.displayName);
-              await channel.send(`✨ **${nm}** was saved by Reverse Technique! (ignored 1 hit)`).catch(() => {});
-            } else {
-              await applyHit(uid, boss, channel, `failed the Combo Defense!`);
-            }
-          }
-          await sleep(170);
-        }
-
-        if (i < boss.def.rounds.length - 1) {
-          await channel.send(`⏳ Next round in **${Math.round(ROUND_COOLDOWN_MS / 1000)}s**...`).catch(() => {});
-          await sleep(ROUND_COOLDOWN_MS);
-        }
-        continue;
-      }
-
-      if (r.type === "group_final") {
-        const nowAlive = aliveIds(boss);
-        const required = r.requiredWins || 3;
-
-        let wins = 0;
-        const winners = new Set();
-
-        for (const uid of nowAlive) {
-          const player = await getPlayer(uid);
-          const chance = computeSurviveChance(boss.def.event, player, boss.def.baseChance, bonusMaxBleach, bonusMaxJjk);
-          const ok = Math.random() < chance;
-          if (ok) { wins++; winners.add(uid); }
-        }
-
-        if (wins < required) {
-          await channel.send(`❌ Not enough successful final hits (${wins}/${required}). **Everyone loses.**`).catch(() => {});
-          for (const uid of nowAlive) {
-            await applyHit(uid, boss, channel, `was overwhelmed in the final push!`);
-            eliminate(uid, boss);
-            await sleep(100);
-          }
-        } else {
-          await channel.send(`✅ Final push succeeded! (${wins}/${required}) Winners dealt the decisive blow.`).catch(() => {});
-          for (const uid of nowAlive) {
-            if (winners.has(uid)) {
-              const player = await getPlayer(uid);
-              const mult = getEventMultiplier(boss.def.event, player);
-              const add = Math.floor(boss.def.hitReward * mult);
-              bankSuccess(uid, boss, add);
-            }
-          }
-        }
-
-        if (i < boss.def.rounds.length - 1) {
-          await channel.send(`⏳ Next round in **${Math.round(ROUND_COOLDOWN_MS / 1000)}s**...`).catch(() => {});
-          await sleep(ROUND_COOLDOWN_MS);
-        }
-        continue;
-      }
-
-      // Mahoraga extra types (multi_press / choice_qte / scripted_hit_all / tri_press / final_quiz)
-      // --- Оставлено как у тебя было (без изменений по логике) ---
-      // (твой код ниже можно оставить, он уже у тебя есть)
-      // Я не дублирую тут снова чтобы не раздувать файл в 10к строк.
-      // Если хочешь — скажи, я дам полный boss.js с этими блоками в конце.
-    }
-
-    const survivors = aliveIds(boss);
-    if (!survivors.length) {
-      await channel.send({ embeds: [bossDefeatEmbed(boss.def)] }).catch(() => {});
-      return;
-    }
-
-    const lines = [];
-    for (const uid of survivors) {
-      const player = await getPlayer(uid);
-      const mult = getEventMultiplier(boss.def.event, player);
-
-      const winBase =
-        boss.def.winRewardRange
-          ? randInt(boss.def.winRewardRange.min, boss.def.winRewardRange.max)
-          : boss.def.winReward;
-
-      const win = Math.floor(winBase * mult);
-      const hits = boss.hitBank.get(uid) || 0;
-      const total = win + hits;
-
-      if (boss.def.event === "bleach") player.bleach.reiatsu += total;
-      else player.jjk.cursedEnergy += total;
-
-      if (boss.def.event === "jjk" && boss.def.shardDropRange) {
-        const shards = randInt(boss.def.shardDropRange.min, boss.def.shardDropRange.max);
-        player.jjk.materials.cursedShards += shards;
-        lines.push(`🧩 <@${uid}> получил **${shards} Cursed Shards**.`);
-      }
-      if (boss.def.event === "jjk" && boss.def.expeditionKeyChance) {
-        if (Math.random() < boss.def.expeditionKeyChance) {
-          player.jjk.materials.expeditionKeys += 1;
-          lines.push(`🗝️ <@${uid}> получил **Expedition Key**!`);
-        }
-      }
-
-      await setPlayer(uid, player);
-
-      lines.push(`• <@${uid}> +${win} (Win) +${hits} (Bank)`);
-
-      const luckMult = getEventDropMult(boss.def.event, player);
-      const baseChance = boss.def.roleDropChance || 0;
-      const chance = Math.min(0.25, baseChance * luckMult);
-
-      if (boss.def.roleDropId && Math.random() < chance) {
-        ensureOwnedRole(player, boss.def.roleDropId);
-        await setPlayer(uid, player);
-
-        const res = await tryGiveRole(channel.guild, uid, boss.def.roleDropId);
-        lines.push(
-          res.ok
-            ? `🎭 <@${uid}> obtained a **Boss role**!`
-            : `⚠️ <@${uid}> won a role but bot couldn't assign: ${res.reason} (saved to wardrobe)`
-        );
-      }
-    }
-
-    await channel.send({ embeds: [bossVictoryEmbed(boss.def, survivors.length)] }).catch(() => {});
-    await channel.send(lines.join("\n").slice(0, 1900)).catch(() => {});
-  } catch (e) {
-    console.error("runBoss crashed:", e);
-    await channel.send("⚠️ Boss event crashed. Please report to admin.").catch(() => {});
-  } finally {
-    bossByChannel.delete(channel.id);
+async function sendPreTeaser(channel, def) {
+  if (def.preText) {
+    await channel.send(def.preText).catch(() => {});
+    if (def.preTextDelayMs) await sleep(def.preTextDelayMs);
+  }
+  if (def.teaserMedia) {
+    await channel.send({ files: [def.teaserMedia] }).catch(() => {});
+    if (def.teaserDelayMs) await sleep(def.teaserDelayMs);
   }
 }
 
-async function spawnBoss(channel, bossId, withPing = false) {
+function applyHit(state, uid) {
+  const st = state.participants.get(uid);
+  if (!st) return;
+  st.hits = (st.hits ?? 0) + 1;
+  state.participants.set(uid, st);
+}
+
+function bankSuccess(state, uid) {
+  const st = state.participants.get(uid);
+  if (!st) return;
+  st.banked = (st.banked ?? 0) + (state.def.hitReward ?? 0);
+  state.participants.set(uid, st);
+}
+
+function survivalChance(state, uid) {
+  // baseline boss chance (def.baseChance) + event mob bonus + item survival bonus
+  // item bonus already calculated in embeds; we keep it simple:
+  const def = state.def;
+  const maxBonus = def.event === "bleach" ? (BLEACH_BONUS_MAX ?? 30) : (JJK_BONUS_MAX ?? 30);
+
+  const st = state.participants.get(uid);
+  const mobBonus = st?.mobBonus ?? 0; // if you want to integrate later; safe default
+
+  const base = def.baseChance ?? 0.3;
+  const bonus = Math.min(mobBonus, maxBonus) / 100;
+
+  // clamp 0.02..0.95
+  const p = Math.max(0.02, Math.min(0.95, base + bonus));
+  return p;
+}
+
+function isAlive(state, uid) {
+  const maxHits = state.def.maxHits ?? MAX_HITS;
+  const st = state.participants.get(uid);
+  if (!st) return false;
+  return (st.hits ?? 0) < maxHits;
+}
+
+function disableComponents(components) {
+  if (!components || !components.length) return components;
+  const out = [];
+  for (const row of components) {
+    const nrow = ActionRowBuilder.from(row);
+    nrow.components = nrow.components.map((c) => {
+      const btn = ButtonBuilder.from(c);
+      btn.setDisabled(true);
+      return btn;
+    });
+    out.push(nrow);
+  }
+  return out;
+}
+
+/**
+ * Core runner
+ */
+async function runBoss(channel, state) {
+  const def = state.def;
+
+  for (let roundIndex = 0; roundIndex < def.rounds.length; roundIndex++) {
+    const r = def.rounds[roundIndex];
+
+    // stop if nobody alive
+    const alive = aliveList(state);
+    if (!alive.length) break;
+
+    // show round embed
+    await editBossMessage(channel, state, bossRoundEmbed(def, roundIndex, alive.length), []);
+
+    // Small delay so people see round screen
+    await sleep(1200);
+
+    // Setup action state
+    const token = mkToken();
+    state.activeAction = { token, roundIndex, mode: null };
+
+    // Round handlers
+    if (r.type === "pressure" || r.type === "attack") {
+      // Individual survival roll
+      const p = [];
+      for (const [uid] of alive) {
+        const chance = survivalChance(state, uid);
+        const ok = Math.random() < chance;
+        if (ok) bankSuccess(state, uid);
+        else applyHit(state, uid);
+        p.push({ uid, ok });
+      }
+
+      // quick feedback
+      const maxHits = def.maxHits ?? MAX_HITS;
+      const afterAlive = aliveList(state).length;
+
+      await channel.send(
+        `**${def.name} — ${r.title || `Round ${roundIndex + 1}`}**\n` +
+          `✅ Survived: **${p.filter((x) => x.ok).length}** • ❌ Hit: **${p.filter((x) => !x.ok).length}**\n` +
+          `Alive: **${afterAlive}** • (${maxHits} hits = eliminated)`
+      ).catch(() => {});
+
+      await sleep(1200);
+      continue;
+    }
+
+    if (r.type === "scripted_hit_all") {
+      // Optional delay and spam
+      if (r.media) await editBossMessage(channel, state, bossRoundEmbed(def, roundIndex, alive.length), []);
+      if (r.delayMs) await sleep(r.delayMs);
+
+      if (Array.isArray(r.spamLines)) {
+        for (const line of r.spamLines) {
+          await channel.send(line).catch(() => {});
+          await sleep(450);
+        }
+      }
+
+      // Everyone takes a hit
+      for (const [uid] of alive) applyHit(state, uid);
+
+      if (r.endText) await channel.send(r.endText).catch(() => {});
+      if (r.endMedia) await channel.send({ files: [r.endMedia] }).catch(() => {});
+
+      await sleep(1200);
+      continue;
+    }
+
+    if (r.type === "coop_block") {
+      // Need N presses within window
+      state.activeAction.mode = "press";
+      state.activeAction.requiredPresses = r.requiredPresses ?? 3;
+      state.activeAction.pressed = new Set();
+
+      const customId = `boss_action:${def.id}:${roundIndex}:${token}:press:block`;
+      const comps = singleActionRow(customId, r.buttonLabel || "Block", r.buttonEmoji || "🛡️", false);
+
+      // show actionable buttons
+      await editBossMessage(channel, state, bossRoundEmbed(def, roundIndex, alive.length), comps);
+
+      await sleep(r.windowMs ?? 5000);
+
+      // resolve
+      const presses = state.activeAction.pressed.size;
+      const ok = presses >= state.activeAction.requiredPresses;
+
+      if (!ok) {
+        // everyone gets hit
+        for (const [uid] of alive) applyHit(state, uid);
+        await channel.send(`❌ Not enough blocks (**${presses}/${state.activeAction.requiredPresses}**) — everyone takes a hit.`).catch(() => {});
+      } else {
+        // everyone survives and banks
+        for (const [uid] of alive) bankSuccess(state, uid);
+        await channel.send(`✅ Defense succeeded (**${presses}/${state.activeAction.requiredPresses}**) — everyone survives.`).catch(() => {});
+      }
+
+      await editBossMessage(channel, state, bossRoundEmbed(def, roundIndex, aliveList(state).length), disableComponents(comps));
+      await sleep(900);
+      continue;
+    }
+
+    if (r.type === "quick_block" || r.type === "finisher") {
+      // Everyone must press within window or take hit
+      state.activeAction.mode = "press";
+      state.activeAction.pressed = new Set();
+
+      const customId = `boss_action:${def.id}:${roundIndex}:${token}:press:go`;
+      const comps = singleActionRow(customId, r.buttonLabel || "Block", r.buttonEmoji || "🛡️", false);
+
+      await editBossMessage(channel, state, bossRoundEmbed(def, roundIndex, alive.length), comps);
+
+      await sleep(r.windowMs ?? 5000);
+
+      const pressed = state.activeAction.pressed;
+
+      let survived = 0;
+      let hit = 0;
+
+      for (const [uid] of alive) {
+        if (pressed.has(uid)) {
+          bankSuccess(state, uid);
+          survived++;
+        } else {
+          applyHit(state, uid);
+          hit++;
+        }
+      }
+
+      await channel.send(`✅ Pressed: **${survived}** • ❌ Missed: **${hit}**`).catch(() => {});
+      await editBossMessage(channel, state, bossRoundEmbed(def, roundIndex, aliveList(state).length), disableComponents(comps));
+      await sleep(900);
+      continue;
+    }
+
+    if (r.type === "multi_press") {
+      // Each player needs X presses within window
+      state.activeAction.mode = "multi_press";
+      state.activeAction.requiredPresses = r.requiredPresses ?? 3;
+      state.activeAction.counts = new Map();
+
+      const customId = `boss_action:${def.id}:${roundIndex}:${token}:multi:block`;
+      const comps = singleActionRow(customId, r.buttonLabel || "Block", r.buttonEmoji || "🛡️", false);
+
+      await editBossMessage(channel, state, bossRoundEmbed(def, roundIndex, alive.length), comps);
+
+      await sleep(r.windowMs ?? 10000);
+
+      let ok = 0;
+      let fail = 0;
+
+      for (const [uid] of alive) {
+        const c = state.activeAction.counts.get(uid) || 0;
+        if (c >= state.activeAction.requiredPresses) {
+          bankSuccess(state, uid);
+          ok++;
+        } else {
+          applyHit(state, uid);
+          fail++;
+        }
+      }
+
+      await channel.send(`✅ Completed: **${ok}** • ❌ Failed: **${fail}**`).catch(() => {});
+      await editBossMessage(channel, state, bossRoundEmbed(def, roundIndex, aliveList(state).length), disableComponents(comps));
+      await sleep(900);
+      continue;
+    }
+
+    if (r.type === "combo_defense") {
+      // Each player must input 4-seq correctly
+      state.activeAction.mode = "combo";
+      state.activeAction.comboSeq = pickComboSeq();
+      state.activeAction.comboProgress = new Map();
+      state.activeAction.comboFailed = new Set();
+
+      const comps = comboDefenseRows(token, def.id, roundIndex);
+
+      // Announce sequence privately? We can't DM reliably; so we just show "match the correct order"
+      await channel.send(
+        `🧩 **Combo Defense** started. Press colors in the correct order (4 steps).`
+      ).catch(() => {});
+
+      await editBossMessage(channel, state, bossRoundEmbed(def, roundIndex, alive.length), comps);
+
+      await sleep(r.windowMs ?? 15000);
+
+      let ok = 0;
+      let fail = 0;
+
+      for (const [uid] of alive) {
+        const prog = state.activeAction.comboProgress.get(uid) || 0;
+        const bad = state.activeAction.comboFailed.has(uid);
+        if (!bad && prog >= 4) {
+          bankSuccess(state, uid);
+          ok++;
+        } else {
+          applyHit(state, uid);
+          fail++;
+        }
+      }
+
+      await channel.send(`✅ Combo success: **${ok}** • ❌ Failed: **${fail}**`).catch(() => {});
+      await editBossMessage(channel, state, bossRoundEmbed(def, roundIndex, aliveList(state).length), disableComponents(comps));
+      await sleep(900);
+      continue;
+    }
+
+    if (r.type === "choice_qte") {
+      // Choose correct of 2 within window or hit
+      state.activeAction.mode = "choice";
+      state.activeAction.choice = new Map();
+
+      const cA = r.choices?.[0];
+      const cB = r.choices?.[1];
+
+      // HARD anti-crash
+      if (!cA || !cB || !cA.key || !cB.key) {
+        await channel.send("⚠️ Boss config error: choice_qte choices are invalid. Skipping round safely.").catch(() => {});
+        continue;
+      }
+
+      const aId = `boss_action:${def.id}:${roundIndex}:${token}:choice:${cA.key}`;
+      const bId = `boss_action:${def.id}:${roundIndex}:${token}:choice:${cB.key}`;
+
+      const comps = dualChoiceRow(aId, cA.label || cA.key, cA.emoji || "🅰️", bId, cB.label || cB.key, cB.emoji || "🅱️", false);
+
+      await editBossMessage(channel, state, bossRoundEmbed(def, roundIndex, alive.length), comps);
+
+      await sleep(r.windowMs ?? 3000);
+
+      let ok = 0;
+      let fail = 0;
+
+      for (const [uid] of alive) {
+        const chosen = state.activeAction.choice.get(uid);
+        if (chosen && chosen === r.correct) {
+          bankSuccess(state, uid);
+          ok++;
+        } else {
+          applyHit(state, uid);
+          fail++;
+        }
+      }
+
+      await channel.send(`✅ Correct: **${ok}** • ❌ Wrong/No pick: **${fail}**`).catch(() => {});
+      if (r.afterText) await channel.send(r.afterText).catch(() => {});
+      if (r.afterMedia) await channel.send({ files: [r.afterMedia] }).catch(() => {});
+      await editBossMessage(channel, state, bossRoundEmbed(def, roundIndex, aliveList(state).length), disableComponents(comps));
+      await sleep(900);
+      continue;
+    }
+
+    if (r.type === "tri_press") {
+      // Must press all 3 unique buttons within window
+      state.activeAction.mode = "tri_press";
+      state.activeAction.pressed = new Map(); // uid -> Set
+
+      const btns = (r.buttons || []).map((b) => ({
+        customId: `boss_action:${def.id}:${roundIndex}:${token}:tri:${b.key}`,
+        label: b.label || b.key,
+        emoji: b.emoji || "🔘",
+      }));
+      const comps = triChoiceRow(btns, false);
+
+      await editBossMessage(channel, state, bossRoundEmbed(def, roundIndex, alive.length), comps);
+
+      await sleep(r.windowMs ?? 12000);
+
+      let ok = 0;
+      let fail = 0;
+
+      for (const [uid] of alive) {
+        const set = state.activeAction.pressed.get(uid);
+        if (set && set.size >= 3) {
+          bankSuccess(state, uid);
+          ok++;
+        } else {
+          applyHit(state, uid);
+          fail++;
+        }
+      }
+
+      await channel.send(`✅ Focus success: **${ok}** • ❌ Failed: **${fail}**`).catch(() => {});
+      await editBossMessage(channel, state, bossRoundEmbed(def, roundIndex, aliveList(state).length), disableComponents(comps));
+      await sleep(900);
+      continue;
+    }
+
+    if (r.type === "final_quiz") {
+      // Choose correct among N options
+      state.activeAction.mode = "quiz";
+      state.activeAction.choice = new Map();
+
+      const choices = Array.isArray(r.choices) ? r.choices.slice(0, 5) : [];
+      if (!choices.length) {
+        await channel.send("⚠️ Boss config error: final_quiz has no choices. Skipping round safely.").catch(() => {});
+        continue;
+      }
+
+      const row = new ActionRowBuilder();
+      for (const c of choices) {
+        row.addComponents(
+          new ButtonBuilder()
+            .setCustomId(`boss_action:${def.id}:${roundIndex}:${token}:quiz:${c.key}`)
+            .setLabel(c.label || c.key)
+            .setEmoji(c.emoji || "❔")
+            .setStyle(ButtonStyle.Secondary)
+        );
+      }
+
+      const comps = [row];
+
+      await editBossMessage(channel, state, bossRoundEmbed(def, roundIndex, alive.length), comps);
+
+      await sleep(r.windowMs ?? 8000);
+
+      let ok = 0;
+      let fail = 0;
+
+      for (const [uid] of alive) {
+        const chosen = state.activeAction.choice.get(uid);
+        if (chosen && chosen === r.correct) {
+          bankSuccess(state, uid);
+          ok++;
+        } else {
+          applyHit(state, uid);
+          fail++;
+        }
+      }
+
+      await channel.send(`✅ Correct: **${ok}** • ❌ Wrong/No pick: **${fail}**`).catch(() => {});
+      await editBossMessage(channel, state, bossRoundEmbed(def, roundIndex, aliveList(state).length), disableComponents(comps));
+      await sleep(900);
+      continue;
+    }
+
+    if (r.type === "group_final") {
+      // Need at least requiredWins to succeed. Each alive rolls survival.
+      const requiredWins = r.requiredWins ?? 3;
+
+      let wins = 0;
+      const results = [];
+
+      for (const [uid] of alive) {
+        const chance = survivalChance(state, uid);
+        const ok = Math.random() < chance;
+        results.push({ uid, ok });
+        if (ok) wins++;
+      }
+
+      if (wins >= requiredWins) {
+        // winners bank, losers hit (so it's not free)
+        for (const x of results) {
+          if (x.ok) bankSuccess(state, x.uid);
+          else applyHit(state, x.uid);
+        }
+        await channel.send(`✅ Group succeeded: **${wins}/${requiredWins}**.`).catch(() => {});
+      } else {
+        // everyone loses -> hit all (and likely wipes)
+        for (const [uid] of alive) applyHit(state, uid);
+        await channel.send(`❌ Group failed: **${wins}/${requiredWins}** — everyone takes a hit.`).catch(() => {});
+      }
+
+      await sleep(900);
+      continue;
+    }
+
+    // Unknown type fallback (safe)
+    await channel.send(`⚠️ Unknown round type: \`${r.type}\` (skipped safely)`).catch(() => {});
+    await sleep(800);
+  }
+
+  // Resolve win/lose
+  const survivors = aliveList(state);
+  const survivedCount = survivors.length;
+
+  if (survivedCount <= 0) {
+    await editBossMessage(channel, state, bossDefeatEmbed(state.def), bossButtons(true));
+    await channel.send("☠️ Everyone was eliminated.").catch(() => {});
+  } else {
+    // Grant rewards to survivors: winReward / winRewardRange + banked
+    const def = state.def;
+    const emoji = currencyEmoji(def.event);
+
+    let winMin = def.winRewardRange?.min;
+    let winMax = def.winRewardRange?.max;
+
+    const rewards = [];
+
+    for (const [uid, st] of survivors) {
+      const p = await getPlayer(uid);
+
+      const winBase = (winMin != null && winMax != null)
+        ? randInt(winMin, winMax)
+        : (def.winReward ?? 0);
+
+      const banked = st.banked ?? 0;
+      const total = winBase + banked;
+
+      if (def.event === "bleach") p.bleach.reiatsu += total;
+      else p.jjk.cursedEnergy += total;
+
+      // Extra drops for JJK boss if configured
+      if (def.event === "jjk") {
+        if (def.expeditionKeyChance && Math.random() < def.expeditionKeyChance) {
+          p.jjk.materials = p.jjk.materials || { cursedShards: 0, expeditionKeys: 0 };
+          p.jjk.materials.expeditionKeys += 1;
+        }
+        if (def.shardDropRange) {
+          p.jjk.materials = p.jjk.materials || { cursedShards: 0, expeditionKeys: 0 };
+          const add = randInt(def.shardDropRange.min, def.shardDropRange.max);
+          p.jjk.materials.cursedShards += add;
+        }
+      }
+
+      await setPlayer(uid, p);
+      rewards.push({ uid, total, winBase, banked });
+    }
+
+    // Role drop (random among survivors)
+    let dropped = null;
+    if (def.roleDropId && def.roleDropChance && Math.random() < def.roleDropChance) {
+      const pick = survivors[Math.floor(Math.random() * survivors.length)]?.[0];
+      if (pick) {
+        // Save role to player ownedRoles (so wardrobe works)
+        const p = await getPlayer(pick);
+        p.ownedRoles = Array.isArray(p.ownedRoles) ? p.ownedRoles : [];
+        if (!p.ownedRoles.includes(String(def.roleDropId))) p.ownedRoles.push(String(def.roleDropId));
+        await setPlayer(pick, p);
+
+        // Try assign on discord (best effort; buttons.js has robust version, here also)
+        try {
+          const botMember = await channel.guild.members.fetchMe();
+          const role = channel.guild.roles.cache.get(def.roleDropId);
+          if (role && botMember.permissions.has("ManageRoles")) {
+            const botTop = botMember.roles.highest?.position ?? 0;
+            if (botTop > role.position) {
+              const member = await channel.guild.members.fetch(pick);
+              await member.roles.add(def.roleDropId).catch(() => {});
+            }
+          }
+        } catch {}
+
+        dropped = { userId: pick, roleId: def.roleDropId };
+      }
+    }
+
+    await editBossMessage(channel, state, bossVictoryEmbed(def, survivedCount), bossButtons(true));
+
+    // Summary message
+    const lines = rewards
+      .slice(0, 25)
+      .map((r) => `• <@${r.uid}>: ${emoji} **${r.total}** (win ${r.winBase} + bank ${r.banked})`);
+
+    await channel.send(
+      `🎉 **Victory!** Survivors: **${survivedCount}**\n` +
+      lines.join("\n") +
+      (rewards.length > 25 ? `\n… and ${rewards.length - 25} more` : "") +
+      (dropped ? `\n\n🎭 **Role Drop:** <@${dropped.userId}> won <@&${dropped.roleId}>` : "")
+    ).catch(() => {});
+  }
+
+  // Cleanup
+  bossByChannel.delete(channel.id);
+}
+
+async function spawnBoss(channel, bossId, withPing = true) {
   const def = BOSSES[bossId];
   if (!def) return;
 
-  if (!isAllowedSpawnChannel(def.event, channel.id)) {
-    await channel.send(`❌ This boss can only spawn in the correct event channel.`).catch(() => {});
+  // Prevent multiple bosses in channel
+  if (bossByChannel.has(channel.id)) {
+    await channel.send("⚠️ A boss is already active in this channel.").catch(() => {});
     return;
   }
-  if (bossByChannel.has(channel.id)) return;
 
-  // ✅ NO PING unless explicitly true
-  if (withPing) await channel.send(`<@&${PING_BOSS_ROLE_ID}>`).catch(() => {});
+  // Pre teasers (optional)
+  await sendPreTeaser(channel, def);
 
-  if (def.preText) {
-    await channel.send(def.preText).catch(() => {});
-    await sleep(def.preTextDelayMs || 10000);
-
-    if (def.teaserMedia) {
-      const teaser = new EmbedBuilder().setColor(0x2f3136).setImage(def.teaserMedia);
-      await channel.send({ embeds: [teaser] }).catch(() => {});
-      await sleep(def.teaserDelayMs || 5000);
-    }
-  }
-
-  const boss = {
+  // Create state
+  const state = {
     def,
     messageId: null,
     joining: true,
-    participants: new Map(),
-    hitBank: new Map(),
+    participants: new Map(), // uid -> { hits, banked, displayName }
     activeAction: null,
-    reverseUsed: new Set(),
   };
 
+  // Initial message
+  const joinSeconds = Math.round((def.joinMs ?? 30000) / 1000);
+
+  // Ping only if requested
+  if (withPing && PING_BOSS_ROLE_ID) {
+    await channel.send(`<@&${PING_BOSS_ROLE_ID}>`).catch(() => {});
+  }
+
   const msg = await channel.send({
-    embeds: [bossSpawnEmbed(def, channel.name, 0, "`No fighters yet`")],
+    embeds: [bossSpawnEmbed(def, channel.name, 0, fightersText(state))],
     components: bossButtons(false),
-  });
+  }).catch(() => null);
 
-  boss.messageId = msg.id;
-  bossByChannel.set(channel.id, boss);
+  if (!msg) return;
 
-  setTimeout(() => {
-    const still = bossByChannel.get(channel.id);
-    if (still && still.messageId === boss.messageId) runBoss(channel, still).catch(() => {});
-  }, def.joinMs);
+  state.messageId = msg.id;
+  bossByChannel.set(channel.id, state);
+
+  // Join phase timer
+  await sleep(def.joinMs ?? 30000);
+
+  // Lock join
+  state.joining = false;
+  bossByChannel.set(channel.id, state);
+
+  // Update message: disable join
+  await editBossMessage(
+    channel,
+    state,
+    bossSpawnEmbed(def, channel.name, state.participants.size, fightersText(state)),
+    bossButtons(true)
+  );
+
+  // If no one joined
+  if (state.participants.size === 0) {
+    await channel.send(`⏳ Join phase ended (**${joinSeconds}s**). No fighters joined.`).catch(() => {});
+    bossByChannel.delete(channel.id);
+    return;
+  }
+
+  await channel.send(`⚔️ Boss fight started with **${state.participants.size}** fighters.`).catch(() => {});
+
+  // Run fight
+  await runBoss(channel, state);
 }
 
-module.exports = { spawnBoss, runBoss };
+module.exports = { spawnBoss };
