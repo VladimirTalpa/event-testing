@@ -1,26 +1,27 @@
 // src/config.js
 require("dotenv").config();
 
-/* ===================== CHANNEL LOCKS ===================== */
-const BLEACH_CHANNEL_ID = process.env.BLEACH_CHANNEL_ID || "1469757595031179314";
-const JJK_CHANNEL_ID = process.env.JJK_CHANNEL_ID || "1469757629390651686";
-
-/* ===================== ROLES / PERMS ===================== */
+/* ===================== HELPERS ===================== */
 const parseCsvIds = (v) =>
   String(v || "")
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
 
-// ✅ роли евент-стаффа (как у тебя было)
-const EVENT_ROLE_IDS =
-  process.env.EVENT_ROLE_IDS
-    ? parseCsvIds(process.env.EVENT_ROLE_IDS)
-    : ["1259865441405501571", "1287879457025163325"];
+/* ===================== CHANNEL LOCKS ===================== */
+// ✅ BLEACH spawns only here
+const BLEACH_CHANNEL_ID = process.env.BLEACH_CHANNEL_ID || "1469757595031179314";
+// ✅ JJK spawns only here
+const JJK_CHANNEL_ID = process.env.JJK_CHANNEL_ID || "1469757629390651686";
 
-// ✅ роль которая может /spawnboss и /spawnmob
-const BOSS_SPAWNER_ROLE_ID =
-  process.env.BOSS_SPAWNER_ROLE_ID || "1259865441405501571";
+/* ===================== ROLES / PERMS ===================== */
+// ✅ roles who can do event-staff features (optional usage)
+const EVENT_ROLE_IDS = process.env.EVENT_ROLE_IDS
+  ? parseCsvIds(process.env.EVENT_ROLE_IDS)
+  : ["1259865441405501571", "1287879457025163325"];
+
+// ✅ ONLY this role can spawn bosses/mobs
+const BOSS_SPAWNER_ROLE_ID = process.env.BOSS_SPAWNER_ROLE_ID || "1259865441405501571";
 
 const PING_BOSS_ROLE_ID = "1467575062826586205";
 const PING_HOLLOW_ROLE_ID = "1467575020275368131";
@@ -29,12 +30,13 @@ const BOOSTER_ROLE_ID = process.env.BOOSTER_ROLE_ID || "1267266564961341501";
 /* ===================== THEME / EMOJIS ===================== */
 const COLOR = 0x7b2cff;
 
+// Event logos
 const E_BLEACH = "<:event:1470018874408964119>";
 const E_JJK = "<:event:1470018845245968434>";
 
 const E_VASTO = "<:event:1469832084418727979>";
 const E_ULQ = "<:event:1469831975446511648>";
-const E_GRIMJOW = "<:event:1469831949857325097>";
+const E_GRIMJOW = "<:event:1469831949857325097>"; // placeholder if you have it
 const E_REIATSU = "<:event:1469821285079978045>";
 const E_CE = "<:event:1469821211872727040>";
 const E_DRAKO = "<:event:1469812070542217389>";
@@ -55,10 +57,10 @@ const DAILY_NORMAL = 100;
 const DAILY_BOOSTER = 200;
 
 /* ===================== DROPS / ROLES ===================== */
-const VASTO_DROP_ROLE_ID = "1467426528584405103";
-const ULQ_DROP_ROLE_ID = "1469573731301986367";
+const VASTO_DROP_ROLE_ID = "1467426528584405103"; // 2.5%
+const ULQ_DROP_ROLE_ID = "1469573731301986367";   // 3%
 
-/* ===================== SHOP ROLE ===================== */
+/* ===================== SHOP ===================== */
 const SHOP_COSMETIC_ROLE_ID = "1467438527200497768";
 
 /* ===================== MOB CONFIG ===================== */
