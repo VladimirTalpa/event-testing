@@ -1,5 +1,7 @@
+// deploy-commands.js
 require("dotenv").config();
 const { REST, Routes, SlashCommandBuilder } = require("discord.js");
+
 const cfg = require("./src/config");
 
 const TOKEN = process.env.DISCORD_TOKEN;
@@ -10,11 +12,6 @@ if (!TOKEN || !CLIENT_ID || !GUILD_ID) {
   console.error("❌ Missing env vars. Need: DISCORD_TOKEN, CLIENT_ID, GUILD_ID");
   process.exit(1);
 }
-
-const EVENT_CHOICES_EXCHANGE = [
-  { name: `Bleach — Rate: ${cfg.DRAKO_RATE_BLEACH} Reiatsu → 1 Drako`, value: "bleach" },
-  { name: `Jujutsu Kaisen — Rate: ${cfg.DRAKO_RATE_JJK} CE → 1 Drako`, value: "jjk" },
-];
 
 const EVENT_CHOICES = [
   { name: "Bleach", value: "bleach" },
@@ -35,6 +32,11 @@ const CURRENCY_CHOICES = [
   { name: "Drako Coin (Global)", value: "drako" },
 ];
 
+const EVENT_CHOICES_EXCHANGE = [
+  { name: `Bleach — Rate: ${cfg.DRAKO_RATE_BLEACH} Reiatsu → 1 Drako`, value: "bleach" },
+  { name: `Jujutsu Kaisen — Rate: ${cfg.DRAKO_RATE_JJK} CE → 1 Drako`, value: "jjk" },
+];
+
 const commands = [
   new SlashCommandBuilder()
     .setName("balance")
@@ -46,6 +48,11 @@ const commands = [
     .setDescription("View your inventory and bonuses (choose event)")
     .addStringOption((opt) => opt.setName("event").setDescription("Which event inventory?").setRequired(true).addChoices(...EVENT_CHOICES)),
 
+  // 🔥 NEW: store / forge / profile
+  new SlashCommandBuilder().setName("store").setDescription("Open the store menu"),
+  new SlashCommandBuilder().setName("forge").setDescription("Open the forge menu"),
+  new SlashCommandBuilder().setName("profile").setDescription("Open your profile menu"),
+
   new SlashCommandBuilder()
     .setName("shop")
     .setDescription("Open shop (choose event)")
@@ -55,21 +62,6 @@ const commands = [
     .setName("leaderboard")
     .setDescription("Leaderboard (choose event currency)")
     .addStringOption((opt) => opt.setName("event").setDescription("Which event leaderboard?").setRequired(true).addChoices(...EVENT_CHOICES)),
-
-  // ✅ /store
-  new SlashCommandBuilder()
-    .setName("store")
-    .setDescription("Open store (Event Shop / Gear Shop / Card Packs)"),
-
-  // ✅ /forge
-  new SlashCommandBuilder()
-    .setName("forge")
-    .setDescription("Open forge (Craft / Evolve)"),
-
-  // ✅ /profile
-  new SlashCommandBuilder()
-    .setName("profile")
-    .setDescription("Open profile menu (Currency / Gears / Titles / Drako leaderboard)"),
 
   new SlashCommandBuilder()
     .setName("give")
@@ -97,6 +89,13 @@ const commands = [
     .setName("spawnmob")
     .setDescription("Spawn a mob (event staff only)")
     .addStringOption((opt) => opt.setName("event").setDescription("Which event mob?").setRequired(true).addChoices(...EVENT_CHOICES)),
+
+  new SlashCommandBuilder()
+    .setName("pvpclash")
+    .setDescription("Challenge a player to a PvP clash (stake currency)")
+    .addStringOption((opt) => opt.setName("currency").setDescription("Which currency?").setRequired(true).addChoices(...CURRENCY_CHOICES))
+    .addIntegerOption((opt) => opt.setName("amount").setDescription("Stake amount").setRequired(true).setMinValue(1))
+    .addUserOption((opt) => opt.setName("user").setDescription("Opponent").setRequired(true)),
 
   new SlashCommandBuilder()
     .setName("adminadd")
