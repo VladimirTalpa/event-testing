@@ -102,8 +102,8 @@ const commands = [
     .addUserOption((opt) => opt.setName("user").setDescription("Target user (optional)").setRequired(false)),
 
   new SlashCommandBuilder().setName("store").setDescription("Open the store"),
-  new SlashCommandBuilder().setName("forge").setDescription("Open the forge"),
-  new SlashCommandBuilder().setName("profile").setDescription("Open your profile menu"),
+  new SlashCommandBuilder().setName("forge").setDescription("Open forge menu"),
+  new SlashCommandBuilder().setName("profile").setDescription("Open your profile"),
 ].map((c) => c.toJSON());
 
 const rest = new REST({ version: "10" }).setToken(TOKEN);
