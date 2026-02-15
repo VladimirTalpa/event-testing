@@ -1,7 +1,5 @@
-// deploy-commands.js
 require("dotenv").config();
 const { REST, Routes, SlashCommandBuilder } = require("discord.js");
-
 const cfg = require("./src/config");
 
 const TOKEN = process.env.DISCORD_TOKEN;
@@ -12,6 +10,11 @@ if (!TOKEN || !CLIENT_ID || !GUILD_ID) {
   console.error("❌ Missing env vars. Need: DISCORD_TOKEN, CLIENT_ID, GUILD_ID");
   process.exit(1);
 }
+
+const EVENT_CHOICES_EXCHANGE = [
+  { name: `Bleach — Rate: ${cfg.DRAKO_RATE_BLEACH} Reiatsu → 1 Drako`, value: "bleach" },
+  { name: `Jujutsu Kaisen — Rate: ${cfg.DRAKO_RATE_JJK} CE → 1 Drako`, value: "jjk" },
+];
 
 const EVENT_CHOICES = [
   { name: "Bleach", value: "bleach" },
@@ -32,11 +35,6 @@ const CURRENCY_CHOICES = [
   { name: "Drako Coin (Global)", value: "drako" },
 ];
 
-const EVENT_CHOICES_EXCHANGE = [
-  { name: `Bleach — Rate: ${cfg.DRAKO_RATE_BLEACH} Reiatsu → 1 Drako`, value: "bleach" },
-  { name: `Jujutsu Kaisen — Rate: ${cfg.DRAKO_RATE_JJK} CE → 1 Drako`, value: "jjk" },
-];
-
 const commands = [
   new SlashCommandBuilder()
     .setName("balance")
@@ -47,11 +45,6 @@ const commands = [
     .setName("inventory")
     .setDescription("View your inventory and bonuses (choose event)")
     .addStringOption((opt) => opt.setName("event").setDescription("Which event inventory?").setRequired(true).addChoices(...EVENT_CHOICES)),
-
-  // 🔥 NEW: store / forge / profile
-  new SlashCommandBuilder().setName("store").setDescription("Open the store menu"),
-  new SlashCommandBuilder().setName("forge").setDescription("Open the forge menu"),
-  new SlashCommandBuilder().setName("profile").setDescription("Open your profile menu"),
 
   new SlashCommandBuilder()
     .setName("shop")
@@ -91,6 +84,10 @@ const commands = [
     .addStringOption((opt) => opt.setName("event").setDescription("Which event mob?").setRequired(true).addChoices(...EVENT_CHOICES)),
 
   new SlashCommandBuilder()
+    .setName("wardrobe")
+    .setDescription("Open your role wardrobe (equip/unequip saved roles)"),
+
+  new SlashCommandBuilder()
     .setName("pvpclash")
     .setDescription("Challenge a player to a PvP clash (stake currency)")
     .addStringOption((opt) => opt.setName("currency").setDescription("Which currency?").setRequired(true).addChoices(...CURRENCY_CHOICES))
@@ -103,6 +100,10 @@ const commands = [
     .addStringOption((opt) => opt.setName("currency").setDescription("Which currency?").setRequired(true).addChoices(...CURRENCY_CHOICES))
     .addIntegerOption((opt) => opt.setName("amount").setDescription("Amount to add").setRequired(true).setMinValue(1))
     .addUserOption((opt) => opt.setName("user").setDescription("Target user (optional)").setRequired(false)),
+
+  new SlashCommandBuilder().setName("store").setDescription("Open the store"),
+  new SlashCommandBuilder().setName("forge").setDescription("Open the forge"),
+  new SlashCommandBuilder().setName("profile").setDescription("Open your profile menu"),
 ].map((c) => c.toJSON());
 
 const rest = new REST({ version: "10" }).setToken(TOKEN);
