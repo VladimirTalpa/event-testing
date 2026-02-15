@@ -1,7 +1,9 @@
 // src/handlers/buttons.js
+const { EmbedBuilder, PermissionsBitField } = require("discord.js");
 const { bossByChannel, mobByChannel, pvpById } = require("../core/state");
 const { getPlayer, setPlayer, getTopPlayers } = require("../core/players");
 const { safeName } = require("../core/utils");
+
 const {
   mobEmbed,
   shopEmbed,
@@ -11,7 +13,16 @@ const {
   forgeEmbed,
   leaderboardEmbed,
 } = require("../ui/embeds");
-const { CID, mobButtons, shopButtons, pvpButtons, menuButtons } = require("../ui/components");
+
+const {
+  CID,
+  mobButtons,
+  shopButtons,
+  pvpButtons,
+  menuButtons,
+  wardrobeComponents,
+} = require("../ui/components");
+
 const { MOBS } = require("../data/mobs");
 const { BLEACH_SHOP_ITEMS, JJK_SHOP_ITEMS } = require("../data/shop");
 const { E_DRAKO } = require("../config");
@@ -19,11 +30,20 @@ const { E_DRAKO } = require("../config");
 async function tryGiveRole(guild, userId, roleId) {
   try {
     const botMember = await guild.members.fetchMe();
-    if (!botMember.permissions.has("ManageRoles")) return { ok: false, reason: "Missing Manage Roles permission." };
+
+    // ✅ правильная проверка в v14
+    if (!botMember.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
+      return { ok: false, reason: "Missing Manage Roles permission." };
+    }
+
     const role = guild.roles.cache.get(roleId);
     if (!role) return { ok: false, reason: "Role not found." };
+
     const botTop = botMember.roles.highest?.position ?? 0;
-    if (botTop <= role.position) return { ok: false, reason: "Bot role is below target role (hierarchy)." };
+    if (botTop <= role.position) {
+      return { ok: false, reason: "Bot role is below target role (hierarchy)." };
+    }
+
     const member = await guild.members.fetch(userId);
     await member.roles.add(roleId);
     return { ok: true };
@@ -39,7 +59,9 @@ function ensureOwnedRole(player, roleId) {
 }
 
 module.exports = async function handleButtons(interaction) {
-  try { await interaction.deferUpdate(); } catch {}
+  try {
+    await interaction.deferUpdate();
+  } catch {}
 
   const channel = interaction.channel;
   if (!channel || !channel.isTextBased()) return;
@@ -50,72 +72,65 @@ module.exports = async function handleButtons(interaction) {
   if (cid.startsWith(`${CID.MENU}:`)) {
     // menu:<name>:<page>
     const [, name, page] = cid.split(":");
-
     const p = await getPlayer(interaction.user.id);
 
     if (name === "profile") {
       if (page === "titles") {
-        // open titles selector (reuse wardrobe UI)
         const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
         if (!member) return;
 
-        const { wardrobeComponents } = require("../ui/components");
-        await interaction.message.edit({
-          embeds: [wardrobeEmbed(interaction.guild, p)],
-          components: wardrobeComponents(interaction.guild, member, p),
-        }).catch(() => {});
+        await interaction.message
+          .edit({
+            embeds: [wardrobeEmbed(interaction.guild, p)],
+            components: wardrobeComponents(interaction.guild, member, p),
+          })
+          .catch(() => {});
         return;
       }
 
       if (page === "drako_lb") {
-        const rows = await getTopPlayers("drako", 10).catch(() => []);
-        // fallback: build from all players by drako using getTopPlayers tweak not present -> do local
-        // If your getTopPlayers doesn't support "drako", do it here:
-        let entries = [];
-        if (!rows.length) {
-          // local scan (cheap): use getTopPlayers('bleach') then map? no. We'll do direct via redis all:
-          // but to avoid heavy changes now, show simple message.
-          entries = [];
-        } else {
-          entries = rows.map((r) => ({ name: r.userId, score: r.score }));
-        }
+        // ✅ не лезем в getTopPlayers("drako") если у тебя этого нет — это тоже могло крашить
+        // Показываем аккуратно “soon” без падений
+        const embed = new EmbedBuilder()
+          .setColor(0x7b2cff)
+          .setTitle("🏆 Drako Leaderboard")
+          .setDescription("Coming soon.");
 
-        // Proper drako lb without touching redis heavy:
-        // We'll just show "coming soon" if entries empty.
-        const embed = entries.length
-          ? new (require("discord.js").EmbedBuilder)()
-              .setColor(0x7b2cff)
-              .setTitle(`🏆 Drako Leaderboard`)
-              .setDescription(entries.map((e, i) => `**#${i + 1}** — <@${e.name}>: **${E_DRAKO} ${e.score}**`).join("\n"))
-          : new (require("discord.js").EmbedBuilder)().setColor(0x7b2cff).setTitle("🏆 Drako Leaderboard").setDescription("No data yet.");
-
-        await interaction.message.edit({
-          embeds: [embed],
-          components: menuButtons("profile"),
-        }).catch(() => {});
+        await interaction.message
+          .edit({
+            embeds: [embed],
+            components: menuButtons("profile"),
+          })
+          .catch(() => {});
         return;
       }
 
-      await interaction.message.edit({
-        embeds: [profileEmbed(page, p, interaction.guild?.name || "")],
-        components: menuButtons("profile"),
-      }).catch(() => {});
+      await interaction.message
+        .edit({
+          embeds: [profileEmbed(page, p, interaction.guild?.name || "")],
+          components: menuButtons("profile"),
+        })
+        .catch(() => {});
       return;
     }
 
     if (name === "store") {
-      await interaction.message.edit({
-        embeds: [storeEmbed(page)],
-        components: menuButtons("store"),
-      }).catch(() => {});
+      await interaction.message
+        .edit({
+          embeds: [storeEmbed(page)],
+          components: menuButtons("store"),
+        })
+        .catch(() => {});
       return;
     }
 
     if (name === "forge") {
-      await interaction.message.edit({
-        embeds: [forgeEmbed(page)],
-        components: menuButtons("forge"),
-      }).catch(() => {});
+      await interaction.message
+        .edit({
+          embeds: [forgeEmbed(page)],
+          components: menuButtons("forge"),
+        })
+        .catch(() => {});
       return;
     }
 
@@ -123,9 +138,7 @@ module.exports = async function handleButtons(interaction) {
   }
 
   if (cid.startsWith(`${CID.MENU_CLOSE}:`)) {
-    // menu_close:<name>
     await interaction.message.delete().catch(async () => {
-      // if no perms to delete: just disable buttons
       await interaction.message.edit({ components: [] }).catch(() => {});
     });
     return;
@@ -145,7 +158,10 @@ module.exports = async function handleButtons(interaction) {
       return;
     }
 
-    boss.participants.set(uid, { hits: 0, displayName: interaction.member?.displayName || interaction.user.username });
+    boss.participants.set(uid, {
+      hits: 0,
+      displayName: interaction.member?.displayName || interaction.user.username,
+    });
 
     const fighters = [...boss.participants.values()];
     const fightersText = fighters.length
@@ -156,10 +172,12 @@ module.exports = async function handleButtons(interaction) {
     if (msg) {
       const { bossSpawnEmbed } = require("../ui/embeds");
       const { bossButtons } = require("../ui/components");
-      await msg.edit({
-        embeds: [bossSpawnEmbed(boss.def, channel.name, fighters.length, fightersText)],
-        components: bossButtons(!boss.joining),
-      }).catch(() => {});
+      await msg
+        .edit({
+          embeds: [bossSpawnEmbed(boss.def, channel.name, fighters.length, fightersText)],
+          components: bossButtons(!boss.joining),
+        })
+        .catch(() => {});
     }
 
     await interaction.followUp({ content: "✅ Joined the fight.", ephemeral: true }).catch(() => {});
@@ -170,13 +188,12 @@ module.exports = async function handleButtons(interaction) {
   if (cid === CID.BOSS_RULES) {
     const boss = bossByChannel.get(channel.id);
     const def = boss?.def;
-
     const maxHits = def?.maxHits ?? 2;
 
     const txt = def
       ? `**${def.name}** • Difficulty: **${def.difficulty}** • Rounds: **${def.rounds.length}**\n` +
         `Win: **${def.winRewardRange ? `${def.winRewardRange.min}-${def.winRewardRange.max}` : def.winReward}**\n` +
-        `Success per round: **+${def.hitReward}** (banked, paid only on victory)\n` +
+        `Success per round: **+${def.hitReward}** (banked)\n` +
         `${maxHits} hits = eliminated`
       : `${maxHits} hits = eliminated.`;
 
@@ -186,7 +203,6 @@ module.exports = async function handleButtons(interaction) {
 
   /* ===================== Boss action buttons ===================== */
   if (cid.startsWith("boss_action:")) {
-    // твоя логика boss_action как была — оставляем.
     const parts = cid.split(":");
     const bossId = parts[1];
     const roundIndex = Number(parts[2]);
@@ -237,15 +253,14 @@ module.exports = async function handleButtons(interaction) {
 
       if (payload !== expected) {
         boss.activeAction.comboFailed.add(uid);
-        await interaction.followUp({ content: "❌ Wrong button! (you will take a hit when the timer ends)", ephemeral: true }).catch(() => {});
+        await interaction.followUp({ content: "❌ Wrong button!", ephemeral: true }).catch(() => {});
         return;
       }
 
       const next = prog + 1;
       boss.activeAction.comboProgress.set(uid, next);
 
-      if (next >= 4) await interaction.followUp({ content: "✅ Combo completed!", ephemeral: true }).catch(() => {});
-      else await interaction.followUp({ content: `✅ Good! (${next}/4)`, ephemeral: true }).catch(() => {});
+      await interaction.followUp({ content: next >= 4 ? "✅ Combo completed!" : `✅ Good! (${next}/4)`, ephemeral: true }).catch(() => {});
       return;
     }
 
@@ -315,17 +330,19 @@ module.exports = async function handleButtons(interaction) {
     const mob = MOBS[eventKey];
     const msg = await channel.messages.fetch(state.messageId).catch(() => null);
     if (msg) {
-      await msg.edit({
-        embeds: [mobEmbed(eventKey, state.attackers.size, mob)],
-        components: mobButtons(eventKey, false),
-      }).catch(() => {});
+      await msg
+        .edit({
+          embeds: [mobEmbed(eventKey, state.attackers.size, mob)],
+          components: mobButtons(eventKey, false),
+        })
+        .catch(() => {});
     }
 
     await interaction.followUp({ content: "⚔️ Action registered!", ephemeral: true }).catch(() => {});
     return;
   }
 
-  /* ===================== PvP Clash ===================== */
+  /* ===================== PvP ===================== */
   if (cid.startsWith(`${CID.PVP_ACCEPT}:`) || cid.startsWith(`${CID.PVP_DECLINE}:`)) {
     const isAccept = cid.startsWith(`${CID.PVP_ACCEPT}:`);
     const [, currency, amountStr, challengerId, targetId] = cid.split(":");
@@ -428,8 +445,14 @@ module.exports = async function handleButtons(interaction) {
     let eventKey = null;
     let key = null;
 
-    if (bleachMap[cid]) { eventKey = "bleach"; key = bleachMap[cid]; }
-    if (jjkMap[cid]) { eventKey = "jjk"; key = jjkMap[cid]; }
+    if (bleachMap[cid]) {
+      eventKey = "bleach";
+      key = bleachMap[cid];
+    }
+    if (jjkMap[cid]) {
+      eventKey = "jjk";
+      key = jjkMap[cid];
+    }
 
     if (!eventKey || !key) {
       await interaction.followUp({ content: "❌ Unknown item.", ephemeral: true }).catch(() => {});
@@ -449,18 +472,16 @@ module.exports = async function handleButtons(interaction) {
       return;
     }
 
-    const { E_REIATSU, E_CE } = require("../config");
-
     if (eventKey === "bleach") {
       if (p.bleach.reiatsu < item.price) {
-        await interaction.followUp({ content: `❌ Need ${E_REIATSU} ${item.price}.`, ephemeral: true }).catch(() => {});
+        await interaction.followUp({ content: `❌ Need ${item.price}.`, ephemeral: true }).catch(() => {});
         return;
       }
       p.bleach.reiatsu -= item.price;
       p.bleach.items[key] = true;
     } else {
       if (p.jjk.cursedEnergy < item.price) {
-        await interaction.followUp({ content: `❌ Need ${E_CE} ${item.price}.`, ephemeral: true }).catch(() => {});
+        await interaction.followUp({ content: `❌ Need ${item.price}.`, ephemeral: true }).catch(() => {});
         return;
       }
       p.jjk.cursedEnergy -= item.price;
@@ -473,23 +494,19 @@ module.exports = async function handleButtons(interaction) {
       if (!res.ok) {
         await interaction.followUp({
           content: `⚠️ Bought role, but bot couldn't assign: ${res.reason} (saved to titles)`,
-          ephemeral: true
+          ephemeral: true,
         }).catch(() => {});
       }
     }
 
     await setPlayer(interaction.user.id, p);
 
-    const msgId = interaction.message?.id;
-    if (msgId) {
-      const msg = await channel.messages.fetch(msgId).catch(() => null);
-      if (msg) {
-        await msg.edit({
-          embeds: [shopEmbed(eventKey, p)],
-          components: shopButtons(eventKey, p),
-        }).catch(() => {});
-      }
-    }
+    await interaction.message
+      ?.edit({
+        embeds: [shopEmbed(eventKey, p)],
+        components: shopButtons(eventKey, p),
+      })
+      .catch(() => {});
 
     await interaction.followUp({ content: "✅ Purchased!", ephemeral: true }).catch(() => {});
     return;
