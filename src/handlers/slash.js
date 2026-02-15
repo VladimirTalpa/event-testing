@@ -1,14 +1,19 @@
+// src/handlers/slash.js
 const { BOSSES } = require("../data/bosses");
 const { MOBS } = require("../data/mobs");
 
 const {
   BLEACH_CHANNEL_ID,
   JJK_CHANNEL_ID,
+
   DAILY_COOLDOWN_MS,
   DAILY_NORMAL,
   DAILY_BOOSTER,
+
   DRAKO_RATE_BLEACH,
   DRAKO_RATE_JJK,
+
+  BOSS_SPAWNER_ROLE_ID,
 
   E_REIATSU,
   E_CE,
@@ -20,28 +25,8 @@ const {
 
 const { getPlayer, setPlayer, getTopPlayers } = require("../core/players");
 const { safeName } = require("../core/utils");
-
-const {
-  hasEventRole,
-  hasBoosterRole,
-  shopButtons,
-  titlesComponents,
-  pvpButtons,
-  storeMenuComponents,
-  forgeMenuComponents,
-  profileMenuComponents,
-} = require("../ui/components");
-
-const {
-  inventoryEmbed,
-  shopEmbed,
-  leaderboardEmbed,
-  titlesEmbed,
-  storeHomeEmbed,
-  forgeHomeEmbed,
-  profileHomeEmbed,
-  profileCurrencyEmbed,
-} = require("../ui/embeds");
+const { hasBoosterRole, shopButtons, wardrobeComponents, pvpButtons } = require("../ui/components");
+const { inventoryEmbed, shopEmbed, leaderboardEmbed, wardrobeEmbed } = require("../ui/embeds");
 
 const { spawnBoss } = require("../events/boss");
 const { spawnMob } = require("../events/mob");
@@ -51,6 +36,10 @@ function isAllowedSpawnChannel(eventKey, channelId) {
   if (eventKey === "bleach") return channelId === BLEACH_CHANNEL_ID;
   if (eventKey === "jjk") return channelId === JJK_CHANNEL_ID;
   return false;
+}
+
+function canSpawn(interaction) {
+  return !!interaction.member?.roles?.cache?.has(BOSS_SPAWNER_ROLE_ID);
 }
 
 module.exports = async function handleSlash(interaction) {
@@ -75,7 +64,10 @@ module.exports = async function handleSlash(interaction) {
   if (interaction.commandName === "inventory") {
     const eventKey = interaction.options.getString("event", true);
     const p = await getPlayer(interaction.user.id);
-    return interaction.reply({ embeds: [inventoryEmbed(eventKey, p, BLEACH_BONUS_MAX, JJK_BONUS_MAX)], ephemeral: true });
+    return interaction.reply({
+      embeds: [inventoryEmbed(eventKey, p, BLEACH_BONUS_MAX, JJK_BONUS_MAX)],
+      ephemeral: true,
+    });
   }
 
   if (interaction.commandName === "shop") {
@@ -84,37 +76,6 @@ module.exports = async function handleSlash(interaction) {
     return interaction.reply({
       embeds: [shopEmbed(eventKey, p)],
       components: shopButtons(eventKey, p),
-      ephemeral: true,
-    });
-  }
-
-  // ✅ NEW: /store
-  if (interaction.commandName === "store") {
-    const ownerId = interaction.user.id;
-    return interaction.reply({
-      embeds: [storeHomeEmbed()],
-      components: storeMenuComponents(ownerId),
-      ephemeral: true,
-    });
-  }
-
-  // ✅ NEW: /forge
-  if (interaction.commandName === "forge") {
-    const ownerId = interaction.user.id;
-    return interaction.reply({
-      embeds: [forgeHomeEmbed()],
-      components: forgeMenuComponents(ownerId),
-      ephemeral: true,
-    });
-  }
-
-  // ✅ NEW: /profile
-  if (interaction.commandName === "profile") {
-    const ownerId = interaction.user.id;
-    const p = await getPlayer(ownerId);
-    return interaction.reply({
-      embeds: [profileCurrencyEmbed(interaction.user, p)],
-      components: profileMenuComponents(ownerId),
       ephemeral: true,
     });
   }
@@ -153,6 +114,7 @@ module.exports = async function handleSlash(interaction) {
     return interaction.reply({ content: `🎁 You claimed **${E_REIATSU} ${amount} Reiatsu**!`, ephemeral: false });
   }
 
+  /* ===================== /give ===================== */
   if (interaction.commandName === "give") {
     const currency = interaction.options.getString("currency", true);
     const target = interaction.options.getUser("user", true);
@@ -194,6 +156,7 @@ module.exports = async function handleSlash(interaction) {
     });
   }
 
+  /* ===================== /exchange_drako ===================== */
   if (interaction.commandName === "exchange_drako") {
     const eventKey = interaction.options.getString("event", true);
     const drakoWanted = interaction.options.getInteger("drako", true);
@@ -251,9 +214,10 @@ module.exports = async function handleSlash(interaction) {
     }
   }
 
+  /* ===================== /spawnboss ===================== */
   if (interaction.commandName === "spawnboss") {
-    if (!hasEventRole(interaction.member)) {
-      return interaction.reply({ content: "⛔ You don’t have the required role.", ephemeral: true });
+    if (!canSpawn(interaction)) {
+      return interaction.reply({ content: "⛔ You don’t have permission to spawn bosses.", ephemeral: true });
     }
 
     const bossId = interaction.options.getString("boss", true);
@@ -270,9 +234,10 @@ module.exports = async function handleSlash(interaction) {
     return;
   }
 
+  /* ===================== /spawnmob ===================== */
   if (interaction.commandName === "spawnmob") {
-    if (!hasEventRole(interaction.member)) {
-      return interaction.reply({ content: "⛔ You don’t have the required role.", ephemeral: true });
+    if (!canSpawn(interaction)) {
+      return interaction.reply({ content: "⛔ You don’t have permission to spawn mobs.", ephemeral: true });
     }
 
     const eventKey = interaction.options.getString("event", true);
@@ -284,23 +249,28 @@ module.exports = async function handleSlash(interaction) {
     }
 
     await interaction.reply({ content: `✅ Mob spawned (${eventKey}).`, ephemeral: true });
-    await spawnMob(channel, eventKey, { bleachChannelId: BLEACH_CHANNEL_ID, jjkChannelId: JJK_CHANNEL_ID, withPing: true });
+    await spawnMob(channel, eventKey, {
+      bleachChannelId: BLEACH_CHANNEL_ID,
+      jjkChannelId: JJK_CHANNEL_ID,
+      withPing: true,
+    });
     return;
   }
 
-  // (старое) wardrobe -> Titles
+  /* ===================== /wardrobe ===================== */
   if (interaction.commandName === "wardrobe") {
     const p = await getPlayer(interaction.user.id);
     const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
     if (!member) return interaction.reply({ content: "❌ Can't read your member data.", ephemeral: true });
 
     return interaction.reply({
-      embeds: [titlesEmbed(interaction.guild, p)],
-      components: titlesComponents(interaction.guild, member, p),
+      embeds: [wardrobeEmbed(interaction.guild, p)],
+      components: wardrobeComponents(interaction.guild, member, p),
       ephemeral: true,
     });
   }
 
+  /* ===================== /pvpclash ===================== */
   if (interaction.commandName === "pvpclash") {
     const currency = interaction.options.getString("currency", true);
     const amount = interaction.options.getInteger("amount", true);
@@ -322,6 +292,7 @@ module.exports = async function handleSlash(interaction) {
     });
   }
 
+  /* ===================== /adminadd ===================== */
   if (interaction.commandName === "adminadd") {
     const allowed = interaction.member?.roles?.cache?.has("1259865441405501571");
     if (!allowed) return interaction.reply({ content: "⛔ No permission.", ephemeral: true });
