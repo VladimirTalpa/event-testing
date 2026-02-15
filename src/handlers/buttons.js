@@ -1,18 +1,13 @@
-const { openProfile, openStore, openForge } = require("../ui/menus");
-const { spawnBoss } = require("../events/boss");
+const { handleProfile, handleStore, handleForge } = require("../ui/menus");
+const { handleBossButton } = require("../events/boss");
 
 module.exports = async (interaction) => {
-  const name = interaction.commandName;
+  const id = interaction.customId;
 
-  if (name === "profile") return openProfile(interaction);
-  if (name === "store") return openStore(interaction);
-  if (name === "forge") return openForge(interaction);
+  if (id.startsWith("profile:")) return handleProfile(interaction);
+  if (id.startsWith("store:")) return handleStore(interaction);
+  if (id.startsWith("forge:")) return handleForge(interaction);
+  if (id.startsWith("boss:")) return handleBossButton(interaction);
 
-  if (name === "spawnboss") {
-    const bossId = interaction.options.getString("boss", true);
-    await interaction.reply({ content: "OK", ephemeral: true });
-    return spawnBoss(interaction.channel, bossId);
-  }
-
-  return interaction.reply({ content: "Unknown command.", ephemeral: true });
+  return interaction.reply({ content: "Unknown button.", ephemeral: true });
 };
