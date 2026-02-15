@@ -1,15 +1,16 @@
 const {
   E_VASTO,
   E_ULQ,
-  E_BLEACH,
   E_JJK,
   VASTO_DROP_ROLE_ID,
   ULQ_DROP_ROLE_ID,
 } = require("../config");
 
-const media = require("./media");
+// ✅ FIX: explicit extension
+const media = require("./media.js");
 
-const JOIN_30S = 30 * 1000;
+// ✅ join time 30 seconds for ALL bosses
+const JOIN_MS = 30 * 1000;
 
 const BOSSES = {
   vasto: {
@@ -18,7 +19,7 @@ const BOSSES = {
     name: "Vasto Lorde",
     icon: E_VASTO,
     difficulty: "Hard",
-    joinMs: JOIN_30S,
+    joinMs: JOIN_MS,
     baseChance: 0.30,
     winReward: 200,
     hitReward: 15,
@@ -44,7 +45,7 @@ const BOSSES = {
     name: "Ulquiorra",
     icon: E_ULQ,
     difficulty: "Extreme",
-    joinMs: JOIN_30S,
+    joinMs: JOIN_MS,
     baseChance: 0.20,
     winReward: 500,
     hitReward: 25,
@@ -71,49 +72,22 @@ const BOSSES = {
     name: "Grimmjow",
     icon: "🦁",
     difficulty: "Medium",
-    joinMs: JOIN_30S,
+    joinMs: JOIN_MS,
     baseChance: 0.50,
     winReward: 125,
     hitReward: 15,
     roleDropChance: 1.0,
     roleDropId: "1469831066628919439",
 
+    // ⚠️ если у тебя другие гифки — просто замени тут ссылки
     spawnMedia: media.GRIM_SPAWN_MEDIA,
     victoryMedia: media.GRIM_VICTORY_MEDIA,
     defeatMedia: media.GRIM_DEFEAT_MEDIA,
 
     rounds: [
-      {
-        type: "multi_press",
-        title: "Round 1 — Relentless Assault",
-        intro:
-          "Grimmjow rushes in with a storm of strikes.\n" +
-          "Press **Block** **3 times** within **15 seconds** to withstand it.",
-        windowMs: 15000,
-        requiredPresses: 3,
-        buttonLabel: "Block",
-        buttonEmoji: "🛡️",
-        media: media.GRIM_R1,
-      },
-      {
-        type: "coop_block",
-        title: "Round 2 — Coordinated Defense",
-        intro:
-          "Grimmjow releases a heavy blow.\n" +
-          "**3 players** must press **Block** within **10 seconds**.\n" +
-          "Failing to block in time = you take a hit.",
-        windowMs: 10000,
-        requiredPresses: 3,
-        buttonLabel: "Block",
-        buttonEmoji: "🛡️",
-        media: media.GRIM_R2,
-      },
-      {
-        type: "attack",
-        title: "Final — You endured the trial",
-        intro: "You held your ground.\nGrimmjow leaves the battlefield.",
-        media: media.GRIM_VICTORY_MEDIA,
-      },
+      { type: "multi_press", title: "Round 1 — Relentless Assault", intro: "Grimmjow rushes in with a storm of strikes.\nPress **Block** **3 times** within **15 seconds** to withstand it.", windowMs: 15000, requiredPresses: 3, buttonLabel: "Block", buttonEmoji: "🛡️", media: media.GRIM_R1 },
+      { type: "coop_block", title: "Round 2 — Coordinated Defense", intro: "Grimmjow releases a heavy blow.\n**3 players** must press **Block** within **10 seconds**.", windowMs: 10000, requiredPresses: 3, buttonLabel: "Block", buttonEmoji: "🛡️", media: media.GRIM_R2 },
+      { type: "attack", title: "Final — You endured the trial", intro: "You held your ground.\nGrimmjow leaves the battlefield.", media: media.GRIM_VICTORY_MEDIA },
     ],
   },
 
@@ -123,9 +97,11 @@ const BOSSES = {
     name: "Mahoraga",
     icon: E_JJK,
     difficulty: "Insanity",
-    joinMs: JOIN_30S,
+    joinMs: JOIN_MS,
+
     baseChance: 0.10,
     maxHits: 3,
+
     winRewardRange: { min: 800, max: 1400 },
     hitReward: 30,
 
@@ -144,16 +120,7 @@ const BOSSES = {
     defeatMedia: media.MAHO_DEFEAT,
 
     rounds: [
-      {
-        type: "multi_press",
-        title: "Round 1 — Total Block",
-        intro: "Block all of Mahoraga's attacks.\nYou need to press **Block** **3 times** for **10 seconds**.",
-        windowMs: 10 * 1000,
-        requiredPresses: 3,
-        buttonLabel: "Block",
-        buttonEmoji: "🛡️",
-        media: media.MAHO_R1,
-      },
+      { type: "multi_press", title: "Round 1 — Total Block", intro: "Block all of Mahoraga's attacks.\nYou need to press **Block** **3 times** for **10 seconds**.", windowMs: 10 * 1000, requiredPresses: 3, buttonLabel: "Block", buttonEmoji: "🛡️", media: media.MAHO_R1 },
       { type: "pressure", title: "Round 2 — Endure", intro: "Survive Mahoraga's attacks.", media: media.MAHO_R2 },
       { type: "pressure", title: "Round 3 — Pressure", intro: "Withstand the onslaught of Mahoraga.", media: media.MAHO_R3 },
       {
@@ -193,7 +160,7 @@ const BOSSES = {
         intro: "Mahoraga takes over you.\nClick **all 3 buttons** for **12 seconds**, to get ready.",
         windowMs: 12 * 1000,
         buttons: [
-          { key: "focus", label: "Focuse", emoji: "🧠" },
+          { key: "focus", label: "Focus", emoji: "🧠" },
           { key: "reinforce", label: "Reinforce", emoji: "🟣" },
           { key: "resolve", label: "Get ready", emoji: "🔥" },
         ],
@@ -220,7 +187,7 @@ const BOSSES = {
     name: "Special Grade Curse",
     icon: E_JJK,
     difficulty: "Medium",
-    joinMs: JOIN_30S,
+    joinMs: JOIN_MS,
     baseChance: 0.30,
     winReward: 200,
     hitReward: 15,
@@ -235,7 +202,7 @@ const BOSSES = {
       { type: "pressure", title: "Round 1 — Cursed Pressure", intro: "Overwhelming cursed pressure floods the area.", media: media.JJK_SG_R1 },
       { type: "pressure", title: "Round 2 — Malice Surge", intro: "The aura turns violent. Resist it.", media: media.JJK_SG_R2 },
       { type: "attack", title: "Round 3 — Opening", intro: "A gap appears. Strike the core.", media: media.JJK_SG_R3 },
-      { type: "finisher", title: "Round 4 — Exorcism Window", intro: "Finish it! Press **Exorcise** in time.", windowMs: 5000, buttonLabel: "Exorcise", buttonEmoji: "🪬", media: media.JJK_SG_VICTORY_MEDIA },
+      { type: "finisher", title: "Round 4 — Exorcism Window", intro: "Finish it! Press **Exorcise** in time.", windowMs: 5000, buttonLabel: "Exorcise", buttonEmoji: "🪬", media: media.JJK_SG_SPAWN_MEDIA },
     ],
   },
 };
