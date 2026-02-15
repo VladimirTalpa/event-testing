@@ -1,10 +1,14 @@
-function safeName(name) {
-  if (!name) return "Unknown";
-  return String(name).replace(/[`*_~|]/g, "");
-}
-
+// src/core/utils.js
 function clamp(n, a, b) {
   return Math.max(a, Math.min(b, n));
 }
 
-module.exports = { safeName, clamp };
+function safeName(name) {
+  return String(name || "Unknown").replace(/@/g, "").replace(/#/g, "＃");
+}
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+module.exports = { clamp, safeName, sleep };
