@@ -1,20 +1,18 @@
-const handleSlash = require("./slash");
-const handleButtons = require("./buttons");
-const handleSelects = require("./selects");
+const { openProfile, openStore, openForge } = require("../ui/menus");
+const { spawnBoss } = require("../events/boss");
 
 module.exports = async (interaction) => {
-  try {
-    if (interaction.isChatInputCommand()) return await handleSlash(interaction);
-    if (interaction.isButton()) return await handleButtons(interaction);
-    if (interaction.isStringSelectMenu()) return await handleSelects(interaction);
-  } catch (e) {
-    console.error(e);
-    try {
-      if (interaction.deferred || interaction.replied) {
-        await interaction.followUp({ content: "Error.", ephemeral: true });
-      } else {
-        await interaction.reply({ content: "Error.", ephemeral: true });
-      }
-    } catch {}
+  const name = interaction.commandName;
+
+  if (name === "profile") return openProfile(interaction);
+  if (name === "store") return openStore(interaction);
+  if (name === "forge") return openForge(interaction);
+
+  if (name === "spawnboss") {
+    const bossId = interaction.options.getString("boss", true);
+    await interaction.reply({ content: "OK", ephemeral: true });
+    return spawnBoss(interaction.channel, bossId);
   }
+
+  return interaction.reply({ content: "Unknown command.", ephemeral: true });
 };
