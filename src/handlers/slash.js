@@ -16,30 +16,10 @@ const {
   JJK_BONUS_MAX,
 } = require("../config");
 
-const { getPlayer, setPlayer, getTopPlayers, REDIS_PLAYERS_KEY } = require("../core/players");
-const { getRedis, initRedis } = require("../core/redis");
+const { getPlayer, setPlayer, getTopPlayers } = require("../core/players");
 const { safeName } = require("../core/utils");
-const {
-  hasEventRole,
-  hasBoosterRole,
-  shopButtons,
-  wardrobeComponents,
-  pvpButtons,
-  profileMenuButtons,
-  storeMenuButtons,
-  forgeMenuButtons,
-} = require("../ui/components");
-
-const {
-  inventoryEmbed,
-  shopEmbed,
-  leaderboardEmbed,
-  wardrobeEmbed,
-  profileMainEmbed,
-  profileCurrencyEmbed,
-  storeMainEmbed,
-  forgeMainEmbed,
-} = require("../ui/embeds");
+const { hasEventRole, hasBoosterRole, shopButtons, wardrobeComponents, pvpButtons, storeMenu, forgeMenu, profileMenu } = require("../ui/components");
+const { inventoryEmbed, shopEmbed, leaderboardEmbed, wardrobeEmbed, storeEmbed, forgeEmbed, profileEmbed } = require("../ui/embeds");
 
 const { spawnBoss } = require("../events/boss");
 const { spawnMob } = require("../events/mob");
@@ -51,62 +31,44 @@ function isAllowedSpawnChannel(eventKey, channelId) {
   return false;
 }
 
-async function getTopDrako(interaction, limit = 10) {
-  await initRedis();
-  const redis = getRedis();
-  const all = await redis.hGetAll(REDIS_PLAYERS_KEY);
-
-  const rows = Object.entries(all).map(([userId, json]) => {
-    let p = {};
-    try { p = JSON.parse(json); } catch {}
-    const drako = Number.isFinite(p.drako) ? p.drako : 0;
-    return { userId, drako };
-  });
-
-  rows.sort((a, b) => b.drako - a.drako);
-  const top = rows.slice(0, limit);
-
-  const entries = [];
-  for (const r of top) {
-    let name = r.userId;
-    try {
-      const m = await interaction.guild.members.fetch(r.userId);
-      name = safeName(m?.displayName || m?.user?.username || r.userId);
-    } catch {}
-    entries.push({ name, score: r.drako });
+async function getTopDrako(guild, limit = 10) {
+  const all = await getTopPlayers("bleach", 999999);
+  const rows = [];
+  for (const r of all) {
+    const p = await getPlayer(r.userId);
+    rows.push({ userId: r.userId, score: p.drako || 0 });
   }
-  return entries;
+  rows.sort((a, b) => b.score - a.score);
+  const top = rows.slice(0, limit);
+  const out = [];
+  for (const t of top) {
+    let name = t.userId;
+    try {
+      const m = await guild.members.fetch(t.userId);
+      name = safeName(m?.displayName || m?.user?.username || t.userId);
+    } catch {}
+    out.push({ name, score: t.score });
+  }
+  return out;
 }
 
 module.exports = async function handleSlash(interaction) {
   const channel = interaction.channel;
-  if (!channel || !channel.isTextBased()) {
-    return interaction.reply({ content: "❌ Use commands in a text channel.", ephemeral: true });
-  }
+  if (!channel || !channel.isTextBased()) return interaction.reply({ content: "❌ Use commands in a text channel.", ephemeral: true });
 
   if (interaction.commandName === "store") {
-    return interaction.reply({
-      embeds: [storeMainEmbed()],
-      components: storeMenuButtons(),
-      ephemeral: true,
-    });
+    return interaction.reply({ embeds: [storeEmbed("home")], components: storeMenu("home"), ephemeral: true });
   }
 
   if (interaction.commandName === "forge") {
-    return interaction.reply({
-      embeds: [forgeMainEmbed()],
-      components: forgeMenuButtons(),
-      ephemeral: true,
-    });
+    return interaction.reply({ embeds: [forgeEmbed("home")], components: forgeMenu("home"), ephemeral: true });
   }
 
   if (interaction.commandName === "profile") {
     const p = await getPlayer(interaction.user.id);
-    return interaction.reply({
-      embeds: [profileMainEmbed(interaction.user, p)],
-      components: profileMenuButtons(),
-      ephemeral: true,
-    });
+    const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+    const drakoEntries = await getTopDrako(interaction.guild, 10);
+    return interaction.reply({ embeds: [profileEmbed("home", p, interaction.guild, member, drakoEntries)], components: profileMenu("home"), ephemeral: true });
   }
 
   if (interaction.commandName === "balance") {
@@ -131,11 +93,7 @@ module.exports = async function handleSlash(interaction) {
   if (interaction.commandName === "shop") {
     const eventKey = interaction.options.getString("event", true);
     const p = await getPlayer(interaction.user.id);
-    return interaction.reply({
-      embeds: [shopEmbed(eventKey, p)],
-      components: shopButtons(eventKey, p),
-      ephemeral: true,
-    });
+    return interaction.reply({ embeds: [shopEmbed(eventKey, p)], components: shopButtons(eventKey, p), ephemeral: true });
   }
 
   if (interaction.commandName === "leaderboard") {
@@ -225,27 +183,53 @@ module.exports = async function handleSlash(interaction) {
 
     if (eventKey === "bleach") {
       if (p.bleach.reiatsu < cost) {
-        return interaction.reply({ content: `❌ Need ${currencyEmoji} **${cost}**.`, ephemeral: true });
+        return interaction.reply({
+          content:
+            `❌ Need ${currencyEmoji} **${cost}** to buy ${E_DRAKO} **${drakoWanted} Drako**.\n` +
+            `Rate: **${rate} ${currencyEmoji} = 1 ${E_DRAKO}** (one-way)\n` +
+            `You have ${currencyEmoji} **${p.bleach.reiatsu}**.`,
+          ephemeral: true,
+        });
       }
       p.bleach.reiatsu -= cost;
       p.drako += drakoWanted;
       await setPlayer(interaction.user.id, p);
-      return interaction.reply({ content: `✅ Exchanged ${currencyEmoji} **${cost}** → ${E_DRAKO} **${drakoWanted}**.`, ephemeral: false });
-    } else {
-      if (p.jjk.cursedEnergy < cost) {
-        return interaction.reply({ content: `❌ Need ${currencyEmoji} **${cost}**.`, ephemeral: true });
-      }
-      p.jjk.cursedEnergy -= cost;
-      p.drako += drakoWanted;
-      await setPlayer(interaction.user.id, p);
-      return interaction.reply({ content: `✅ Exchanged ${currencyEmoji} **${cost}** → ${E_DRAKO} **${drakoWanted}**.`, ephemeral: false });
+
+      return interaction.reply({
+        content:
+          `✅ Exchanged ${currencyEmoji} **${cost}** → ${E_DRAKO} **${drakoWanted} Drako**.\n` +
+          `Rate: **${rate} ${currencyEmoji} = 1 ${E_DRAKO}** (one-way)\n` +
+          `Now: ${currencyEmoji} **${p.bleach.reiatsu}** • ${E_DRAKO} **${p.drako}**\n` +
+          `⚠️ Drako cannot be exchanged back.`,
+        ephemeral: false,
+      });
     }
+
+    if (p.jjk.cursedEnergy < cost) {
+      return interaction.reply({
+        content:
+          `❌ Need ${currencyEmoji} **${cost}** to buy ${E_DRAKO} **${drakoWanted} Drako**.\n` +
+          `Rate: **${rate} ${currencyEmoji} = 1 ${E_DRAKO}** (one-way)\n` +
+          `You have ${currencyEmoji} **${p.jjk.cursedEnergy}**.`,
+        ephemeral: true,
+      });
+    }
+    p.jjk.cursedEnergy -= cost;
+    p.drako += drakoWanted;
+    await setPlayer(interaction.user.id, p);
+
+    return interaction.reply({
+      content:
+        `✅ Exchanged ${currencyEmoji} **${cost}** → ${E_DRAKO} **${drakoWanted} Drako**.\n` +
+        `Rate: **${rate} ${currencyEmoji} = 1 ${E_DRAKO}** (one-way)\n` +
+        `Now: ${currencyEmoji} **${p.jjk.cursedEnergy}** • ${E_DRAKO} **${p.drako}**\n` +
+        `⚠️ Drako cannot be exchanged back.`,
+      ephemeral: false,
+    });
   }
 
   if (interaction.commandName === "spawnboss") {
-    if (!hasEventRole(interaction.member)) {
-      return interaction.reply({ content: "⛔ You don’t have the required role.", ephemeral: true });
-    }
+    if (!hasEventRole(interaction.member)) return interaction.reply({ content: "⛔ You don’t have the required role.", ephemeral: true });
 
     const bossId = interaction.options.getString("boss", true);
     const def = BOSSES[bossId];
@@ -262,9 +246,7 @@ module.exports = async function handleSlash(interaction) {
   }
 
   if (interaction.commandName === "spawnmob") {
-    if (!hasEventRole(interaction.member)) {
-      return interaction.reply({ content: "⛔ You don’t have the required role.", ephemeral: true });
-    }
+    if (!hasEventRole(interaction.member)) return interaction.reply({ content: "⛔ You don’t have the required role.", ephemeral: true });
 
     const eventKey = interaction.options.getString("event", true);
     if (!MOBS[eventKey]) return interaction.reply({ content: "❌ Unknown event.", ephemeral: true });
@@ -275,7 +257,7 @@ module.exports = async function handleSlash(interaction) {
     }
 
     await interaction.reply({ content: `✅ Mob spawned (${eventKey}).`, ephemeral: true });
-    await spawnMob(channel, eventKey, { bleachChannelId: BLEACH_CHANNEL_ID, jjkChannelId: JJK_CHANNEL_ID, withPing: false });
+    await spawnMob(channel, eventKey, { bleachChannelId: BLEACH_CHANNEL_ID, jjkChannelId: JJK_CHANNEL_ID, withPing: true });
     return;
   }
 
@@ -327,7 +309,9 @@ module.exports = async function handleSlash(interaction) {
     await setPlayer(target.id, p);
 
     return interaction.reply({
-      content: `✅ Added **${amount}** to <@${target.id}>.`,
+      content:
+        `✅ Added **${amount}** to <@${target.id}>.\n` +
+        `${E_REIATSU} Reiatsu: **${p.bleach.reiatsu}** • ${E_CE} CE: **${p.jjk.cursedEnergy}** • ${E_DRAKO} Drako: **${p.drako}**`,
       ephemeral: false,
     });
   }
