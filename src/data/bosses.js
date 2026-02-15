@@ -1,247 +1,284 @@
-const {
-  E_VASTO,
-  E_ULQ,
-  E_GRIMJOW,
-  E_JJK,
-  VASTO_DROP_ROLE_ID,
-  ULQ_DROP_ROLE_ID,
-} = require("../config");
+// Boss definitions used by the /spawnboss command + boss engine.
+// NOTE: These are the 5 bosses you originally asked for (no Mahito / Sukuna finger etc.).
 
-const media = require("./media");
+const CARD_GIF = "https://media.discordapp.net/attachments/1468153576353431615/1471828355153268759/Your_paragraph_text.gif?ex=69905a79&is=698f08f9&hm=9d059092959a3446edcf38507f1a71b5577e85a97a8ee08292da323f238d513b&=&width=388&height=582";
 
-const BOSSES = {
-  vasto: {
-    event: "bleach",
-    id: "vasto",
+/**
+ * Mechanics:
+ * - Each boss has 4 rounds.
+ * - Every round has a prompt + 3 options.
+ * - Picking the correct option increases your survival chance and contributes more progress.
+ */
+
+module.exports = [
+  {
+    id: "vasto_lorde",
     name: "Vasto Lorde",
-    icon: E_VASTO,
-    difficulty: "Hard",
-    joinMs: 2 * 60 * 1000,
-    baseChance: 0.30,
-    winReward: 200,
-    hitReward: 15,
-    roleDropChance: 0.025,
-    roleDropId: VASTO_DROP_ROLE_ID,
-
-    spawnMedia: media.VASTO_SPAWN_MEDIA,
-    victoryMedia: media.VASTO_VICTORY_MEDIA,
-    defeatMedia: media.VASTO_DEFEAT_MEDIA,
-
-    rounds: [
-      { type: "pressure", title: "Round 1 — Reiatsu Wave", intro: "Vasto Lorde releases a massive wave of Reiatsu.\nWithstand it to bank Reiatsu. Fail and you take a hit (1/2).", media: media.VASTO_R1 },
-      { type: "pressure", title: "Round 2 — Frenzy Pressure", intro: "Vasto Lorde enters a frenzy — the pressure intensifies.\nWithstand it to bank Reiatsu. Fail and you take a hit.", media: media.VASTO_R2 },
-      { type: "coop_block", title: "Round 3 — Cooperative Block", intro: "Vasto Lorde is charging a devastating attack.\nTo survive, **4 players** must press **Block** within **5 seconds**.", windowMs: 5000, requiredPresses: 4, buttonLabel: "Block", buttonEmoji: "🛡️", media: media.VASTO_R3 },
-      { type: "attack", title: "Round 4 — Counterattack", intro: "Vasto Lorde is weakened — counterattack!\nSuccess banks Reiatsu. Failure = a hit.", media: media.VASTO_R4 },
-      { type: "finisher", title: "Round 5 — Finisher", intro: "Vasto Lorde has taken heavy damage — finish it!\nPress **Finisher** within **10 seconds**.\nIf you do not press, you take a hit.", windowMs: 10 * 1000, buttonLabel: "Finisher", buttonEmoji: "⚔️", media: media.VASTO_R5 },
+    faction: "Bleach",
+    rounds: 4,
+    hpMax: 100,
+    image: CARD_GIF,
+    mechanics: [
+      {
+        prompt: "Vasto Lorde charges a **devouring lunge**…",
+        options: [
+          { key: "dodge", label: "Sidestep", emoji: "🌀" },
+          { key: "guard", label: "Guard", emoji: "🛡️" },
+          { key: "strike", label: "Strike", emoji: "⚔️" },
+        ],
+        correct: "dodge",
+      },
+      {
+        prompt: "A **shockwave** rips the ground!",
+        options: [
+          { key: "jump", label: "Jump", emoji: "🦘" },
+          { key: "guard", label: "Guard", emoji: "🛡️" },
+          { key: "rush", label: "Rush", emoji: "🏃" },
+        ],
+        correct: "jump",
+      },
+      {
+        prompt: "It releases **dark reiatsu pressure**…",
+        options: [
+          { key: "focus", label: "Focus", emoji: "🧠" },
+          { key: "retreat", label: "Retreat", emoji: "⬅️" },
+          { key: "strike", label: "Strike", emoji: "⚔️" },
+        ],
+        correct: "focus",
+      },
+      {
+        prompt: "Final round — **finish window**!",
+        options: [
+          { key: "allin", label: "All-in", emoji: "🔥" },
+          { key: "guard", label: "Guard", emoji: "🛡️" },
+          { key: "retreat", label: "Retreat", emoji: "⬅️" },
+        ],
+        correct: "allin",
+      },
     ],
+    rewards: {
+      currencyMin: 120,
+      currencyMax: 220,
+      shardMin: 8,
+      shardMax: 16,
+      titleChance: 0.12,
+      titleId: "TITLE_VASTO_SLAYER",
+    },
   },
-
-  ulquiorra: {
-    event: "bleach",
+  {
     id: "ulquiorra",
     name: "Ulquiorra",
-    icon: E_ULQ,
-    difficulty: "Extreme",
-    joinMs: 3 * 60 * 1000,
-    baseChance: 0.20,
-    winReward: 500,
-    hitReward: 25,
-    roleDropChance: 0.03,
-    roleDropId: ULQ_DROP_ROLE_ID,
-
-    spawnMedia: media.ULQ_SPAWN_MEDIA,
-    victoryMedia: media.ULQ_VICTORY_MEDIA,
-    defeatMedia: media.ULQ_DEFEAT_MEDIA,
-
-    rounds: [
-      { type: "coop_block", title: "Round 1 — Cooperative Block", intro: "Ulquiorra launches a powerful attack.\nTo survive, **4 players** must press **Block** within **5 seconds**.", windowMs: 5000, requiredPresses: 4, buttonLabel: "Block", buttonEmoji: "🛡️", media: media.ULQ_R1 },
-      { type: "combo_defense", title: "Round 2 — Combo Defense (QTE)", intro: "Ulquiorra attacks again — Combo Defense!\nPress the buttons in the **correct order** within **15 seconds**.\nMistake or timeout = a hit.", windowMs: 15000, media: media.ULQ_R2 },
-      { type: "pressure", title: "Round 3 — Transformation Pressure", intro: "Ulquiorra transforms — Reiatsu pressure becomes insane.\nWithstand it to avoid a hit.", media: media.ULQ_R3 },
-      { type: "pressure", title: "Round 4 — Suffocating Pressure", intro: "The pressure intensifies even further.\nWithstand it to avoid a hit.", media: media.ULQ_R4 },
-      { type: "quick_block", title: "Round 5 — Quick Block (2s)", intro: "Ulquiorra prepares a lethal strike!\nYou have **2 seconds** to press **Block**.\nBlock in time to survive and counterattack (banked reward).", windowMs: 2000, buttonLabel: "Block", buttonEmoji: "🛡️", media: media.ULQ_R5 },
-      { type: "group_final", title: "Round 6 — Final Push", intro: "Ulquiorra is weakened — your final attack can decide everything.\n**At least 3 players** must succeed the roll.\nIf fewer than 3 succeed — **everyone loses**.", requiredWins: 3, media: media.ULQ_R6 },
+    faction: "Bleach",
+    rounds: 4,
+    hpMax: 100,
+    image: CARD_GIF,
+    mechanics: [
+      {
+        prompt: "Ulquiorra fires a **Cero**…",
+        options: [
+          { key: "dodge", label: "Dodge", emoji: "🌀" },
+          { key: "guard", label: "Block", emoji: "🛡️" },
+          { key: "counter", label: "Counter", emoji: "🎯" },
+        ],
+        correct: "dodge",
+      },
+      {
+        prompt: "He appears behind you — **Sonído**!",
+        options: [
+          { key: "turn", label: "Turn", emoji: "🔁" },
+          { key: "guard", label: "Guard", emoji: "🛡️" },
+          { key: "run", label: "Run", emoji: "🏃" },
+        ],
+        correct: "turn",
+      },
+      {
+        prompt: "A **spear throw** is incoming!",
+        options: [
+          { key: "deflect", label: "Deflect", emoji: "🗡️" },
+          { key: "dodge", label: "Dodge", emoji: "🌀" },
+          { key: "guard", label: "Guard", emoji: "🛡️" },
+        ],
+        correct: "deflect",
+      },
+      {
+        prompt: "Final — **Lanza del Relámpago**!",
+        options: [
+          { key: "dodge", label: "Dodge", emoji: "🌀" },
+          { key: "allin", label: "All-in", emoji: "🔥" },
+          { key: "guard", label: "Guard", emoji: "🛡️" },
+        ],
+        correct: "dodge",
+      },
     ],
+    rewards: {
+      currencyMin: 150,
+      currencyMax: 260,
+      shardMin: 10,
+      shardMax: 20,
+      titleChance: 0.14,
+      titleId: "TITLE_MURCIELAGO",
+    },
   },
-
-  grimmjow: {
-    event: "bleach",
+  {
     id: "grimmjow",
     name: "Grimmjow",
-    icon: E_GRIMJOW || "🦁",
-    difficulty: "Medium",
-    joinMs: 2 * 60 * 1000,
-    baseChance: 0.50,
-    winReward: 125,
-    hitReward: 15,
-    roleDropChance: 1.0,
-    roleDropId: "1469831066628919439",
-
-    spawnMedia: media.GRIM_SPAWN_MEDIA,
-    victoryMedia: media.GRIM_VICTORY_MEDIA,
-    defeatMedia: media.GRIM_DEFEAT_MEDIA,
-
-    rounds: [
+    faction: "Bleach",
+    rounds: 4,
+    hpMax: 100,
+    image: CARD_GIF,
+    mechanics: [
       {
-        type: "multi_press",
-        title: "Round 1 — Relentless Assault",
-        intro:
-          "Grimmjow rushes in with a storm of strikes.\n" +
-          "Press **Block** **3 times** within **15 seconds** to withstand it.",
-        windowMs: 15000,
-        requiredPresses: 3,
-        buttonLabel: "Block",
-        buttonEmoji: "🛡️",
-        media: media.GRIM_R1,
+        prompt: "Grimmjow rushes in with a **claw combo**…",
+        options: [
+          { key: "parry", label: "Parry", emoji: "🗡️" },
+          { key: "guard", label: "Guard", emoji: "🛡️" },
+          { key: "dodge", label: "Dodge", emoji: "🌀" },
+        ],
+        correct: "parry",
       },
       {
-        type: "coop_block",
-        title: "Round 2 — Coordinated Defense",
-        intro:
-          "Grimmjow releases a heavy blow.\n" +
-          "**3 players** must press **Block** within **10 seconds**.\n" +
-          "Failing to block in time = you take a hit.",
-        windowMs: 10000,
-        requiredPresses: 3,
-        buttonLabel: "Block",
-        buttonEmoji: "🛡️",
-        media: media.GRIM_R2,
+        prompt: "He charges a **point-blank blast**!",
+        options: [
+          { key: "dodge", label: "Dodge", emoji: "🌀" },
+          { key: "guard", label: "Block", emoji: "🛡️" },
+          { key: "strike", label: "Strike", emoji: "⚔️" },
+        ],
+        correct: "guard",
       },
       {
-        type: "attack",
-        title: "Final — You endured the trial",
-        intro:
-          "You held your ground.\n" +
-          "Grimmjow leaves the battlefield.",
-        media: media.GRIM_VICTORY_MEDIA,
+        prompt: "A **fake-out** feint…",
+        options: [
+          { key: "wait", label: "Wait", emoji: "⏳" },
+          { key: "dodge", label: "Dodge", emoji: "🌀" },
+          { key: "rush", label: "Rush", emoji: "🏃" },
+        ],
+        correct: "wait",
+      },
+      {
+        prompt: "Final — **kill window**!",
+        options: [
+          { key: "allin", label: "All-in", emoji: "🔥" },
+          { key: "guard", label: "Guard", emoji: "🛡️" },
+          { key: "retreat", label: "Retreat", emoji: "⬅️" },
+        ],
+        correct: "allin",
       },
     ],
+    rewards: {
+      currencyMin: 140,
+      currencyMax: 250,
+      shardMin: 10,
+      shardMax: 18,
+      titleChance: 0.13,
+      titleId: "TITLE_PANTHERA",
+    },
   },
-
-  mahoraga: {
-    event: "jjk",
+  {
     id: "mahoraga",
     name: "Mahoraga",
-    icon: E_JJK,
-    difficulty: "Insanity",
-    joinMs: 3 * 60 * 1000,
-    baseChance: 0.10,
-    maxHits: 3,
-
-    winRewardRange: { min: 800, max: 1400 },
-    hitReward: 30,
-
-    roleDropChance: 0.075,
-    roleDropId: "1470124664931094590",
-    expeditionKeyChance: 0.20,
-    shardDropRange: { min: 5, max: 20 },
-
-    preText: "With this treasure, I summon...",
-    preTextDelayMs: 10 * 1000,
-    teaserMedia: media.MAHO_TEASER,
-    teaserDelayMs: 5 * 1000,
-
-    spawnMedia: media.MAHO_SPAWN,
-    victoryMedia: media.MAHO_VICTORY,
-    defeatMedia: media.MAHO_DEFEAT,
-
-    rounds: [
+    faction: "JJK",
+    rounds: 4,
+    hpMax: 100,
+    image: CARD_GIF,
+    mechanics: [
       {
-        type: "multi_press",
-        title: "Round 1 — Total Block",
-        intro:
-          "Block all of Mahoraga's attacks.\n" +
-          "You need to press **Block** **3 times** for **10 seconds**.",
-        windowMs: 10 * 1000,
-        requiredPresses: 3,
-        buttonLabel: "Block",
-        buttonEmoji: "🛡️",
-        media: media.MAHO_R1,
-      },
-      { type: "pressure", title: "Round 2 — Endure", intro: "Survive Mahoraga's attacks.", media: media.MAHO_R2 },
-      { type: "pressure", title: "Round 3 — Pressure", intro: "Withstand the onslaught of Mahoraga.", media: media.MAHO_R3 },
-      {
-        type: "choice_qte",
-        title: "Round 4 — Decide Fast",
-        intro: "Choose quickly.\nPress the correct button for **3 seconds**.",
-        windowMs: 3000,
-        choices: [
-          { key: "slice", label: "Cutting", emoji: "⚔️" },
-          { key: "salmon", label: "Salmon!!", emoji: "🐟" },
+        prompt: "Mahoraga begins **adapting**…",
+        options: [
+          { key: "burst", label: "Burst", emoji: "💥" },
+          { key: "stall", label: "Stall", emoji: "⏳" },
+          { key: "guard", label: "Guard", emoji: "🛡️" },
         ],
-        correct: "slice",
-        afterText: "🩸 Mahoraga took serious damage.",
-        afterMedia: media.MAHO_R4_AFTER,
+        correct: "burst",
       },
       {
-        type: "scripted_hit_all",
-        title: "Round 5 — Adaptation Begins",
-        intro: "Why did the wheel on his head spin ?",
-        delayMs: 5000,
-        spamLines: [
-          "🚨 error....error....system corrupted....",
-          "🚨 error....error....system corrupted....",
-          "🚨 error....error....system corrupted....",
-          "🚨 error....error....system corrupted....",
-          "🚨 error....error....system corrupted....",
-          "🚨 error....error....system corrupted....",
+        prompt: "A **wheel spin** signals a counter!",
+        options: [
+          { key: "dodge", label: "Dodge", emoji: "🌀" },
+          { key: "parry", label: "Parry", emoji: "🗡️" },
+          { key: "rush", label: "Rush", emoji: "🏃" },
         ],
-        endText: "⚠️ **Mahoraga adapted.**",
-        endMedia: media.MAHO_ADAPTED,
-      },
-      { type: "pressure", title: "Round 6 — Unbreakable", intro: "Mahoraga becomes invincible..", media: media.MAHO_R6 },
-      {
-        type: "tri_press",
-        title: "Round 7 — Regain Focus",
-        intro:
-          "Mahoraga takes over you.\n" +
-          "Click **all 3 buttons** for **12 seconds**, to get ready.",
-        windowMs: 12 * 1000,
-        buttons: [
-          { key: "focus", label: "Focuse", emoji: "🧠" },
-          { key: "reinforce", label: "Reinforce", emoji: "🟣" },
-          { key: "resolve", label: "Get ready", emoji: "🔥" },
-        ],
-        media: media.MAHO_R7,
+        correct: "parry",
       },
       {
-        type: "final_quiz",
-        title: "Final — How to kill him?",
-        intro: "...........",
-        windowMs: 8000,
-        choices: [
-          { key: "domain", label: "Domain Expansion", emoji: "🌀" },
-          { key: "fire_arrow", label: "Kill before adaptation", emoji: "🏹" },
-          { key: "world_slash", label: "World Cutting", emoji: "🗡️" },
+        prompt: "It swings a **cleave**…",
+        options: [
+          { key: "guard", label: "Guard", emoji: "🛡️" },
+          { key: "dodge", label: "Dodge", emoji: "🌀" },
+          { key: "counter", label: "Counter", emoji: "🎯" },
         ],
-        correct: "fire_arrow",
+        correct: "guard",
+      },
+      {
+        prompt: "Final — end it before it adapts fully!",
+        options: [
+          { key: "allin", label: "All-in", emoji: "🔥" },
+          { key: "burst", label: "Burst", emoji: "💥" },
+          { key: "stall", label: "Stall", emoji: "⏳" },
+        ],
+        correct: "allin",
       },
     ],
+    rewards: {
+      currencyMin: 160,
+      currencyMax: 280,
+      shardMin: 10,
+      shardMax: 22,
+      titleChance: 0.15,
+      titleId: "TITLE_ADAPTATION",
+    },
   },
-
-  specialgrade: {
-    event: "jjk",
-    id: "specialgrade",
+  {
+    id: "special_grade",
     name: "Special Grade Curse",
-    icon: E_JJK,
-    difficulty: "Medium",
-    joinMs: 2 * 60 * 1000,
-    baseChance: 0.30,
-    winReward: 200,
-    hitReward: 15,
-    roleDropChance: 0.0,
-    roleDropId: null,
-
-    spawnMedia: media.JJK_SG_SPAWN_MEDIA,
-    victoryMedia: media.JJK_SG_VICTORY_MEDIA,
-    defeatMedia: media.JJK_SG_DEFEAT_MEDIA,
-
-    rounds: [
-      { type: "pressure", title: "Round 1 — Cursed Pressure", intro: "Overwhelming cursed pressure floods the area.", media: media.JJK_SG_R1 },
-      { type: "pressure", title: "Round 2 — Malice Surge", intro: "The aura turns violent. Resist it.", media: media.JJK_SG_R2 },
-      { type: "attack", title: "Round 3 — Opening", intro: "A gap appears. Strike the core.", media: media.JJK_SG_R3 },
-      { type: "finisher", title: "Round 4 — Exorcism Window", intro: "Finish it! Press **Exorcise** in time.", windowMs: 5000, buttonLabel: "Exorcise", buttonEmoji: "🪬", media: media.JJK_SG_SPAWN_MEDIA },
+    faction: "JJK",
+    rounds: 4,
+    hpMax: 100,
+    image: CARD_GIF,
+    mechanics: [
+      {
+        prompt: "The curse starts forming a **Domain**…",
+        options: [
+          { key: "interrupt", label: "Interrupt", emoji: "⛔" },
+          { key: "guard", label: "Guard", emoji: "🛡️" },
+          { key: "dodge", label: "Dodge", emoji: "🌀" },
+        ],
+        correct: "interrupt",
+      },
+      {
+        prompt: "Cursed hands reach out — **grab**!",
+        options: [
+          { key: "dodge", label: "Dodge", emoji: "🌀" },
+          { key: "counter", label: "Counter", emoji: "🎯" },
+          { key: "guard", label: "Guard", emoji: "🛡️" },
+        ],
+        correct: "counter",
+      },
+      {
+        prompt: "A **wide-area** curse wave…",
+        options: [
+          { key: "guard", label: "Guard", emoji: "🛡️" },
+          { key: "run", label: "Run", emoji: "🏃" },
+          { key: "jump", label: "Jump", emoji: "🦘" },
+        ],
+        correct: "guard",
+      },
+      {
+        prompt: "Final — the curse is unstable. Finish!",
+        options: [
+          { key: "allin", label: "All-in", emoji: "🔥" },
+          { key: "interrupt", label: "Interrupt", emoji: "⛔" },
+          { key: "guard", label: "Guard", emoji: "🛡️" },
+        ],
+        correct: "allin",
+      },
     ],
+    rewards: {
+      currencyMin: 150,
+      currencyMax: 270,
+      shardMin: 10,
+      shardMax: 20,
+      titleChance: 0.14,
+      titleId: "TITLE_SPECIAL_GRADE",
+    },
   },
-};
-
-module.exports = { BOSSES };
+];
