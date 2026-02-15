@@ -21,7 +21,6 @@ const EVENT_CHOICES = [
   { name: "Jujutsu Kaisen", value: "jjk" },
 ];
 
-// ✅ ВАЖНО: 5 боссов как у тебя было
 const BOSS_CHOICES = [
   { name: "Vasto Lorde (Bleach)", value: "vasto" },
   { name: "Ulquiorra (Bleach)", value: "ulquiorra" },
@@ -47,10 +46,26 @@ const commands = [
     .setDescription("View your inventory and bonuses (choose event)")
     .addStringOption((opt) => opt.setName("event").setDescription("Which event inventory?").setRequired(true).addChoices(...EVENT_CHOICES)),
 
+  // (старое) /shop оставляю для совместимости
   new SlashCommandBuilder()
     .setName("shop")
     .setDescription("Open shop (choose event)")
     .addStringOption((opt) => opt.setName("event").setDescription("Which shop?").setRequired(true).addChoices(...EVENT_CHOICES)),
+
+  // ✅ NEW: /store
+  new SlashCommandBuilder()
+    .setName("store")
+    .setDescription("Open store menu (Event Shop / Card Packs / Gear Shop)"),
+
+  // ✅ NEW: /forge
+  new SlashCommandBuilder()
+    .setName("forge")
+    .setDescription("Open forge menu (Craft / Evolve)"),
+
+  // ✅ NEW: /profile
+  new SlashCommandBuilder()
+    .setName("profile")
+    .setDescription("Open your profile menu (currency / titles / drako leaderboard / etc)"),
 
   new SlashCommandBuilder()
     .setName("leaderboard")
@@ -84,9 +99,10 @@ const commands = [
     .setDescription("Spawn a mob (event staff only)")
     .addStringOption((opt) => opt.setName("event").setDescription("Which event mob?").setRequired(true).addChoices(...EVENT_CHOICES)),
 
+  // (старое) /wardrobe оставляю, но в тексте уже "Titles"
   new SlashCommandBuilder()
     .setName("wardrobe")
-    .setDescription("Open your role wardrobe (equip/unequip saved roles)"),
+    .setDescription("Open your Titles (equip/unequip saved roles)"),
 
   new SlashCommandBuilder()
     .setName("pvpclash")
