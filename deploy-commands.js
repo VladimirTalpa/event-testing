@@ -56,6 +56,21 @@ const commands = [
     .setDescription("Leaderboard (choose event currency)")
     .addStringOption((opt) => opt.setName("event").setDescription("Which event leaderboard?").setRequired(true).addChoices(...EVENT_CHOICES)),
 
+  // ✅ /store
+  new SlashCommandBuilder()
+    .setName("store")
+    .setDescription("Open store (Event Shop / Gear Shop / Card Packs)"),
+
+  // ✅ /forge
+  new SlashCommandBuilder()
+    .setName("forge")
+    .setDescription("Open forge (Craft / Evolve)"),
+
+  // ✅ /profile
+  new SlashCommandBuilder()
+    .setName("profile")
+    .setDescription("Open profile menu (Currency / Gears / Titles / Drako leaderboard)"),
+
   new SlashCommandBuilder()
     .setName("give")
     .setDescription("Transfer currency to another player")
@@ -75,24 +90,13 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName("spawnboss")
-    .setDescription("Spawn a boss (staff only)")
+    .setDescription("Spawn a boss (event staff only)")
     .addStringOption((opt) => opt.setName("boss").setDescription("Choose boss").setRequired(true).addChoices(...BOSS_CHOICES)),
 
   new SlashCommandBuilder()
     .setName("spawnmob")
-    .setDescription("Spawn a mob (staff only)")
+    .setDescription("Spawn a mob (event staff only)")
     .addStringOption((opt) => opt.setName("event").setDescription("Which event mob?").setRequired(true).addChoices(...EVENT_CHOICES)),
-
-  new SlashCommandBuilder()
-    .setName("wardrobe")
-    .setDescription("Open your role wardrobe (equip/unequip saved roles)"),
-
-  new SlashCommandBuilder()
-    .setName("pvpclash")
-    .setDescription("Challenge a player to a PvP clash (stake currency)")
-    .addStringOption((opt) => opt.setName("currency").setDescription("Which currency?").setRequired(true).addChoices(...CURRENCY_CHOICES))
-    .addIntegerOption((opt) => opt.setName("amount").setDescription("Stake amount").setRequired(true).setMinValue(1))
-    .addUserOption((opt) => opt.setName("user").setDescription("Opponent").setRequired(true)),
 
   new SlashCommandBuilder()
     .setName("adminadd")
@@ -100,19 +104,6 @@ const commands = [
     .addStringOption((opt) => opt.setName("currency").setDescription("Which currency?").setRequired(true).addChoices(...CURRENCY_CHOICES))
     .addIntegerOption((opt) => opt.setName("amount").setDescription("Amount to add").setRequired(true).setMinValue(1))
     .addUserOption((opt) => opt.setName("user").setDescription("Target user (optional)").setRequired(false)),
-
-  // ✅ NEW
-  new SlashCommandBuilder()
-    .setName("store")
-    .setDescription("Open the store (Event Shop / Gear Shop / Card Packs)") ,
-
-  new SlashCommandBuilder()
-    .setName("forge")
-    .setDescription("Open the forge (Craft / Evolve)"),
-
-  new SlashCommandBuilder()
-    .setName("profile")
-    .setDescription("Open your profile (Currency / Titles / Gears / Drako leaderboard)"),
 ].map((c) => c.toJSON());
 
 const rest = new REST({ version: "10" }).setToken(TOKEN);
