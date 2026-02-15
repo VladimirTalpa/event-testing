@@ -1,18 +1,18 @@
-// src/handlers/buttons.js
-const { handleProfileButton, handleStoreButton, handleForgeButton } = require("../ui/menus");
+const { openProfile, openStore, openForge } = require("../ui/menus");
+const { spawnBoss } = require("../events/boss");
 
-// ⚠️ твои старые кнопки (boss/mob/shop/pvp) остаются в этом же файле если хочешь,
-// но чтобы не ломать — мы просто "пропускаем" дальше если не меню.
+module.exports = async (interaction) => {
+  const name = interaction.commandName;
 
-const oldHandleButtons = require("./buttons.old"); // <-- см. ниже
+  if (name === "profile") return openProfile(interaction);
+  if (name === "store") return openStore(interaction);
+  if (name === "forge") return openForge(interaction);
 
-module.exports = async function handleButtons(interaction) {
-  const id = interaction.customId;
+  if (name === "spawnboss") {
+    const bossId = interaction.options.getString("boss", true);
+    await interaction.reply({ content: "OK", ephemeral: true });
+    return spawnBoss(interaction.channel, bossId);
+  }
 
-  if (id.startsWith("profile:")) return handleProfileButton(interaction);
-  if (id.startsWith("store:")) return handleStoreButton(interaction);
-  if (id.startsWith("forge:")) return handleForgeButton(interaction);
-
-  // всё остальное — в старый обработчик (boss/mob/shop/pvp)
-  return oldHandleButtons(interaction);
+  return interaction.reply({ content: "Unknown command.", ephemeral: true });
 };
