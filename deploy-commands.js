@@ -46,26 +46,10 @@ const commands = [
     .setDescription("View your inventory and bonuses (choose event)")
     .addStringOption((opt) => opt.setName("event").setDescription("Which event inventory?").setRequired(true).addChoices(...EVENT_CHOICES)),
 
-  // (старое) /shop оставляю для совместимости
   new SlashCommandBuilder()
     .setName("shop")
     .setDescription("Open shop (choose event)")
     .addStringOption((opt) => opt.setName("event").setDescription("Which shop?").setRequired(true).addChoices(...EVENT_CHOICES)),
-
-  // ✅ NEW: /store
-  new SlashCommandBuilder()
-    .setName("store")
-    .setDescription("Open store menu (Event Shop / Card Packs / Gear Shop)"),
-
-  // ✅ NEW: /forge
-  new SlashCommandBuilder()
-    .setName("forge")
-    .setDescription("Open forge menu (Craft / Evolve)"),
-
-  // ✅ NEW: /profile
-  new SlashCommandBuilder()
-    .setName("profile")
-    .setDescription("Open your profile menu (currency / titles / drako leaderboard / etc)"),
 
   new SlashCommandBuilder()
     .setName("leaderboard")
@@ -91,18 +75,17 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName("spawnboss")
-    .setDescription("Spawn a boss (event staff only)")
+    .setDescription("Spawn a boss (staff only)")
     .addStringOption((opt) => opt.setName("boss").setDescription("Choose boss").setRequired(true).addChoices(...BOSS_CHOICES)),
 
   new SlashCommandBuilder()
     .setName("spawnmob")
-    .setDescription("Spawn a mob (event staff only)")
+    .setDescription("Spawn a mob (staff only)")
     .addStringOption((opt) => opt.setName("event").setDescription("Which event mob?").setRequired(true).addChoices(...EVENT_CHOICES)),
 
-  // (старое) /wardrobe оставляю, но в тексте уже "Titles"
   new SlashCommandBuilder()
     .setName("wardrobe")
-    .setDescription("Open your Titles (equip/unequip saved roles)"),
+    .setDescription("Open your role wardrobe (equip/unequip saved roles)"),
 
   new SlashCommandBuilder()
     .setName("pvpclash")
@@ -117,6 +100,19 @@ const commands = [
     .addStringOption((opt) => opt.setName("currency").setDescription("Which currency?").setRequired(true).addChoices(...CURRENCY_CHOICES))
     .addIntegerOption((opt) => opt.setName("amount").setDescription("Amount to add").setRequired(true).setMinValue(1))
     .addUserOption((opt) => opt.setName("user").setDescription("Target user (optional)").setRequired(false)),
+
+  // ✅ NEW
+  new SlashCommandBuilder()
+    .setName("store")
+    .setDescription("Open the store (Event Shop / Gear Shop / Card Packs)") ,
+
+  new SlashCommandBuilder()
+    .setName("forge")
+    .setDescription("Open the forge (Craft / Evolve)"),
+
+  new SlashCommandBuilder()
+    .setName("profile")
+    .setDescription("Open your profile (Currency / Titles / Gears / Drako leaderboard)"),
 ].map((c) => c.toJSON());
 
 const rest = new REST({ version: "10" }).setToken(TOKEN);
