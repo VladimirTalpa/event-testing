@@ -15,9 +15,9 @@ const CID = {
   PVP_ACCEPT: "pvp_accept",
   PVP_DECLINE: "pvp_decline",
 
-  MENU_PROFILE: "menu_profile",
-  MENU_STORE: "menu_store",
-  MENU_FORGE: "menu_forge",
+  STORE: "store",
+  FORGE: "forge",
+  PROFILE: "profile",
 };
 
 function hasEventRole(member) {
@@ -160,40 +160,40 @@ function pvpButtons(currency, amount, challengerId, targetId, disabled = false) 
   ];
 }
 
-function profileMenuButtons() {
-  return [
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`${CID.MENU_PROFILE}:currency`).setLabel("Currency").setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId(`${CID.MENU_PROFILE}:cards`).setLabel("Cards").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(`${CID.MENU_PROFILE}:gears`).setLabel("Gears").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(`${CID.MENU_PROFILE}:titles`).setLabel("Titles").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(`${CID.MENU_PROFILE}:close`).setLabel("Close").setStyle(ButtonStyle.Danger)
-    ),
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`${CID.MENU_PROFILE}:drako_lb`).setLabel("Drako Leaderboard").setStyle(ButtonStyle.Secondary)
-    ),
-  ];
+function storeMenu(page = "home") {
+  const mk = (p) => `${CID.STORE}:${p}`;
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId(mk("event")).setLabel("Event Shop").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(mk("packs")).setLabel("Card Packs").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId(mk("gear")).setLabel("Gear Shop").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId(mk("close")).setLabel("Close").setStyle(ButtonStyle.Danger)
+  );
+  return [row];
 }
 
-function storeMenuButtons() {
-  return [
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`${CID.MENU_STORE}:eventshop`).setLabel("Event Shop").setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId(`${CID.MENU_STORE}:cardpacks`).setLabel("Card Packs").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(`${CID.MENU_STORE}:gearshop`).setLabel("Gear Shop").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(`${CID.MENU_STORE}:close`).setLabel("Close").setStyle(ButtonStyle.Danger)
-    ),
-  ];
+function forgeMenu(page = "home") {
+  const mk = (p) => `${CID.FORGE}:${p}`;
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId(mk("craft")).setLabel("Craft").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(mk("evolve")).setLabel("Evolve").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId(mk("close")).setLabel("Close").setStyle(ButtonStyle.Danger)
+  );
+  return [row];
 }
 
-function forgeMenuButtons() {
-  return [
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`${CID.MENU_FORGE}:craft`).setLabel("Craft").setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId(`${CID.MENU_FORGE}:evolve`).setLabel("Evolve").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(`${CID.MENU_FORGE}:close`).setLabel("Close").setStyle(ButtonStyle.Danger)
-    ),
-  ];
+function profileMenu(page = "home") {
+  const mk = (p) => `${CID.PROFILE}:${p}`;
+  const row1 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId(mk("currency")).setLabel("Currency").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(mk("cards")).setLabel("Cards").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId(mk("gears")).setLabel("Gears").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId(mk("titles")).setLabel("Titles").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId(mk("drako_lb")).setLabel("Drako LB").setStyle(ButtonStyle.Secondary)
+  );
+  const row2 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId(mk("close")).setLabel("Close").setStyle(ButtonStyle.Danger)
+  );
+  return [row1, row2];
 }
 
 module.exports = {
@@ -209,7 +209,7 @@ module.exports = {
   shopButtons,
   wardrobeComponents,
   pvpButtons,
-  profileMenuButtons,
-  storeMenuButtons,
-  forgeMenuButtons,
+  storeMenu,
+  forgeMenu,
+  profileMenu,
 };
