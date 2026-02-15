@@ -7,7 +7,7 @@ const CLIENT_ID = process.env.CLIENT_ID;
 const GUILD_ID = process.env.GUILD_ID;
 
 if (!TOKEN || !CLIENT_ID || !GUILD_ID) {
-  console.error("❌ Missing env vars. Need: DISCORD_TOKEN, CLIENT_ID, GUILD_ID");
+  console.error("Missing env vars: DISCORD_TOKEN, CLIENT_ID, GUILD_ID");
   process.exit(1);
 }
 
@@ -84,6 +84,18 @@ const commands = [
     .addStringOption((opt) => opt.setName("event").setDescription("Which event mob?").setRequired(true).addChoices(...EVENT_CHOICES)),
 
   new SlashCommandBuilder()
+    .setName("store")
+    .setDescription("Open the Store menu"),
+
+  new SlashCommandBuilder()
+    .setName("forge")
+    .setDescription("Open the Forge menu"),
+
+  new SlashCommandBuilder()
+    .setName("profile")
+    .setDescription("Open your Profile menu"),
+
+  new SlashCommandBuilder()
     .setName("wardrobe")
     .setDescription("Open your role wardrobe (equip/unequip saved roles)"),
 
@@ -100,21 +112,17 @@ const commands = [
     .addStringOption((opt) => opt.setName("currency").setDescription("Which currency?").setRequired(true).addChoices(...CURRENCY_CHOICES))
     .addIntegerOption((opt) => opt.setName("amount").setDescription("Amount to add").setRequired(true).setMinValue(1))
     .addUserOption((opt) => opt.setName("user").setDescription("Target user (optional)").setRequired(false)),
-
-  new SlashCommandBuilder().setName("store").setDescription("Open the store"),
-  new SlashCommandBuilder().setName("forge").setDescription("Open forge menu"),
-  new SlashCommandBuilder().setName("profile").setDescription("Open your profile"),
 ].map((c) => c.toJSON());
 
 const rest = new REST({ version: "10" }).setToken(TOKEN);
 
 (async () => {
   try {
-    console.log("🔄 Deploying slash commands...");
+    console.log("Deploying slash commands...");
     await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: commands });
-    console.log("✅ Slash commands successfully deployed!");
+    console.log("Slash commands deployed!");
   } catch (e) {
-    console.error("❌ Failed to deploy commands:", e);
+    console.error("Failed to deploy:", e);
     process.exit(1);
   }
 })();
