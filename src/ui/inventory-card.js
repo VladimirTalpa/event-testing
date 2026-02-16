@@ -1,39 +1,12 @@
+const fs = require("fs");
+const path = require("path");
 const { createCanvas, loadImage } = require("@napi-rs/canvas");
 const { DRAKO_RATE_BLEACH, DRAKO_RATE_JJK } = require("../config");
 
-const E = {
-  reiatsu: "1473060860644561016",
-  drako: "1473061778614255668",
-  rate: "1473064972333486285",
-  bossBonus: "1473063682979401829",
-  itemSurvival: "1473063619049820191",
-  dropLuck: "1473063569540251709",
-  rewardMulti: "1473063773412659282",
-};
-
-const emojiCache = new Map();
-
-async function loadCustomEmojiImage(emojiId) {
-  const id = String(emojiId || "").trim();
-  if (!id) return null;
-  if (emojiCache.has(id)) return emojiCache.get(id);
-
-  const urls = [
-    `https://cdn.discordapp.com/emojis/${id}.png?size=96&quality=lossless`,
-    `https://cdn.discordapp.com/emojis/${id}.webp?size=96&quality=lossless`,
-  ];
-
-  for (const url of urls) {
-    try {
-      const img = await loadImage(url);
-      emojiCache.set(id, img);
-      return img;
-    } catch {}
-  }
-
-  emojiCache.set(id, null);
-  return null;
-}
+const ROOT = path.join(__dirname, "..", "..");
+const ASSETS_DIR = path.join(ROOT, "assets");
+const TEMPLATE_DIR = path.join(ASSETS_DIR, "templates");
+const LAYOUT_FILE = path.join(ASSETS_DIR, "layouts", "inventory-layout.json");
 
 function n(v) {
   return Number.isFinite(v) ? Math.floor(v).toLocaleString("en-US") : "0";
@@ -82,233 +55,118 @@ function calcJjkDropLuckMultiplier(items) {
   return mult;
 }
 
-function rr(ctx, x, y, w, h, r) {
-  const radius = Math.max(0, Math.min(r, Math.floor(Math.min(w, h) / 2)));
-  ctx.beginPath();
-  ctx.moveTo(x + radius, y);
-  ctx.lineTo(x + w - radius, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
-  ctx.lineTo(x + w, y + h - radius);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
-  ctx.lineTo(x + radius, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
-  ctx.lineTo(x, y + radius);
-  ctx.quadraticCurveTo(x, y, x + radius, y);
-  ctx.closePath();
-}
-
-function drawStars(ctx, w, h) {
-  for (let i = 0; i < 250; i++) {
-    const x = Math.random() * w;
-    const y = Math.random() * h;
-    const r = 0.6 + Math.random() * 2.2;
-    ctx.fillStyle = `rgba(255,255,255,${(0.06 + Math.random() * 0.28).toFixed(3)})`;
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fill();
-  }
-}
-
-function drawGlass(ctx, x, y, w, h, theme, rad = 18) {
-  const grad = ctx.createLinearGradient(x, y, x + w, y + h);
-  grad.addColorStop(0, theme.panelA);
-  grad.addColorStop(1, theme.panelB);
-
-  rr(ctx, x, y, w, h, rad);
-  ctx.fillStyle = grad;
-  ctx.fill();
-
-  ctx.save();
-  rr(ctx, x, y, w, h, rad);
-  ctx.clip();
-  const shine = ctx.createLinearGradient(x, y, x, y + h * 0.45);
-  shine.addColorStop(0, "rgba(255,255,255,0.18)");
-  shine.addColorStop(1, "rgba(255,255,255,0)");
-  ctx.fillStyle = shine;
-  ctx.fillRect(x, y, w, h * 0.45);
-  ctx.restore();
-
-  ctx.strokeStyle = theme.stroke;
-  ctx.lineWidth = 1.4;
-  rr(ctx, x, y, w, h, rad);
-  ctx.stroke();
-}
-
-async function drawAvatar(ctx, avatarUrl, x, y, size, theme) {
-  ctx.save();
-  rr(ctx, x, y, size, size, size / 2);
-  ctx.clip();
-  try {
-    const img = await loadImage(avatarUrl);
-    ctx.drawImage(img, x, y, size, size);
-  } catch {
-    const g = ctx.createLinearGradient(x, y, x + size, y + size);
-    g.addColorStop(0, "#111827");
-    g.addColorStop(1, "#1f2937");
-    ctx.fillStyle = g;
-    ctx.fillRect(x, y, size, size);
-  }
-  ctx.restore();
-
-  for (let i = 0; i < 3; i++) {
-    ctx.save();
-    ctx.strokeStyle = i === 1 ? theme.accent2 : theme.accent;
-    ctx.shadowColor = i === 1 ? theme.accent2 : theme.accent;
-    ctx.shadowBlur = 26 - i * 6;
-    ctx.lineWidth = 3 - i * 0.4;
-    ctx.beginPath();
-    ctx.arc(x + size / 2, y + size / 2, size / 2 + 8 + i * 8, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.restore();
-  }
-}
-
-async function statCard(ctx, data, theme) {
-  const { x, y, w, h, title, value, emojiId } = data;
-  drawGlass(ctx, x, y, w, h, theme, 16);
-
-  let textStart = x + 16;
-  if (emojiId) {
-    const icon = await loadCustomEmojiImage(emojiId);
-    if (icon) {
-      ctx.drawImage(icon, x + 14, y + 14, 26, 26);
-      textStart = x + 48;
-    }
-  }
-
-  ctx.fillStyle = "rgba(245,245,255,0.95)";
-  ctx.font = '600 17px "Inter", "Segoe UI", sans-serif';
-  ctx.fillText(String(title).toUpperCase(), textStart, y + 33);
-
-  ctx.fillStyle = "#ffffff";
-  ctx.font = '700 44px "Orbitron", "Inter", "Segoe UI", sans-serif';
-  ctx.fillText(String(value), x + 16, y + 87);
-}
-
-function itemBadge(ctx, x, y, text, tone) {
-  const colors = tone === "on"
-    ? { bg: "rgba(6,95,70,0.4)", fg: "#6ee7b7", st: "rgba(110,231,183,0.7)" }
-    : tone === "rare"
-      ? { bg: "rgba(12,74,110,0.45)", fg: "#7dd3fc", st: "rgba(125,211,252,0.7)" }
-      : { bg: "rgba(88,28,135,0.45)", fg: "#d8b4fe", st: "rgba(216,180,254,0.7)" };
-
-  rr(ctx, x, y, 132, 38, 10);
-  ctx.fillStyle = colors.bg;
-  ctx.fill();
-  ctx.strokeStyle = colors.st;
-  ctx.lineWidth = 1.2;
-  ctx.stroke();
-
-  ctx.fillStyle = colors.fg;
-  ctx.font = '700 20px "Orbitron", "Inter", "Segoe UI", sans-serif';
-  ctx.fillText(text, x + 18, y + 26);
-}
-
-function itemSlot(ctx, x, y, w, h, name, owned, variant, theme) {
-  drawGlass(ctx, x, y, w, h, theme, 14);
-  ctx.fillStyle = "#f3f4f6";
-  ctx.font = '600 43px "Inter", "Segoe UI Symbol", sans-serif';
-  ctx.fillText(owned ? "▣" : "◻", x + 18, y + 52);
-
-  ctx.fillStyle = "rgba(245,245,255,0.98)";
-  ctx.font = '600 40px "Inter", "Segoe UI", sans-serif';
-  ctx.fillText(name, x + 70, y + 52);
-
-  if (owned) itemBadge(ctx, x + w - 154, y + 18, "OWNED", "on");
-  else if (variant === "rare") itemBadge(ctx, x + w - 154, y + 18, "RARE", "rare");
-  else itemBadge(ctx, x + w - 154, y + 18, "LOCKED", "locked");
-}
-
 function computePower(input) {
-  const {
-    currency,
-    drako,
-    survival,
-    itemSurvival,
-    dropLuck,
-    rewardMult,
-    ownedRoles,
-  } = input;
-
-  const power = (
-    currency / 10 +
-    drako * 120 +
-    survival * 55 +
-    itemSurvival * 35 +
-    dropLuck * 650 +
-    rewardMult * 2000 +
-    ownedRoles * 110
+  if (Number.isFinite(input.power)) return Math.floor(input.power);
+  const value = (
+    input.currency / 10 +
+    input.drako * 120 +
+    input.survival * 55 +
+    input.itemSurvival * 35 +
+    input.dropLuck * 650 +
+    input.rewardMult * 2000 +
+    input.ownedRoles * 110
   );
-
-  return Math.max(1, Math.floor(power));
+  return Math.max(1, Math.floor(value));
 }
 
-async function buildInventoryImage(eventKey, player, user, bonusMaxBleach = 30, bonusMaxJjk = 30) {
+function defaultLayout() {
+  return {
+    width: 1800,
+    height: 1180,
+    templates: {
+      bleach: "inventory_bleach.png",
+      jjk: "inventory_jjk.png",
+    },
+    fonts: {
+      title: '800 84px "Orbitron", "Inter", "Segoe UI", sans-serif',
+      subtitle: '600 54px "Inter", "Segoe UI", sans-serif',
+      statValue: '700 44px "Orbitron", "Inter", "Segoe UI", sans-serif',
+      statLabel: '600 17px "Inter", "Segoe UI", sans-serif',
+      item: '600 40px "Inter", "Segoe UI", sans-serif',
+      footer: '600 45px "Inter", "Segoe UI", sans-serif',
+    },
+    colors: {
+      fallbackBg: "#0b1020",
+      textMain: "#ffffff",
+      textSub: "rgba(255,255,255,0.95)",
+      textLabel: "rgba(245,245,255,0.95)",
+    },
+    points: {
+      avatar: { x: 86, y: 86, size: 260 },
+      title: { x: 430, y: 168 },
+      player: { x: 432, y: 246 },
+      combatPower: { x: 1260, y: 246 },
+      footer: { x: 500, y: 1130 },
+    },
+    stats: [
+      { key: "currency", label: "Reiatsu", x: 86, y: 320 },
+      { key: "drako", label: "Drako Coin", x: 524, y: 320 },
+      { key: "boss_bonus", label: "Boss Bonus", x: 962, y: 320 },
+      { key: "rate", label: "Exchange Rate", x: 1400, y: 320 },
+      { key: "item_survival", label: "Item Survival", x: 86, y: 468 },
+      { key: "drop_luck", label: "Drop Luck", x: 524, y: 468 },
+      { key: "reward_multi", label: "Reward Multi", x: 962, y: 468 },
+      { key: "wardrobe", label: "Wardrobe Roles", x: 1400, y: 468 },
+    ],
+    statBox: { w: 414, h: 126, lastW: 314, valueDx: 16, valueDy: 87, labelDx: 16, labelDy: 33 },
+    equipment: {
+      title: { x: 112, y: 704 },
+      slots: [
+        { x: 112, y: 736, w: 388, h: 92, key: "slot1", label: "Zanpakuto" },
+        { x: 524, y: 736, w: 388, h: 92, key: "slot2", label: "Mask Fragment" },
+        { x: 936, y: 736, w: 388, h: 92, key: "slot3", label: "Soul Cloak" },
+        { x: 1348, y: 736, w: 340, h: 92, key: "slot4", label: "Aizen Role" },
+        { x: 112, y: 852, w: 388, h: 92, key: "slot5", label: "Reiatsu Amplifier" },
+        { x: 524, y: 852, w: 388, h: 92, key: "slot6", label: "Locked Slot" },
+        { x: 936, y: 852, w: 388, h: 92, key: "slot7", label: "Locked Slot" },
+      ],
+    },
+  };
+}
+
+function loadLayout() {
+  const base = defaultLayout();
+  try {
+    if (!fs.existsSync(LAYOUT_FILE)) return base;
+    const raw = fs.readFileSync(LAYOUT_FILE, "utf8");
+    const parsed = JSON.parse(raw);
+    return {
+      ...base,
+      ...parsed,
+      templates: { ...base.templates, ...(parsed.templates || {}) },
+      fonts: { ...base.fonts, ...(parsed.fonts || {}) },
+      colors: { ...base.colors, ...(parsed.colors || {}) },
+      points: { ...base.points, ...(parsed.points || {}) },
+      statBox: { ...base.statBox, ...(parsed.statBox || {}) },
+      equipment: {
+        ...base.equipment,
+        ...(parsed.equipment || {}),
+        title: { ...base.equipment.title, ...((parsed.equipment || {}).title || {}) },
+      },
+      stats: Array.isArray(parsed.stats) && parsed.stats.length ? parsed.stats : base.stats,
+    };
+  } catch (e) {
+    console.warn("[inventory-card] failed to parse layout:", e?.message || e);
+    return base;
+  }
+}
+
+async function drawTemplateBackground(ctx, layout, eventKey) {
+  const fileName = eventKey === "bleach" ? layout.templates.bleach : layout.templates.jjk;
+  const full = path.join(TEMPLATE_DIR, fileName);
+  if (!fs.existsSync(full)) return false;
+  try {
+    const img = await loadImage(full);
+    ctx.drawImage(img, 0, 0, layout.width, layout.height);
+    return true;
+  } catch (e) {
+    console.warn("[inventory-card] template load failed:", e?.message || e);
+    return false;
+  }
+}
+
+function resolveValueMap(eventKey, player, bonusMaxBleach, bonusMaxJjk) {
   const isBleach = eventKey === "bleach";
-  const width = 1800;
-  const height = 1180;
-  const canvas = createCanvas(width, height);
-  const ctx = canvas.getContext("2d");
-
-  const theme = isBleach
-    ? {
-        bg1: "#050524",
-        bg2: "#1b0c5b",
-        bg3: "#2d0f6f",
-        accent: "rgba(96,165,250,0.95)",
-        accent2: "rgba(251,113,133,0.9)",
-        panelA: "rgba(15,23,42,0.72)",
-        panelB: "rgba(30,41,59,0.54)",
-        stroke: "rgba(167,139,250,0.75)",
-      }
-    : {
-        bg1: "#031322",
-        bg2: "#043042",
-        bg3: "#0b5062",
-        accent: "rgba(45,212,191,0.95)",
-        accent2: "rgba(251,191,36,0.9)",
-        panelA: "rgba(15,23,42,0.72)",
-        panelB: "rgba(30,41,59,0.54)",
-        stroke: "rgba(94,234,212,0.75)",
-      };
-
-  const bg = ctx.createLinearGradient(0, 0, width, height);
-  bg.addColorStop(0, theme.bg1);
-  bg.addColorStop(0.5, theme.bg2);
-  bg.addColorStop(1, theme.bg3);
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, width, height);
-
-  const nebula = ctx.createRadialGradient(width * 0.88, 160, 40, width * 0.88, 160, 700);
-  nebula.addColorStop(0, "rgba(255,255,255,0.16)");
-  nebula.addColorStop(1, "rgba(255,255,255,0)");
-  ctx.fillStyle = nebula;
-  ctx.fillRect(0, 0, width, height);
-
-  drawStars(ctx, width, height);
-
-  rr(ctx, 36, 36, width - 72, height - 72, 30);
-  ctx.strokeStyle = "rgba(255,255,255,0.25)";
-  ctx.lineWidth = 2.2;
-  ctx.stroke();
-
-  const username = String(user?.username || "Unknown");
-  const avatarUrl = user?.displayAvatarURL?.({ extension: "png", size: 512 }) || "";
-  await drawAvatar(ctx, avatarUrl, 86, 86, 260, theme);
-
-  ctx.fillStyle = "#ffffff";
-  ctx.font = '800 86px "Orbitron", "Inter", "Segoe UI", sans-serif';
-  ctx.fillText(isBleach ? "BLEACH INVENTORY" : "JJK INVENTORY", 430, 168);
-
-  drawGlass(ctx, 1270, 90, 360, 74, theme, 14);
-  ctx.fillStyle = "#fde68a";
-  ctx.font = '700 46px "Orbitron", "Inter", "Segoe UI", sans-serif';
-  ctx.fillText("[LIMITED EVENT]", 1300, 141);
-
-  ctx.fillStyle = "rgba(255,255,255,0.95)";
-  ctx.font = '600 58px "Inter", "Segoe UI", sans-serif';
-  ctx.fillText(`Player: ${username}`, 432, 246);
-
   const inv = isBleach ? player.bleach.items : player.jjk.items;
   const mats = player.jjk.materials || { cursedShards: 0, expeditionKeys: 0 };
   const survival = isBleach ? player.bleach.survivalBonus : player.jjk.survivalBonus;
@@ -318,8 +176,8 @@ async function buildInventoryImage(eventKey, player, user, bonusMaxBleach = 30, 
   const rewardMult = isBleach ? calcBleachReiatsuMultiplier(inv) : calcJjkCEMultiplier(inv);
   const currency = isBleach ? player.bleach.reiatsu : player.jjk.cursedEnergy;
   const rate = isBleach ? DRAKO_RATE_BLEACH : DRAKO_RATE_JJK;
-
   const power = computePower({
+    power: player.power,
     currency,
     drako: player.drako,
     survival,
@@ -329,65 +187,122 @@ async function buildInventoryImage(eventKey, player, user, bonusMaxBleach = 30, 
     ownedRoles: player.ownedRoles?.length || 0,
   });
 
-  ctx.fillStyle = "rgba(255,255,255,0.9)";
-  ctx.font = '600 53px "Inter", "Segoe UI", sans-serif';
-  ctx.fillText(`Combat Power: ${n(power)}`, 1260, 246);
+  const map = {
+    currency: n(currency),
+    drako: n(player.drako),
+    boss_bonus: `${n(survival)}% / ${cap}%`,
+    rate: `${rate}->1Drako`,
+    item_survival: `+${n(itemSurvival)}%`,
+    drop_luck: `x${dropLuck.toFixed(2)}`,
+    reward_multi: `x${rewardMult.toFixed(2)}`,
+    wardrobe: n(player.ownedRoles?.length || 0),
+    power: n(power),
+    shards: n(mats.cursedShards),
+    keys: n(mats.expeditionKeys),
+  };
 
+  const slots = isBleach
+    ? [
+        { name: "Zanpakuto", own: !!inv.zanpakuto_basic },
+        { name: "Mask Fragment", own: !!inv.hollow_mask_fragment },
+        { name: "Soul Cloak", own: !!inv.soul_reaper_cloak },
+        { name: "Aizen Role", own: !!inv.cosmetic_role },
+        { name: "Reiatsu Amplifier", own: !!inv.reiatsu_amplifier },
+        { name: "Locked Slot", own: false },
+        { name: "Locked Slot", own: false },
+      ]
+    : [
+        { name: "Black Flash Manual", own: !!inv.black_flash_manual },
+        { name: "Domain Charm", own: !!inv.domain_charm },
+        { name: "Cursed Tool", own: !!inv.cursed_tool },
+        { name: "Binding Vow Seal", own: !!inv.binding_vow_seal },
+        { name: "Reverse Talisman", own: !!inv.reverse_talisman },
+        { name: `Shards: ${n(mats.cursedShards)}`, own: (mats.cursedShards || 0) > 0 },
+        { name: `Keys: ${n(mats.expeditionKeys)}`, own: (mats.expeditionKeys || 0) > 0 },
+      ];
+
+  return { map, slots, isBleach };
+}
+
+async function drawAvatar(ctx, avatarUrl, p) {
+  const { x, y, size } = p;
   ctx.save();
-  ctx.strokeStyle = theme.accent;
-  ctx.shadowColor = theme.accent;
-  ctx.shadowBlur = 24;
-  ctx.lineWidth = 2.6;
   ctx.beginPath();
-  ctx.moveTo(430, 194);
-  ctx.lineTo(width - 120, 194);
-  ctx.stroke();
+  ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
+  ctx.clip();
+  try {
+    const img = await loadImage(avatarUrl);
+    ctx.drawImage(img, x, y, size, size);
+  } catch {}
   ctx.restore();
+}
 
-  const cards = [
-    { x: 86, y: 320, w: 414, h: 126, title: "Reiatsu", value: n(currency), emojiId: E.reiatsu },
-    { x: 524, y: 320, w: 414, h: 126, title: "Drako Coin", value: n(player.drako), emojiId: E.drako },
-    { x: 962, y: 320, w: 414, h: 126, title: "Boss Bonus", value: `${n(survival)}% / ${cap}%`, emojiId: E.bossBonus },
-    { x: 1400, y: 320, w: 314, h: 126, title: "Exchange Rate", value: `${rate}->1Drako`, emojiId: E.rate },
-    { x: 86, y: 468, w: 414, h: 126, title: "Item Survival", value: `+${n(itemSurvival)}%`, emojiId: E.itemSurvival },
-    { x: 524, y: 468, w: 414, h: 126, title: "Drop Luck", value: `x${dropLuck.toFixed(2)}`, emojiId: E.dropLuck },
-    { x: 962, y: 468, w: 414, h: 126, title: "Reward Multi", value: `x${rewardMult.toFixed(2)}`, emojiId: E.rewardMulti },
-    { x: 1400, y: 468, w: 314, h: 126, title: "Wardrobe Roles", value: n(player.ownedRoles?.length || 0) },
-  ];
-  for (const card of cards) await statCard(ctx, card, theme);
+async function buildInventoryImage(eventKey, player, user, bonusMaxBleach = 30, bonusMaxJjk = 30) {
+  const layout = loadLayout();
+  const canvas = createCanvas(layout.width, layout.height);
+  const ctx = canvas.getContext("2d");
 
-  drawGlass(ctx, 86, 632, 1628, 420, theme, 20);
-  ctx.fillStyle = "#ffffff";
-  ctx.font = '700 72px "Orbitron", "Inter", "Segoe UI", sans-serif';
-  ctx.fillText("Equipment", 112, 704);
-
-  if (isBleach) {
-    const slots = [
-      { x: 112, y: 736, w: 388, h: 92, name: "Zanpakuto", own: inv.zanpakuto_basic, v: "rare" },
-      { x: 524, y: 736, w: 388, h: 92, name: "Mask Fragment", own: inv.hollow_mask_fragment, v: "rare" },
-      { x: 936, y: 736, w: 388, h: 92, name: "Soul Cloak", own: inv.soul_reaper_cloak, v: "rare" },
-      { x: 1348, y: 736, w: 340, h: 92, name: "Aizen Role", own: inv.cosmetic_role, v: "locked" },
-      { x: 112, y: 852, w: 388, h: 92, name: "Reiatsu Amplifier", own: inv.reiatsu_amplifier, v: "locked" },
-      { x: 524, y: 852, w: 388, h: 92, name: "Locked Slot", own: false, v: "locked" },
-      { x: 936, y: 852, w: 388, h: 92, name: "Locked Slot", own: false, v: "locked" },
-    ];
-    for (const s of slots) itemSlot(ctx, s.x, s.y, s.w, s.h, s.name, s.own, s.v, theme);
-  } else {
-    const slots = [
-      { x: 112, y: 736, w: 388, h: 92, name: "Black Flash Manual", own: inv.black_flash_manual, v: "rare" },
-      { x: 524, y: 736, w: 388, h: 92, name: "Domain Charm", own: inv.domain_charm, v: "rare" },
-      { x: 936, y: 736, w: 388, h: 92, name: "Cursed Tool", own: inv.cursed_tool, v: "rare" },
-      { x: 1348, y: 736, w: 340, h: 92, name: "Binding Vow Seal", own: inv.binding_vow_seal, v: "locked" },
-      { x: 112, y: 852, w: 388, h: 92, name: "Reverse Talisman", own: inv.reverse_talisman, v: "locked" },
-      { x: 524, y: 852, w: 388, h: 92, name: `Shards: ${n(mats.cursedShards)}`, own: mats.cursedShards > 0, v: "rare" },
-      { x: 936, y: 852, w: 388, h: 92, name: `Keys: ${n(mats.expeditionKeys)}`, own: mats.expeditionKeys > 0, v: "rare" },
-    ];
-    for (const s of slots) itemSlot(ctx, s.x, s.y, s.w, s.h, s.name, s.own, s.v, theme);
+  const hasTemplate = await drawTemplateBackground(ctx, layout, eventKey);
+  if (!hasTemplate) {
+    ctx.fillStyle = layout.colors.fallbackBg;
+    ctx.fillRect(0, 0, layout.width, layout.height);
   }
 
-  ctx.fillStyle = "rgba(255,255,255,0.9)";
-  ctx.font = '600 45px "Inter", "Segoe UI", sans-serif';
-  ctx.fillText(`Event Bot  •  Powered by ${username}  •  Version 2.3`, 500, 1130);
+  const username = String(user?.username || "Unknown");
+  const avatarUrl = user?.displayAvatarURL?.({ extension: "png", size: 512 }) || "";
+  await drawAvatar(ctx, avatarUrl, layout.points.avatar);
+
+  const isBleachTitle = eventKey === "bleach" ? "BLEACH INVENTORY" : "JJK INVENTORY";
+  const data = resolveValueMap(eventKey, player, bonusMaxBleach, bonusMaxJjk);
+
+  ctx.fillStyle = layout.colors.textMain;
+  ctx.font = layout.fonts.title;
+  ctx.fillText(isBleachTitle, layout.points.title.x, layout.points.title.y);
+
+  ctx.fillStyle = layout.colors.textSub;
+  ctx.font = layout.fonts.subtitle;
+  ctx.fillText(`Player: ${username}`, layout.points.player.x, layout.points.player.y);
+  ctx.fillText(`Combat Power: ${data.map.power}`, layout.points.combatPower.x, layout.points.combatPower.y);
+
+  for (let i = 0; i < layout.stats.length; i++) {
+    const stat = layout.stats[i];
+    const isLast = i === layout.stats.length - 1;
+    const boxW = isLast ? layout.statBox.lastW : layout.statBox.w;
+    const label = stat.label || stat.key;
+    const value = data.map[stat.key] ?? "-";
+
+    ctx.fillStyle = layout.colors.textLabel;
+    ctx.font = layout.fonts.statLabel;
+    ctx.fillText(String(label), stat.x + layout.statBox.labelDx, stat.y + layout.statBox.labelDy);
+
+    ctx.fillStyle = layout.colors.textMain;
+    ctx.font = layout.fonts.statValue;
+    const text = String(value);
+    const maxW = boxW - 24;
+    let draw = text;
+    while (ctx.measureText(draw).width > maxW && draw.length > 1) draw = draw.slice(0, -1);
+    ctx.fillText(draw, stat.x + layout.statBox.valueDx, stat.y + layout.statBox.valueDy);
+  }
+
+  if (layout.equipment?.title) {
+    ctx.fillStyle = layout.colors.textMain;
+    ctx.font = layout.fonts.title;
+    ctx.fillText("Equipment", layout.equipment.title.x, layout.equipment.title.y);
+  }
+
+  const slots = layout.equipment?.slots || [];
+  for (let i = 0; i < Math.min(slots.length, data.slots.length); i++) {
+    const s = slots[i];
+    const src = data.slots[i];
+    ctx.fillStyle = layout.colors.textMain;
+    ctx.font = layout.fonts.item;
+    const line = `${src.name}`;
+    ctx.fillText(line, s.x + 22, s.y + 56);
+  }
+
+  ctx.fillStyle = layout.colors.textSub;
+  ctx.font = layout.fonts.footer;
+  ctx.fillText(`Event Bot  •  Powered by ${username}  •  Version 2.3`, layout.points.footer.x, layout.points.footer.y);
 
   return canvas.toBuffer("image/png");
 }

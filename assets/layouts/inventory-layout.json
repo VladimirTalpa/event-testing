@@ -1,0 +1,61 @@
+{
+  "width": 1800,
+  "height": 1180,
+  "templates": {
+    "bleach": "inventory_bleach.png",
+    "jjk": "inventory_jjk.png"
+  },
+  "fonts": {
+    "title": "800 84px \"Orbitron\", \"Inter\", \"Segoe UI\", sans-serif",
+    "subtitle": "600 54px \"Inter\", \"Segoe UI\", sans-serif",
+    "statValue": "700 44px \"Orbitron\", \"Inter\", \"Segoe UI\", sans-serif",
+    "statLabel": "600 17px \"Inter\", \"Segoe UI\", sans-serif",
+    "item": "600 40px \"Inter\", \"Segoe UI\", sans-serif",
+    "footer": "600 45px \"Inter\", \"Segoe UI\", sans-serif"
+  },
+  "colors": {
+    "fallbackBg": "#0b1020",
+    "textMain": "#ffffff",
+    "textSub": "rgba(255,255,255,0.95)",
+    "textLabel": "rgba(245,245,255,0.95)"
+  },
+  "points": {
+    "avatar": { "x": 86, "y": 86, "size": 260 },
+    "title": { "x": 430, "y": 168 },
+    "player": { "x": 432, "y": 246 },
+    "combatPower": { "x": 1260, "y": 246 },
+    "footer": { "x": 500, "y": 1130 }
+  },
+  "stats": [
+    { "key": "currency", "label": "Reiatsu", "x": 86, "y": 320 },
+    { "key": "drako", "label": "Drako Coin", "x": 524, "y": 320 },
+    { "key": "boss_bonus", "label": "Boss Bonus", "x": 962, "y": 320 },
+    { "key": "rate", "label": "Exchange Rate", "x": 1400, "y": 320 },
+    { "key": "item_survival", "label": "Item Survival", "x": 86, "y": 468 },
+    { "key": "drop_luck", "label": "Drop Luck", "x": 524, "y": 468 },
+    { "key": "reward_multi", "label": "Reward Multi", "x": 962, "y": 468 },
+    { "key": "wardrobe", "label": "Wardrobe Roles", "x": 1400, "y": 468 }
+  ],
+  "statBox": {
+    "w": 414,
+    "h": 126,
+    "lastW": 314,
+    "valueDx": 16,
+    "valueDy": 87,
+    "labelDx": 16,
+    "labelDy": 33
+  },
+  "equipment": {
+    "title": { "x": 112, "y": 704 },
+    "slots": [
+      { "x": 112, "y": 736, "w": 388, "h": 92, "key": "slot1", "label": "Zanpakuto" },
+      { "x": 524, "y": 736, "w": 388, "h": 92, "key": "slot2", "label": "Mask Fragment" },
+      { "x": 936, "y": 736, "w": 388, "h": 92, "key": "slot3", "label": "Soul Cloak" },
+      { "x": 1348, "y": 736, "w": 340, "h": 92, "key": "slot4", "label": "Aizen Role" },
+      { "x": 112, "y": 852, "w": 388, "h": 92, "key": "slot5", "label": "Reiatsu Amplifier" },
+      { "x": 524, "y": 852, "w": 388, "h": 92, "key": "slot6", "label": "Locked Slot" },
+      { "x": 936, "y": 852, "w": 388, "h": 92, "key": "slot7", "label": "Locked Slot" }
+    ]
+  }
+}
+
