@@ -1,36 +1,21 @@
 // src/config.js
-require("dotenv").config();
-
-/* ===================== HELPERS ===================== */
-const parseCsvIds = (v) =>
-  String(v || "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
 
 /* ===================== CHANNEL LOCKS ===================== */
 // ✅ BLEACH spawns only here
-const BLEACH_CHANNEL_ID = process.env.BLEACH_CHANNEL_ID || "1469757595031179314";
+const BLEACH_CHANNEL_ID = "1469757595031179314";
 // ✅ JJK spawns only here
-const JJK_CHANNEL_ID = process.env.JJK_CHANNEL_ID || "1469757629390651686";
+const JJK_CHANNEL_ID = "1469757629390651686";
 
 /* ===================== ROLES / PERMS ===================== */
-// ✅ roles who can do event-staff features (optional usage)
-const EVENT_ROLE_IDS = process.env.EVENT_ROLE_IDS
-  ? parseCsvIds(process.env.EVENT_ROLE_IDS)
-  : ["1259865441405501571", "1287879457025163325"];
-
-// ✅ ONLY this role can spawn bosses/mobs
-const BOSS_SPAWNER_ROLE_ID = process.env.BOSS_SPAWNER_ROLE_ID || "1259865441405501571";
-
+const EVENT_ROLE_IDS = ["1259865441405501571", "1287879457025163325"];
 const PING_BOSS_ROLE_ID = "1467575062826586205";
 const PING_HOLLOW_ROLE_ID = "1467575020275368131";
-const BOOSTER_ROLE_ID = process.env.BOOSTER_ROLE_ID || "1267266564961341501";
+const BOOSTER_ROLE_ID = "1267266564961341501";
 
 /* ===================== THEME / EMOJIS ===================== */
 const COLOR = 0x7b2cff;
 
-// Event logos
+// Event logos (your request)
 const E_BLEACH = "<:event:1470018874408964119>";
 const E_JJK = "<:event:1470018845245968434>";
 
@@ -46,9 +31,12 @@ const E_MEMBERS = "👥";
 /* ===================== ECONOMY RATES ===================== */
 const DRAKO_RATE_BLEACH = 47;
 const DRAKO_RATE_JJK = 19;
+// ❌ NO REVERSE exchange anywhere
 
 /* ===================== COMMON GAME CONFIG ===================== */
 const ROUND_COOLDOWN_MS = 10 * 1000;
+
+// Default boss lives (most bosses)
 const MAX_HITS = 2;
 
 /* ===================== DAILY (BLEACH ONLY) ===================== */
@@ -60,7 +48,7 @@ const DAILY_BOOSTER = 200;
 const VASTO_DROP_ROLE_ID = "1467426528584405103"; // 2.5%
 const ULQ_DROP_ROLE_ID = "1469573731301986367";   // 3%
 
-/* ===================== SHOP ===================== */
+// Bleach shop cosmetic role
 const SHOP_COSMETIC_ROLE_ID = "1467438527200497768";
 
 /* ===================== MOB CONFIG ===================== */
@@ -81,8 +69,6 @@ module.exports = {
   JJK_CHANNEL_ID,
 
   EVENT_ROLE_IDS,
-  BOSS_SPAWNER_ROLE_ID,
-
   PING_BOSS_ROLE_ID,
   PING_HOLLOW_ROLE_ID,
   BOOSTER_ROLE_ID,
@@ -128,3 +114,4 @@ module.exports = {
   JJK_BONUS_PER_KILL,
   JJK_BONUS_MAX,
 };
+
