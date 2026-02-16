@@ -1,9 +1,9 @@
 // src/config.js
 
 /* ===================== CHANNEL LOCKS ===================== */
-// ✅ BLEACH spawns only here
+//BLEACH 
 const BLEACH_CHANNEL_ID = "1469757595031179314";
-// ✅ JJK spawns only here
+// JJK
 const JJK_CHANNEL_ID = "1469757629390651686";
 
 /* ===================== ROLES / PERMS ===================== */
@@ -15,13 +15,13 @@ const BOOSTER_ROLE_ID = "1267266564961341501";
 /* ===================== THEME / EMOJIS ===================== */
 const COLOR = 0x7b2cff;
 
-// Event logos (your request)
+
 const E_BLEACH = "<:event:1470018874408964119>";
 const E_JJK = "<:event:1470018845245968434>";
 
 const E_VASTO = "<:event:1469832084418727979>";
 const E_ULQ = "<:event:1469831975446511648>";
-const E_GRIMJOW = "<:event:1469831949857325097>"; // placeholder if you have it
+const E_GRIMJOW = "<:event:1469831949857325097>"; 
 const E_REIATSU = "<:event:1469821285079978045>";
 const E_CE = "<:event:1469821211872727040>";
 const E_DRAKO = "<:event:1469812070542217389>";
@@ -31,12 +31,12 @@ const E_MEMBERS = "👥";
 /* ===================== ECONOMY RATES ===================== */
 const DRAKO_RATE_BLEACH = 47;
 const DRAKO_RATE_JJK = 19;
-// ❌ NO REVERSE exchange anywhere
+
 
 /* ===================== COMMON GAME CONFIG ===================== */
 const ROUND_COOLDOWN_MS = 10 * 1000;
 
-// Default boss lives (most bosses)
+// Default boss lives
 const MAX_HITS = 2;
 
 /* ===================== DAILY (BLEACH ONLY) ===================== */
