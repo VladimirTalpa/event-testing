@@ -281,12 +281,7 @@ async function buildInventoryImage(eventKey, player, user, bonusMaxBleach = 30, 
   const avatarUrl = user?.displayAvatarURL?.({ extension: "png", size: 512 }) || "";
   await drawAvatar(ctx, avatarUrl, layout.points.avatar);
 
-  const isBleachTitle = eventKey === "bleach" ? "BLEACH INVENTORY" : "JJK INVENTORY";
   const data = resolveValueMap(eventKey, player, bonusMaxBleach, bonusMaxJjk);
-
-  ctx.fillStyle = layout.colors.textMain;
-  ctx.font = layout.fonts.title;
-  ctx.fillText(isBleachTitle, layout.points.title.x, layout.points.title.y);
 
   ctx.fillStyle = layout.colors.textSub;
   ctx.font = layout.fonts.subtitle;
@@ -297,12 +292,7 @@ async function buildInventoryImage(eventKey, player, user, bonusMaxBleach = 30, 
     const stat = layout.stats[i];
     const isLast = i === layout.stats.length - 1;
     const boxW = isLast ? layout.statBox.lastW : layout.statBox.w;
-    const label = stat.label || stat.key;
     const value = data.map[stat.key] ?? "-";
-
-    ctx.fillStyle = layout.colors.textLabel;
-    ctx.font = layout.fonts.statLabel;
-    ctx.fillText(String(label), stat.x + layout.statBox.labelDx, stat.y + layout.statBox.labelDy);
 
     ctx.fillStyle = layout.colors.textMain;
     ctx.font = layout.fonts.statValue;
@@ -313,25 +303,16 @@ async function buildInventoryImage(eventKey, player, user, bonusMaxBleach = 30, 
     ctx.fillText(draw, stat.x + layout.statBox.valueDx, stat.y + layout.statBox.valueDy);
   }
 
-  if (layout.equipment?.title) {
-    ctx.fillStyle = layout.colors.textMain;
-    ctx.font = layout.fonts.title;
-    ctx.fillText("Equipment", layout.equipment.title.x, layout.equipment.title.y);
-  }
-
   const slots = layout.equipment?.slots || [];
   for (let i = 0; i < Math.min(slots.length, data.slots.length); i++) {
     const s = slots[i];
     const src = data.slots[i];
-    ctx.fillStyle = layout.colors.textMain;
-    ctx.font = layout.fonts.item;
-    const line = `${src.name}`;
-    ctx.fillText(line, s.x + 22, s.y + 56);
-  }
 
-  ctx.fillStyle = layout.colors.textSub;
-  ctx.font = layout.fonts.footer;
-  ctx.fillText(`Event Bot  •  Powered by ${username}  •  Version 2.3`, layout.points.footer.x, layout.points.footer.y);
+    const mark = src.own ? "✓" : "✗";
+    ctx.fillStyle = src.own ? "#86efac" : "#fda4af";
+    ctx.font = '700 44px "Orbitron", "Inter", "Segoe UI", sans-serif';
+    ctx.fillText(mark, s.x + 20, s.y + 58);
+  }
 
   return canvas.toBuffer("image/png");
 }
