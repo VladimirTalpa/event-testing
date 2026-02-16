@@ -274,7 +274,7 @@ module.exports = async function handleSlash(interaction) {
   }
 
   if (interaction.commandName === "adminadd") {
-    const allowed = interaction.member?.roles?.cache?.has("1259865441405501571");
+    const allowed = hasEventRole(interaction.member);
     if (!allowed) return interaction.reply({ content: "⛔ No permission.", ephemeral: true });
 
     const currency = interaction.options.getString("currency", true);
