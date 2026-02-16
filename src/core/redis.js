@@ -1,22 +1,23 @@
 const { createClient } = require("redis");
 
-let redis = null;
+let redis;
 
 async function initRedis() {
   if (redis) return redis;
-
   const url = process.env.REDIS_URL;
-  if (!url) throw new Error("REDIS_URL missing in .env");
-
+  if (!url) {
+    console.error("❌ Missing REDIS_URL in Railway variables.");
+    process.exit(1);
+  }
   redis = createClient({ url });
   redis.on("error", (err) => console.error("Redis error:", err));
-
-  if (!redis.isOpen) await redis.connect();
+  await redis.connect();
+  console.log("✅ Redis connected");
   return redis;
 }
 
 function getRedis() {
-  if (!redis) throw new Error("Redis not initialized. Call initRedis() first.");
+  if (!redis) throw new Error("Redis is not initialized. Call initRedis() first.");
   return redis;
 }
 
