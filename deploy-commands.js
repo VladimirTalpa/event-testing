@@ -56,7 +56,7 @@ const commands = [
     .setDescription("Leaderboard (choose event currency)")
     .addStringOption((opt) => opt.setName("event").setDescription("Which event leaderboard?").setRequired(true).addChoices(...EVENT_CHOICES)),
 
-  // ✅ new give
+  //  new give
   new SlashCommandBuilder()
     .setName("give")
     .setDescription("Transfer currency to another player")
@@ -88,7 +88,7 @@ const commands = [
     .setName("wardrobe")
     .setDescription("Open your role wardrobe (equip/unequip saved roles)"),
 
-  // ✅ pvpclash
+  //  pvpclash
   new SlashCommandBuilder()
     .setName("pvpclash")
     .setDescription("Challenge a player to a PvP clash (stake currency)")
