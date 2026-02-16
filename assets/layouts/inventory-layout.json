@@ -22,8 +22,8 @@
   "points": {
     "avatar": { "x": 86, "y": 86, "size": 260 },
     "title": { "x": 430, "y": 168 },
-    "player": { "x": 432, "y": 246 },
-    "combatPower": { "x": 1260, "y": 246 },
+    "player": { "x": 560, "y": 246 },
+    "combatPower": { "x": 1660, "y": 246 },
     "footer": { "x": 500, "y": 1130 }
   },
   "stats": [
@@ -40,8 +40,8 @@
     "w": 414,
     "h": 126,
     "lastW": 314,
-    "valueDx": 16,
-    "valueDy": 87,
+    "valueDx": 26,
+    "valueDy": 94,
     "labelDx": 16,
     "labelDy": 33
   },
@@ -58,4 +58,3 @@
     ]
   }
 }
-

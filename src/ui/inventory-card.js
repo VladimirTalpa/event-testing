@@ -151,6 +151,14 @@ function loadLayout() {
   }
 }
 
+function bluePinkGradient(ctx, x, y, text) {
+  const w = Math.max(60, ctx.measureText(String(text)).width);
+  const g = ctx.createLinearGradient(x, y, x + w, y);
+  g.addColorStop(0, "#22d3ee");
+  g.addColorStop(1, "#e879f9");
+  return g;
+}
+
 async function drawTemplateBackground(ctx, layout, eventKey) {
   const fileName = eventKey === "bleach" ? layout.templates.bleach : layout.templates.jjk;
   const full = path.join(TEMPLATE_DIR, fileName);
@@ -283,10 +291,12 @@ async function buildInventoryImage(eventKey, player, user, bonusMaxBleach = 30, 
 
   const data = resolveValueMap(eventKey, player, bonusMaxBleach, bonusMaxJjk);
 
-  ctx.fillStyle = layout.colors.textSub;
+  // Draw only dynamic values (template contains static labels)
   ctx.font = layout.fonts.subtitle;
-  ctx.fillText(`Player: ${username}`, layout.points.player.x, layout.points.player.y);
-  ctx.fillText(`Combat Power: ${data.map.power}`, layout.points.combatPower.x, layout.points.combatPower.y);
+  ctx.fillStyle = bluePinkGradient(ctx, layout.points.player.x, layout.points.player.y, username);
+  ctx.fillText(username, layout.points.player.x, layout.points.player.y);
+  ctx.fillStyle = bluePinkGradient(ctx, layout.points.combatPower.x, layout.points.combatPower.y, data.map.power);
+  ctx.fillText(data.map.power, layout.points.combatPower.x, layout.points.combatPower.y);
 
   for (let i = 0; i < layout.stats.length; i++) {
     const stat = layout.stats[i];
@@ -294,12 +304,12 @@ async function buildInventoryImage(eventKey, player, user, bonusMaxBleach = 30, 
     const boxW = isLast ? layout.statBox.lastW : layout.statBox.w;
     const value = data.map[stat.key] ?? "-";
 
-    ctx.fillStyle = layout.colors.textMain;
     ctx.font = layout.fonts.statValue;
     const text = String(value);
     const maxW = boxW - 24;
     let draw = text;
     while (ctx.measureText(draw).width > maxW && draw.length > 1) draw = draw.slice(0, -1);
+    ctx.fillStyle = bluePinkGradient(ctx, stat.x + layout.statBox.valueDx, stat.y + layout.statBox.valueDy, draw);
     ctx.fillText(draw, stat.x + layout.statBox.valueDx, stat.y + layout.statBox.valueDy);
   }
 
@@ -309,7 +319,7 @@ async function buildInventoryImage(eventKey, player, user, bonusMaxBleach = 30, 
     const src = data.slots[i];
 
     const mark = src.own ? "✓" : "✗";
-    ctx.fillStyle = src.own ? "#86efac" : "#fda4af";
+    ctx.fillStyle = src.own ? "#22d3ee" : "#f472b6";
     ctx.font = '700 44px "Orbitron", "Inter", "Segoe UI", sans-serif';
     ctx.fillText(mark, s.x + 20, s.y + 58);
   }
