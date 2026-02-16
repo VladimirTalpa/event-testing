@@ -154,10 +154,14 @@ function loadLayout() {
 async function drawTemplateBackground(ctx, layout, eventKey) {
   const fileName = eventKey === "bleach" ? layout.templates.bleach : layout.templates.jjk;
   const full = path.join(TEMPLATE_DIR, fileName);
-  if (!fs.existsSync(full)) return false;
+  if (!fs.existsSync(full)) {
+    console.warn(`[inventory-card] template missing: ${full}`);
+    return false;
+  }
   try {
     const img = await loadImage(full);
     ctx.drawImage(img, 0, 0, layout.width, layout.height);
+    console.log(`[inventory-card] template loaded: ${full}`);
     return true;
   } catch (e) {
     console.warn("[inventory-card] template load failed:", e?.message || e);
