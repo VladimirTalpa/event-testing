@@ -1,3 +1,4 @@
+// src/handlers/slash.js
 const { BOSSES } = require("../data/bosses");
 const { MOBS } = require("../data/mobs");
 
@@ -102,6 +103,7 @@ module.exports = async function handleSlash(interaction) {
     return interaction.reply({ content: `🎁 You claimed **${E_REIATSU} ${amount} Reiatsu**!`, ephemeral: false });
   }
 
+  /* ===================== /give (new) ===================== */
   if (interaction.commandName === "give") {
     const currency = interaction.options.getString("currency", true);
     const target = interaction.options.getUser("user", true);
@@ -215,8 +217,7 @@ module.exports = async function handleSlash(interaction) {
     }
 
     await interaction.reply({ content: `✅ Spawned **${def.name}**.`, ephemeral: true });
-
-    await spawnBoss(channel, bossId, false);
+    await spawnBoss(channel, bossId, true);
     return;
   }
 
@@ -234,8 +235,7 @@ module.exports = async function handleSlash(interaction) {
     }
 
     await interaction.reply({ content: `✅ Mob spawned (${eventKey}).`, ephemeral: true });
-
-    await spawnMob(channel, eventKey, { bleachChannelId: BLEACH_CHANNEL_ID, jjkChannelId: JJK_CHANNEL_ID, withPing: false });
+    await spawnMob(channel, eventKey, { bleachChannelId: BLEACH_CHANNEL_ID, jjkChannelId: JJK_CHANNEL_ID, withPing: true });
     return;
   }
 
@@ -251,6 +251,7 @@ module.exports = async function handleSlash(interaction) {
     });
   }
 
+  /* ===================== /pvpclash ===================== */
   if (interaction.commandName === "pvpclash") {
     const currency = interaction.options.getString("currency", true);
     const amount = interaction.options.getInteger("amount", true);
