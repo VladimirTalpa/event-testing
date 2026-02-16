@@ -208,6 +208,113 @@ function inventoryEmbed(eventKey, player, bonusMaxBleach = 30, bonusMaxJjk = 30)
     );
 }
 
+function n(v) {
+  return Number.isFinite(v) ? Math.floor(v).toLocaleString("en-US") : "0";
+}
+
+function boolShiny(v) {
+  return v ? "✨ YES" : "❌ NO";
+}
+
+function inventoryCardEmbed(eventKey, player, user, bonusMaxBleach = 30, bonusMaxJjk = 30) {
+  const username = safeName(user?.username || "Unknown");
+  const avatarUrl = user?.displayAvatarURL?.({ extension: "png", size: 256 }) || null;
+
+  const isBleach = eventKey === "bleach";
+  const inv = isBleach ? player.bleach.items : player.jjk.items;
+
+  const survival = isBleach ? player.bleach.survivalBonus : player.jjk.survivalBonus;
+  const survivalCap = isBleach ? bonusMaxBleach : bonusMaxJjk;
+  const itemSurvival = isBleach ? calcBleachSurvivalBonus(inv) : calcJjkSurvivalBonus(inv);
+  const dropLuck = isBleach ? calcBleachDropLuckMultiplier(inv) : calcJjkDropLuckMultiplier(inv);
+  const rewardMult = isBleach ? calcBleachReiatsuMultiplier(inv) : calcJjkCEMultiplier(inv);
+
+  const currencyValue = isBleach ? player.bleach.reiatsu : player.jjk.cursedEnergy;
+  const currencyEmoji = isBleach ? "⚡" : "🧿";
+  const currencyLabel = isBleach ? "Reiatsu" : "Cursed Energy";
+  const tag = isBleach ? "BLEACH INVENTORY" : "JJK INVENTORY";
+
+  const mats = player.jjk.materials || { cursedShards: 0, expeditionKeys: 0 };
+
+  const itemRows = isBleach
+    ? [
+        `🗡 Zanpakuto: ${boolShiny(inv.zanpakuto_basic)}`,
+        `🎭 Mask Fragment: ${boolShiny(inv.hollow_mask_fragment)}`,
+        `🧥 Soul Cloak: ${boolShiny(inv.soul_reaper_cloak)}`,
+        `🔋 Reiatsu Amp: ${boolShiny(inv.reiatsu_amplifier)}`,
+        `👑 Aizen Role: ${boolShiny(inv.cosmetic_role)}`,
+      ]
+    : [
+        `⚡ Black Flash Manual: ${boolShiny(inv.black_flash_manual)}`,
+        `🏯 Domain Charm: ${boolShiny(inv.domain_charm)}`,
+        `🔪 Cursed Tool: ${boolShiny(inv.cursed_tool)}`,
+        `💚 Reverse Talisman: ${boolShiny(inv.reverse_talisman)}`,
+        `📜 Binding Vow Seal: ${boolShiny(inv.binding_vow_seal)}`,
+      ];
+
+  const cardLines = [
+    `${currencyEmoji} ${currencyLabel}: ${n(currencyValue)}`,
+    `💰 Drako: ${n(player.drako)}`,
+    `🛡 Boss Bonus: ${n(survival)}% / ${n(survivalCap)}%`,
+    `🧠 Item Survival: +${n(itemSurvival)}%`,
+    `🍀 Drop Luck: x${dropLuck.toFixed(2)}`,
+    `💸 Reward Multi: x${rewardMult.toFixed(2)}`,
+    `👗 Wardrobe Roles: ${n(player.ownedRoles.length)}`,
+    ...(isBleach ? [] : [`🧩 Cursed Shards: ${n(mats.cursedShards)}`, `🗝 Expedition Keys: ${n(mats.expeditionKeys)}`]),
+    ...itemRows,
+  ];
+
+  const labels = cardLines.map((_, i) => `${i + 1}.`);
+  const values = cardLines.map((_, i) => cardLines.length - i);
+
+  const chart = {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [
+        {
+          data: values,
+          backgroundColor: labels.map((_, i) => (i % 2 === 0 ? "#59c7ff" : "#89f7d8")),
+          borderRadius: 8,
+        },
+      ],
+    },
+    options: {
+      indexAxis: "y",
+      plugins: {
+        legend: { display: false },
+        title: {
+          display: true,
+          text: `${tag} • ${username}`,
+          color: "#ffffff",
+          font: { size: 20, weight: "bold" },
+        },
+        subtitle: {
+          display: true,
+          text: cardLines.join("  |  "),
+          color: "#dce8ff",
+          font: { size: 12 },
+        },
+      },
+      scales: {
+        x: { display: false, beginAtZero: true, suggestedMax: cardLines.length + 2 },
+        y: { ticks: { color: "#e8f0ff", font: { size: 11 } }, grid: { display: false } },
+      },
+    },
+  };
+
+  const chartUrl = `https://quickchart.io/chart?width=1200&height=700&format=png&backgroundColor=%23161f3a&c=${encodeURIComponent(JSON.stringify(chart))}`;
+
+  const embed = new EmbedBuilder()
+    .setColor(COLOR)
+    .setTitle(`🪪 ${isBleach ? "Bleach" : "JJK"} Inventory Card`)
+    .setDescription("Professional PNG preview with full stat breakdown and shiny item status.")
+    .setImage(chartUrl);
+
+  if (avatarUrl) embed.setThumbnail(avatarUrl);
+  return embed;
+}
+
 function shopEmbed(eventKey, player) {
   if (eventKey === "bleach") {
     const inv = player.bleach.items;
@@ -272,6 +379,7 @@ module.exports = {
   bossDefeatEmbed,
   mobEmbed,
   inventoryEmbed,
+  inventoryCardEmbed,
   shopEmbed,
   leaderboardEmbed,
   wardrobeEmbed,

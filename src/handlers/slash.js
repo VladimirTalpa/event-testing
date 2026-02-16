@@ -22,7 +22,7 @@ const {
 const { getPlayer, setPlayer, getTopPlayers } = require("../core/players");
 const { safeName } = require("../core/utils");
 const { hasEventRole, hasBoosterRole, shopButtons, wardrobeComponents, pvpButtons } = require("../ui/components");
-const { inventoryEmbed, shopEmbed, leaderboardEmbed, wardrobeEmbed } = require("../ui/embeds");
+const { inventoryEmbed, inventoryCardEmbed, shopEmbed, leaderboardEmbed, wardrobeEmbed } = require("../ui/embeds");
 
 const { spawnBoss } = require("../events/boss");
 const { spawnMob } = require("../events/mob");
@@ -56,7 +56,13 @@ module.exports = async function handleSlash(interaction) {
   if (interaction.commandName === "inventory") {
     const eventKey = interaction.options.getString("event", true);
     const p = await getPlayer(interaction.user.id);
-    return interaction.reply({ embeds: [inventoryEmbed(eventKey, p, BLEACH_BONUS_MAX, JJK_BONUS_MAX)], ephemeral: true });
+    return interaction.reply({
+      embeds: [
+        inventoryEmbed(eventKey, p, BLEACH_BONUS_MAX, JJK_BONUS_MAX),
+        inventoryCardEmbed(eventKey, p, interaction.user, BLEACH_BONUS_MAX, JJK_BONUS_MAX),
+      ],
+      ephemeral: true,
+    });
   }
 
   if (interaction.commandName === "shop") {
