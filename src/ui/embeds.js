@@ -1,8 +1,10 @@
+// src/ui/embeds.js
 const { EmbedBuilder } = require("discord.js");
 
 const {
   COLOR,
   MAX_HITS,
+
   E_MEMBERS,
   E_BLEACH,
   E_JJK,
@@ -16,6 +18,7 @@ const {
 const { BLEACH_SHOP_ITEMS, JJK_SHOP_ITEMS } = require("../data/shop");
 const { safeName } = require("../core/utils");
 
+/* ===== bonuses / multipliers ===== */
 function calcBleachSurvivalBonus(items) {
   let bonus = 0;
   if (items.zanpakuto_basic) bonus += 4;
@@ -59,6 +62,7 @@ function calcJjkDropLuckMultiplier(items) {
 function bossSpawnEmbed(def, channelName, joinedCount, fightersText) {
   const eventTag = def.event === "bleach" ? `${E_BLEACH} BLEACH` : `${E_JJK} JJK`;
   const currency = def.event === "bleach" ? E_REIATSU : E_CE;
+
   const maxHits = def.maxHits ?? MAX_HITS;
 
   const rewardLine =
@@ -71,7 +75,7 @@ function bossSpawnEmbed(def, channelName, joinedCount, fightersText) {
     .setTitle(`${eventTag} — ${def.icon} ${def.name} Appeared!`)
     .setDescription(
       `**Difficulty:** ${def.difficulty}\n` +
-      `⏳ **Join time:** ${Math.round(def.joinMs / 1000)} seconds\n` +
+      `⏳ **Join time:** ${Math.round(def.joinMs / 60000)} minutes\n` +
       `Press **🗡 Join Battle** to participate.`
     )
     .addFields(
@@ -164,7 +168,7 @@ function inventoryEmbed(eventKey, player, bonusMaxBleach = 30, bonusMaxJjk = 30)
           `• Amplifier: ${inv.reiatsu_amplifier ? "✅" : "❌"}`,
           `• Aizen role: ${inv.cosmetic_role ? "✅" : "❌"}`,
           "",
-          `🧥 Saved roles: **${player.ownedRoles.length}**`,
+          `🧥 Wardrobe saved roles: **${player.ownedRoles.length}**`,
         ].join("\n")
       );
   }
@@ -172,6 +176,7 @@ function inventoryEmbed(eventKey, player, bonusMaxBleach = 30, bonusMaxJjk = 30)
   const inv = player.jjk.items;
   const itemBonus = calcJjkSurvivalBonus(inv);
   const mult = calcJjkCEMultiplier(inv);
+
   const mats = player.jjk.materials || { cursedShards: 0, expeditionKeys: 0 };
 
   return new EmbedBuilder()
@@ -198,7 +203,7 @@ function inventoryEmbed(eventKey, player, bonusMaxBleach = 30, bonusMaxJjk = 30)
         `• Reverse Talisman: ${inv.reverse_talisman ? "✅" : "❌"}`,
         `• Binding Vow Seal: ${inv.binding_vow_seal ? "✅" : "❌"}`,
         "",
-        `🧥 Saved roles: **${player.ownedRoles.length}**`,
+        `🧥 Wardrobe saved roles: **${player.ownedRoles.length}**`,
       ].join("\n")
     );
 }
@@ -252,67 +257,12 @@ function wardrobeEmbed(guild, player) {
 
   return new EmbedBuilder()
     .setColor(COLOR)
-    .setTitle("🎭 Titles")
-    .setDescription("Select a role to equip/unequip.\n\n" + lines);
-}
-
-function storeEmbed(page = "home") {
-  const e = new EmbedBuilder().setColor(COLOR).setTitle("📦 Store");
-  if (page === "event") e.setDescription("Event Shop\n\nUse /shop to open Bleach/JJK shops.");
-  else if (page === "packs") e.setDescription("Card Packs\n\nComing soon.");
-  else if (page === "gear") e.setDescription("Gear Shop\n\nComing soon.");
-  else e.setDescription("Choose a section.");
-  return e;
-}
-
-function forgeEmbed(page = "home") {
-  const e = new EmbedBuilder().setColor(COLOR).setTitle("🔨 Forge");
-  if (page === "craft") e.setDescription("Craft (Gear)\n\nComing soon.");
-  else if (page === "evolve") e.setDescription("Evolve (Characters)\n\nComing soon.");
-  else e.setDescription("Choose an option.");
-  return e;
-}
-
-function profileEmbed(page = "home", player, guild, member, drakoEntries) {
-  const e = new EmbedBuilder().setColor(COLOR).setTitle("👤 Profile");
-
-  if (page === "currency") {
-    e.setDescription(
-      [
-        `${E_REIATSU} Reiatsu: **${player.bleach.reiatsu}**`,
-        `${E_CE} Cursed Energy: **${player.jjk.cursedEnergy}**`,
-        `${E_DRAKO} Drako: **${player.drako}**`,
-      ].join("\n")
+    .setTitle("🧥 Wardrobe")
+    .setDescription(
+      "Saved roles never disappear.\n" +
+      "Select a role to **equip/unequip**.\n\n" +
+      lines
     );
-    return e;
-  }
-
-  if (page === "cards") {
-    e.setDescription("Cards\n\nComing soon.");
-    return e;
-  }
-
-  if (page === "gears") {
-    e.setDescription("Gears\n\nComing soon.");
-    return e;
-  }
-
-  if (page === "titles") {
-    const roles = player.ownedRoles.map((rid) => guild.roles.cache.get(rid)).filter(Boolean);
-    const lines = roles.length ? roles.map((r) => `• <@&${r.id}>`).join("\n") : "_No titles yet._";
-    e.setDescription("Your Titles:\n\n" + lines);
-    return e;
-  }
-
-  if (page === "drako_lb") {
-    const lines = (drakoEntries || []).map((x, i) => `**#${i + 1}** — ${safeName(x.name)}: **${E_DRAKO} ${x.score}**`);
-    e.setTitle("🏆 Drako Leaderboard").setDescription(lines.join("\n") || "No data yet.");
-    return e;
-  }
-
-  const name = safeName(member?.displayName || member?.user?.username || "Player");
-  e.setDescription(`Welcome, **${name}**.\nChoose a section below.`);
-  return e;
 }
 
 module.exports = {
@@ -325,9 +275,7 @@ module.exports = {
   shopEmbed,
   leaderboardEmbed,
   wardrobeEmbed,
-  storeEmbed,
-  forgeEmbed,
-  profileEmbed,
+
   calcBleachSurvivalBonus,
   calcBleachReiatsuMultiplier,
   calcBleachDropLuckMultiplier,
