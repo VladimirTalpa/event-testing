@@ -1,6 +1,11 @@
-// In-memory state for active events in channels
-const bossByChannel = new Map(); // channelId -> bossState
-const mobByChannel = new Map();  // channelId -> mobState
-const pvpById = new Map();       // key -> pvpState
+const bossByChannel = new Map();
+const mobByChannel = new Map();
+const pvpById = new Map(); // key = `${channelId}:${challengerId}:${targetId}`
+/**
+ * leaderboardCache:
+ * messageId -> { eventKey, entries, pageSize }
+ * entries: [{ name, score }]
+ */
+const leaderboardCache = new Map();
 
-module.exports = { bossByChannel, mobByChannel, pvpById };
+module.exports = { bossByChannel, mobByChannel, leaderboardCache, pvpById };
