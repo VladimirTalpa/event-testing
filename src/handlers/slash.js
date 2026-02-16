@@ -23,7 +23,7 @@ const {
 const { getPlayer, setPlayer, getTopPlayers } = require("../core/players");
 const { safeName } = require("../core/utils");
 const { hasEventRole, hasBoosterRole, shopButtons, wardrobeComponents, pvpButtons } = require("../ui/components");
-const { inventoryEmbed, shopEmbed, leaderboardEmbed, wardrobeEmbed } = require("../ui/embeds");
+const { shopEmbed, leaderboardEmbed, wardrobeEmbed } = require("../ui/embeds");
 const { buildInventoryImage } = require("../ui/inventory-card");
 
 const { spawnBoss } = require("../events/boss");
@@ -61,7 +61,6 @@ module.exports = async function handleSlash(interaction) {
     const png = await buildInventoryImage(eventKey, p, interaction.user, BLEACH_BONUS_MAX, JJK_BONUS_MAX);
     const file = new AttachmentBuilder(png, { name: `inventory-${eventKey}.png` });
     return interaction.reply({
-      embeds: [inventoryEmbed(eventKey, p, BLEACH_BONUS_MAX, JJK_BONUS_MAX)],
       files: [file],
       ephemeral: true,
     });
