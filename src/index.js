@@ -2,10 +2,13 @@ require("dotenv").config();
 
 const { Client, GatewayIntentBits, Partials, Events } = require("discord.js");
 const { initRedis } = require("./core/redis");
+const { registerCanvasFonts } = require("./ui/fonts");
 
 const handleSlash = require("./handlers/slash");
 const handleButtons = require("./handlers/buttons");
 const handleSelects = require("./handlers/selects");
+
+registerCanvasFonts();
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],

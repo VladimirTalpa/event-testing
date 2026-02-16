@@ -112,10 +112,10 @@ function panel(ctx, x, y, w, h, title, value, theme) {
   ctx.stroke();
 
   ctx.fillStyle = "#dbeafe";
-  ctx.font = "600 20px Segoe UI";
+  ctx.font = '600 20px "Inter", "Segoe UI", sans-serif';
   ctx.fillText(title, x + 16, y + 30);
   ctx.fillStyle = "#ffffff";
-  ctx.font = "700 32px Segoe UI";
+  ctx.font = '700 32px "Orbitron", "Inter", "Segoe UI", sans-serif';
   ctx.fillText(value, x + 16, y + 68);
 }
 
@@ -174,9 +174,9 @@ async function buildInventoryImage(eventKey, player, user, bonusMaxBleach = 30, 
   await drawAvatar(ctx, avatarUrl, 70, 70, 190, theme.ring);
 
   ctx.fillStyle = "#ffffff";
-  ctx.font = "800 52px Segoe UI";
+  ctx.font = '800 52px "Orbitron", "Inter", "Segoe UI", sans-serif';
   ctx.fillText(isBleach ? "BLEACH INVENTORY" : "JJK INVENTORY", 290, 128);
-  ctx.font = "600 28px Segoe UI";
+  ctx.font = '600 28px "Inter", "Segoe UI", sans-serif';
   ctx.fillStyle = "#d1d5db";
   ctx.fillText(`Player: ${username}`, 290, 174);
 
@@ -208,7 +208,7 @@ async function buildInventoryImage(eventKey, player, user, bonusMaxBleach = 30, 
   ctx.stroke();
 
   ctx.fillStyle = "#ffffff";
-  ctx.font = "700 32px Segoe UI";
+  ctx.font = '700 32px "Orbitron", "Inter", "Segoe UI", sans-serif';
   ctx.fillText("✨ Equipment & Materials", 96, 590);
 
   const leftItems = isBleach
@@ -227,7 +227,7 @@ async function buildInventoryImage(eventKey, player, user, bonusMaxBleach = 30, 
         `📜 Binding Vow Seal: ${boolShiny(inv.binding_vow_seal)}`,
       ];
 
-  ctx.font = "600 27px Segoe UI";
+  ctx.font = '600 27px "Inter", "Segoe UI", sans-serif';
   ctx.fillStyle = "#e5e7eb";
   leftItems.forEach((line, i) => {
     ctx.fillText(line, 96, 645 + i * 42);
@@ -251,4 +251,3 @@ async function buildInventoryImage(eventKey, player, user, bonusMaxBleach = 30, 
 }
 
 module.exports = { buildInventoryImage };
-
