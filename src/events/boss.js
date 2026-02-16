@@ -1,4 +1,4 @@
-// src/events/boss.js
+
 const { PermissionsBitField, EmbedBuilder } = require("discord.js");
 
 const {
@@ -160,14 +160,14 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
 
       const r = boss.def.rounds[i];
 
-      // Some rounds intentionally text-only (final quiz question)
+    
       if (r.type !== "final_quiz") {
         await channel.send({ embeds: [bossRoundEmbed(boss.def, i, alive.length)] }).catch(() => {});
       } else {
         await channel.send(`❓ **${r.title}**\n${r.intro}`).catch(() => {});
       }
 
-      /* ===== Simple chance rounds ===== */
+     
       if (r.type === "pressure" || r.type === "attack") {
         for (const uid of alive) {
           const player = await getPlayer(uid);
@@ -194,7 +194,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         continue;
       }
 
-      /* ===== coop_block ===== */
+    
       if (r.type === "coop_block") {
         const token = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
         boss.activeAction = {
@@ -249,7 +249,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         continue;
       }
 
-      /* ===== quick_block / finisher ===== */
+   
       if (r.type === "quick_block" || r.type === "finisher") {
         const token = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
         boss.activeAction = { token, roundIndex: i, mode: "press", pressed: new Set() };
@@ -300,7 +300,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         continue;
       }
 
-      /* ===== combo_defense ===== */
+      
       if (r.type === "combo_defense") {
         const token = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
         const seq = randomComboSeq();
@@ -371,7 +371,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         continue;
       }
 
-      /* ===== group_final ===== */
+ 
       if (r.type === "group_final") {
         const nowAlive = aliveIds(boss);
         const required = r.requiredWins || 3;
@@ -414,14 +414,14 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
 
       /* ===================== NEW ROUND TYPES (Mahoraga) ===================== */
 
-      // multi_press: user must press same button N times in time
+
       if (r.type === "multi_press") {
         const token = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
         boss.activeAction = {
           token,
           roundIndex: i,
           mode: "multi_press",
-          counts: new Map(), // uid -> count
+          counts: new Map(), 
           requiredPresses: r.requiredPresses || 3,
         };
 
@@ -461,14 +461,14 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         continue;
       }
 
-      // choice_qte: 2 buttons, one correct
+   
       if (r.type === "choice_qte") {
         const token = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
         boss.activeAction = {
           token,
           roundIndex: i,
           mode: "choice",
-          choice: new Map(), // uid -> key
+          choice: new Map(), 
         };
 
         const cA = r.choices?.[0];
@@ -516,7 +516,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         continue;
       }
 
-      // scripted_hit_all: after delay + spam, everybody takes a hit
+    
       if (r.type === "scripted_hit_all") {
         await sleep(r.delayMs || 5000);
 
@@ -543,14 +543,14 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         continue;
       }
 
-      // tri_press: user must press all 3 buttons within window
+     
       if (r.type === "tri_press") {
         const token = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
         boss.activeAction = {
           token,
           roundIndex: i,
           mode: "tri_press",
-          pressed: new Map(), // uid -> Set(keys)
+          pressed: new Map(),
           requiredKeys: (r.buttons || []).map((b) => b.key),
         };
 
@@ -595,14 +595,14 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         continue;
       }
 
-      // final_quiz: only correct choice wins; wrong = eliminated
+    
       if (r.type === "final_quiz") {
         const token = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
         boss.activeAction = {
           token,
           roundIndex: i,
           mode: "quiz",
-          choice: new Map(), // uid -> key
+          choice: new Map(), 
         };
 
         const btns = (r.choices || []).map((c) => ({
@@ -653,7 +653,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
       const player = await getPlayer(uid);
       const mult = getEventMultiplier(boss.def.event, player);
 
-      // win reward range support
+     
       const winBase =
         boss.def.winRewardRange
           ? randInt(boss.def.winRewardRange.min, boss.def.winRewardRange.max)
@@ -722,7 +722,7 @@ async function spawnBoss(channel, bossId, withPing = true) {
 
   if (withPing) await channel.send(`<@&${PING_BOSS_ROLE_ID}>`).catch(() => {});
 
-  // ✅ Mahoraga pre-text + teaser
+  
   if (def.preText) {
     await channel.send(def.preText).catch(() => {});
     await sleep(def.preTextDelayMs || 10000);
