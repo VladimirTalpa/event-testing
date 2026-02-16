@@ -94,7 +94,6 @@ module.exports = async function handleButtons(interaction) {
   /* ===================== Boss action buttons ===================== */
   if (cid.startsWith("boss_action:")) {
     const parts = cid.split(":");
-    // boss_action:<bossId>:<roundIndex>:<token>:<kind>:<payload?>
     const bossId = parts[1];
     const roundIndex = Number(parts[2]);
     const token = parts[3];
