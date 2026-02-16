@@ -225,7 +225,32 @@ function resolveValueMap(eventKey, player, bonusMaxBleach, bonusMaxJjk) {
 }
 
 async function drawAvatar(ctx, avatarUrl, p) {
-  const { x, y, size } = p;
+  const x = Number.isFinite(p?.x) ? p.x : 86;
+  const y = Number.isFinite(p?.y) ? p.y : 86;
+  const size = Number.isFinite(p?.size) ? p.size : 260;
+
+  // Outer neon ring so avatar is always visible on bright templates
+  ctx.save();
+  ctx.strokeStyle = "rgba(147, 197, 253, 0.95)";
+  ctx.shadowColor = "rgba(99, 102, 241, 0.95)";
+  ctx.shadowBlur = 24;
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.arc(x + size / 2, y + size / 2, size / 2 + 12, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+
+  // Inner ring
+  ctx.save();
+  ctx.strokeStyle = "rgba(255,255,255,0.95)";
+  ctx.shadowColor = "rgba(255,255,255,0.6)";
+  ctx.shadowBlur = 12;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(x + size / 2, y + size / 2, size / 2 + 4, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+
   ctx.save();
   ctx.beginPath();
   ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
@@ -308,4 +333,3 @@ async function buildInventoryImage(eventKey, player, user, bonusMaxBleach = 30, 
 }
 
 module.exports = { buildInventoryImage };
-
