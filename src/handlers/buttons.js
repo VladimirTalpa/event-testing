@@ -9,10 +9,13 @@ const {
 } = require("discord.js");
 const { MOBS } = require("../data/mobs");
 const { BLEACH_SHOP_ITEMS, JJK_SHOP_ITEMS } = require("../data/shop");
+const { CARD_PACKS, rollCard } = require("../data/cards");
 const { buildBossLiveImage } = require("../ui/boss-card");
 const { buildShopV2Payload } = require("../ui/shop-v2");
+const { buildPackOpeningImage, buildCardRevealImage } = require("../ui/card-pack");
 const JOIN_HUD_REFRESH_DELAY_MS = 900;
 const joinHudRefreshState = new Map();
+const OPENING_SHOWCASE_DELAY_MS = 1500;
 
 async function tryGiveRole(guild, userId, roleId) {
   try {
@@ -34,6 +37,10 @@ function ensureOwnedRole(player, roleId) {
   if (!roleId) return;
   const id = String(roleId);
   if (!player.ownedRoles.includes(id)) player.ownedRoles.push(id);
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function getTopDamageRows(boss, limit = 8) {
@@ -153,16 +160,70 @@ module.exports = async function handleButtons(interaction) {
     }
 
     const inv = eventKey === "bleach" ? p.bleach.items : p.jjk.items;
-    if (inv[key]) {
-      await interaction.followUp({ content: "You already own this item.", ephemeral: true }).catch(() => {});
-      await interaction.message?.edit(buildShopV2Payload({ eventKey, player: p, page, selectedKey: key })).catch(() => {});
-      return;
-    }
-
     const balance = eventKey === "bleach" ? p.bleach.reiatsu : p.jjk.cursedEnergy;
     if (balance < item.price) {
       const need = item.price - balance;
       await interaction.followUp({ content: `Need ${need} more to buy this item.`, ephemeral: true }).catch(() => {});
+      await interaction.message?.edit(buildShopV2Payload({ eventKey, player: p, page, selectedKey: key })).catch(() => {});
+      return;
+    }
+
+    if (item.type === "pack" || key === CARD_PACKS[eventKey]?.key) {
+      if (eventKey === "bleach") p.bleach.reiatsu -= item.price;
+      else p.jjk.cursedEnergy -= item.price;
+
+      if (!p.cards || typeof p.cards !== "object") p.cards = { bleach: {}, jjk: {} };
+      if (!p.cards.bleach || typeof p.cards.bleach !== "object") p.cards.bleach = {};
+      if (!p.cards.jjk || typeof p.cards.jjk !== "object") p.cards.jjk = {};
+
+      const rolled = rollCard(eventKey);
+      if (!rolled) {
+        await interaction.followUp({ content: "Pack failed to open. Try again.", ephemeral: true }).catch(() => {});
+        return;
+      }
+
+      const cardStore = eventKey === "bleach" ? p.cards.bleach : p.cards.jjk;
+      const afterCount = Math.max(0, Number(cardStore[rolled.id] || 0)) + 1;
+      cardStore[rolled.id] = afterCount;
+
+      await setPlayer(interaction.user.id, p);
+      await interaction.message?.edit(buildShopV2Payload({ eventKey, player: p, page, selectedKey: key })).catch(() => {});
+
+      const openingPng = await buildPackOpeningImage({
+        eventKey,
+        username: interaction.user.username,
+        packName: item.name,
+      }).catch(() => null);
+      if (openingPng) {
+        const openingFile = new AttachmentBuilder(openingPng, { name: `opening-${eventKey}.png` });
+        await interaction.followUp({ files: [openingFile], ephemeral: true }).catch(() => {});
+      }
+
+      await delay(OPENING_SHOWCASE_DELAY_MS);
+
+      const revealPng = await buildCardRevealImage({
+        eventKey,
+        username: interaction.user.username,
+        card: rolled,
+        countOwned: afterCount,
+      }).catch(() => null);
+
+      if (revealPng) {
+        const revealFile = new AttachmentBuilder(revealPng, { name: `card-${rolled.id}.png` });
+        await interaction.followUp({ files: [revealFile], ephemeral: true }).catch(() => {});
+      }
+
+      await interaction
+        .followUp({
+          content: `Pulled **${rolled.name}** (${rolled.rarity}) • Owned: **${afterCount}**`,
+          ephemeral: true,
+        })
+        .catch(() => {});
+      return;
+    }
+
+    if (inv[key]) {
+      await interaction.followUp({ content: "You already own this item.", ephemeral: true }).catch(() => {});
       await interaction.message?.edit(buildShopV2Payload({ eventKey, player: p, page, selectedKey: key })).catch(() => {});
       return;
     }

@@ -15,6 +15,9 @@ function normalizePlayer(raw = {}) {
   const jjkItems = jjk.items && typeof jjk.items === "object" ? jjk.items : {};
 
   const jjkMaterials = jjk.materials && typeof jjk.materials === "object" ? jjk.materials : {};
+  const cardsRaw = raw.cards && typeof raw.cards === "object" ? raw.cards : {};
+  const bleachCardsRaw = cardsRaw.bleach && typeof cardsRaw.bleach === "object" ? cardsRaw.bleach : {};
+  const jjkCardsRaw = cardsRaw.jjk && typeof cardsRaw.jjk === "object" ? cardsRaw.jjk : {};
   const cursedShards =
     Number.isFinite(jjkMaterials.cursedShards) ? jjkMaterials.cursedShards :
     (Number.isFinite(jjk.cursedShards) ? jjk.cursedShards : 0);
@@ -60,6 +63,19 @@ function normalizePlayer(raw = {}) {
         reverse_talisman: !!jjkItems.reverse_talisman,
         binding_vow_seal: !!jjkItems.binding_vow_seal,
       },
+    },
+
+    cards: {
+      bleach: Object.fromEntries(
+        Object.entries(bleachCardsRaw)
+          .map(([k, v]) => [String(k), Math.max(0, Math.floor(Number(v || 0)))])
+          .filter(([k, v]) => !!k && v > 0)
+      ),
+      jjk: Object.fromEntries(
+        Object.entries(jjkCardsRaw)
+          .map(([k, v]) => [String(k), Math.max(0, Math.floor(Number(v || 0)))])
+          .filter(([k, v]) => !!k && v > 0)
+      ),
     },
   };
 }

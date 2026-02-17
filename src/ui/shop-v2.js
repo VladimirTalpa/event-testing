@@ -26,6 +26,12 @@ function getInventory(player, eventKey) {
   return eventKey === "bleach" ? (player?.bleach?.items || {}) : (player?.jjk?.items || {});
 }
 
+function getCardsOwnedCount(player, eventKey) {
+  const cards = eventKey === "bleach" ? player?.cards?.bleach : player?.cards?.jjk;
+  if (!cards || typeof cards !== "object") return 0;
+  return Object.values(cards).reduce((sum, x) => sum + Math.max(0, Number(x || 0)), 0);
+}
+
 function currencyEmoji(eventKey) {
   return eventKey === "bleach" ? E_REIATSU : E_CE;
 }
@@ -36,9 +42,19 @@ function pageClamp(page, totalItems) {
 }
 
 function statusLabel(item, inv, balance) {
+  if (item.type === "pack") {
+    if (balance >= item.price) return "Can Open";
+    return `Need ${item.price - balance} more`;
+  }
   if (inv[item.key]) return "Owned";
   if (balance >= item.price) return "Can Buy";
   return `Need ${item.price - balance} more`;
+}
+
+function buyDisabled(item, inv, balance) {
+  if (!item) return true;
+  if (item.type === "pack") return balance < item.price;
+  return !!inv[item.key] || balance < item.price;
 }
 
 function buildShopV2Payload({ eventKey, player, page = 0, selectedKey = null, withFlags = false }) {
@@ -54,17 +70,18 @@ function buildShopV2Payload({ eventKey, player, page = 0, selectedKey = null, wi
   const pageItems = eventItems.slice(start, start + PAGE_SIZE);
   const selected = pageItems.find((x) => x.key === selectedKey) || pageItems[0] || null;
 
+  const cardsOwned = getCardsOwnedCount(player, ek);
   const header = `## ${eventIcon} SHOP`;
   const topInfo =
     `Balance: ${curr} **${balance}**  |  ${E_DRAKO} Drako: **${Number(player?.drako || 0)}**\n` +
-    `Page: **${pageNo + 1}/${totalPages}**  |  Event: **${ek.toUpperCase()}**`;
+    `Cards: **${cardsOwned}**  |  Page: **${pageNo + 1}/${totalPages}**  |  Event: **${ek.toUpperCase()}**`;
 
   const eventMenu = new StringSelectMenuBuilder()
     .setCustomId(`shopv2_event:${pageNo}:${selected?.key || "none"}`)
     .setPlaceholder("Choose event")
     .addOptions(
-      { label: "Bleach", value: "bleach", default: ek === "bleach", description: "Reiatsu items" },
-      { label: "JJK", value: "jjk", default: ek === "jjk", description: "Cursed Energy items" }
+      { label: "Bleach", value: "bleach", default: ek === "bleach", description: "Reiatsu items + card pack" },
+      { label: "JJK", value: "jjk", default: ek === "jjk", description: "Cursed Energy items + card pack" }
     );
 
   const itemOptions = pageItems.map((it) => ({
@@ -90,21 +107,26 @@ function buildShopV2Payload({ eventKey, player, page = 0, selectedKey = null, wi
     .setStyle(ButtonStyle.Secondary)
     .setDisabled(pageNo >= totalPages - 1);
 
-  const buyDisabled = !selected || !!inv[selected.key] || balance < selected.price;
+  const canBuy = !buyDisabled(selected, inv, balance);
   const buyBtn = new ButtonBuilder()
     .setCustomId(`shopv2_buy:${ek}:${pageNo}:${selected?.key || "none"}`)
-    .setLabel("Buy Selected")
+    .setLabel(selected?.type === "pack" ? "Open Pack" : "Buy Selected")
     .setStyle(ButtonStyle.Success)
-    .setDisabled(buyDisabled);
+    .setDisabled(!canBuy);
 
-  const details = selected
-    ? [
-        `### ${selected.name}`,
-        `Status: **${statusLabel(selected, inv, balance)}**`,
-        `Price: ${curr} **${selected.price}**`,
-        `Effect: ${selected.desc}`,
-      ].join("\n")
-    : "### No items";
+  let details = "### No items";
+  if (selected) {
+    const lines = [
+      `### ${selected.name}`,
+      `Status: **${statusLabel(selected, inv, balance)}**`,
+      `Price: ${curr} **${selected.price}**`,
+      `Effect: ${selected.desc || "-"}`,
+    ];
+    if (selected.type === "pack") {
+      lines.push("Contains: **1 random card** (Common/Rare/Epic/Legendary)");
+    }
+    details = lines.join("\n");
+  }
 
   const container = new ContainerBuilder()
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(`${header}\n${topInfo}`))
