@@ -1,3 +1,5 @@
+const fs = require("fs");
+const path = require("path");
 const { createCanvas, loadImage } = require("@napi-rs/canvas");
 const { DRAKO_RATE_BLEACH, DRAKO_RATE_JJK } = require("../config");
 
@@ -12,6 +14,31 @@ const EMOJI = {
 };
 
 const emojiCache = new Map();
+const BASE_WIDTH = 1850;
+const BASE_HEIGHT = 1220;
+const TEMPLATE_DIR = path.join(__dirname, "..", "..", "assets", "templates");
+
+async function loadInventoryTemplate(eventKey) {
+  const key = String(eventKey || "").toLowerCase();
+  const files = [
+    `inventory_${key}.png`,
+    `inventory_${key}.jpg`,
+    `inventory_${key}.jpeg`,
+    `inventory_${key}.webp`,
+    "inventory_template.png",
+    "inventory_template.jpg",
+    "inventory_template.jpeg",
+    "inventory_template.webp",
+  ];
+  for (const file of files) {
+    const full = path.join(TEMPLATE_DIR, file);
+    if (!fs.existsSync(full)) continue;
+    try {
+      return await loadImage(full);
+    } catch {}
+  }
+  return null;
+}
 
 function n(v) {
   return Number.isFinite(v) ? Math.floor(v).toLocaleString("en-US") : "0";
@@ -265,10 +292,15 @@ function drawEquipmentSlot(ctx, s, colors) {
 
 async function buildInventoryImage(eventKey, player, user, bonusMaxBleach = 30, bonusMaxJjk = 30) {
   const isBleach = eventKey === "bleach";
-  const width = 1850;
-  const height = 1220;
+  const template = await loadInventoryTemplate(eventKey);
+  const width = template?.width || BASE_WIDTH;
+  const height = template?.height || BASE_HEIGHT;
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
+  const scaleX = width / BASE_WIDTH;
+  const scaleY = height / BASE_HEIGHT;
+  const layoutWidth = BASE_WIDTH;
+  const layoutHeight = BASE_HEIGHT;
 
   const colors = isBleach
     ? {
@@ -296,19 +328,30 @@ async function buildInventoryImage(eventKey, player, user, bonusMaxBleach = 30, 
   const statsShift = 26;
   const equipShift = 14;
 
-  const bg = ctx.createLinearGradient(0, 0, width, height);
-  bg.addColorStop(0, colors.bg1);
-  bg.addColorStop(0.5, colors.bg2);
-  bg.addColorStop(1, colors.bg3);
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, width, height);
+  if (template) {
+    ctx.drawImage(template, 0, 0, width, height);
+    ctx.save();
+    ctx.globalAlpha = 0.2;
+    drawParticles(ctx, width, height);
+    ctx.restore();
+  } else {
+    const bg = ctx.createLinearGradient(0, 0, width, height);
+    bg.addColorStop(0, colors.bg1);
+    bg.addColorStop(0.5, colors.bg2);
+    bg.addColorStop(1, colors.bg3);
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, width, height);
 
-  drawParticles(ctx, width, height);
+    drawParticles(ctx, width, height);
 
-  rr(ctx, 32, 32, width - 64, height - 64, 30);
-  ctx.strokeStyle = "rgba(255,255,255,0.22)";
-  ctx.lineWidth = 2;
-  ctx.stroke();
+    rr(ctx, 32, 32, width - 64, height - 64, 30);
+    ctx.strokeStyle = "rgba(255,255,255,0.22)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  ctx.save();
+  ctx.scale(scaleX, scaleY);
 
   const inv = isBleach ? player.bleach.items : player.jjk.items;
   const mats = player.jjk.materials || { cursedShards: 0, expeditionKeys: 0 };
@@ -348,7 +391,7 @@ async function buildInventoryImage(eventKey, player, user, bonusMaxBleach = 30, 
   });
 
   const powerText = n(power);
-  const powerMaxWidth = width - 1360 - 90;
+  const powerMaxWidth = layoutWidth - 1360 - 90;
   const powerSize = fitTextSize(ctx, powerText, powerMaxWidth, 52, 28);
   drawGradientText(ctx, powerText, 1360, 244 + topShift, {
     size: powerSize,
@@ -363,7 +406,7 @@ async function buildInventoryImage(eventKey, player, user, bonusMaxBleach = 30, 
   ctx.lineWidth = 2.5;
   ctx.beginPath();
   ctx.moveTo(410, 196 + topShift);
-  ctx.lineTo(width - 104, 196 + topShift);
+  ctx.lineTo(layoutWidth - 104, 196 + topShift);
   ctx.stroke();
   ctx.restore();
 
@@ -407,6 +450,7 @@ async function buildInventoryImage(eventKey, player, user, bonusMaxBleach = 30, 
       ];
   for (const s of slots) drawEquipmentSlot(ctx, s, colors);
 
+  ctx.restore();
   return canvas.toBuffer("image/png");
 }
 
