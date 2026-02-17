@@ -202,7 +202,8 @@ function drawDamageBars(ctx, x, y, w, rows, theme) {
   rows.forEach((r, i) => {
     const yy = y + i * (rowH + rowGap);
     const dmg = Math.max(0, Math.floor(r.dmg || 0));
-    const pct = Math.max(0, Math.min(100, Math.round((dmg / total) * 100)));
+    const pctRaw = Math.max(0, Math.min(100, (dmg / total) * 100));
+    const pctText = `${pctRaw.toFixed(1)}%`;
     const barMaxW = w - 10;
     const bw = Math.max(20, Math.floor((dmg / max) * barMaxW));
 
@@ -268,7 +269,6 @@ function drawDamageBars(ctx, x, y, w, rows, theme) {
 
     ctx.font = '700 22px "Inter", "Segoe UI", sans-serif';
     ctx.fillStyle = "rgba(220,225,255,0.94)";
-    const pctText = `${pct}%`;
     const pctW = ctx.measureText(pctText).width;
     ctx.fillText(pctText, badgeX + badgeW - pctW - 14, yy + 48);
   });
