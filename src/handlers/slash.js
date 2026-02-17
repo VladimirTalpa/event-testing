@@ -26,6 +26,7 @@ const { hasEventRole, hasBoosterRole, shopButtons, wardrobeComponents, pvpButton
 const { shopEmbed, leaderboardEmbed, wardrobeEmbed } = require("../ui/embeds");
 const { buildInventoryImage } = require("../ui/inventory-card");
 const { buildBossResultImage, buildBossRewardImage, buildBossLiveImage } = require("../ui/boss-card");
+const { buildExchangeImage } = require("../ui/exchange-card");
 
 const { spawnBoss } = require("../events/boss");
 const { spawnMob } = require("../events/mob");
@@ -167,7 +168,7 @@ module.exports = async function handleSlash(interaction) {
       if (p.bleach.reiatsu < cost) {
         return interaction.reply({
           content:
-            `❌ Need ${currencyEmoji} **${cost}** to buy ${E_DRAKO} **${drakoWanted} Drako**.\n` +
+            `Need ${currencyEmoji} **${cost}** to buy ${E_DRAKO} **${drakoWanted} Drako**.\n` +
             `Rate: **${rate} ${currencyEmoji} = 1 ${E_DRAKO}** (one-way)\n` +
             `You have ${currencyEmoji} **${p.bleach.reiatsu}**.`,
           ephemeral: true,
@@ -177,39 +178,46 @@ module.exports = async function handleSlash(interaction) {
       p.drako += drakoWanted;
       await setPlayer(interaction.user.id, p);
 
-      return interaction.reply({
-        content:
-          `✅ Exchanged ${currencyEmoji} **${cost}** → ${E_DRAKO} **${drakoWanted} Drako**.\n` +
-          `Rate: **${rate} ${currencyEmoji} = 1 ${E_DRAKO}** (one-way)\n` +
-          `Now: ${currencyEmoji} **${p.bleach.reiatsu}** • ${E_DRAKO} **${p.drako}**\n` +
-          `⚠️ Drako cannot be exchanged back.`,
-        ephemeral: false,
+      const png = await buildExchangeImage({
+        eventKey,
+        rate,
+        cost,
+        drakoWanted,
+        currencyEmoji,
+        drakoEmoji: E_DRAKO,
+        afterCurrency: p.bleach.reiatsu,
+        afterDrako: p.drako,
       });
-    } else {
-      if (p.jjk.cursedEnergy < cost) {
-        return interaction.reply({
-          content:
-            `❌ Need ${currencyEmoji} **${cost}** to buy ${E_DRAKO} **${drakoWanted} Drako**.\n` +
-            `Rate: **${rate} ${currencyEmoji} = 1 ${E_DRAKO}** (one-way)\n` +
-            `You have ${currencyEmoji} **${p.jjk.cursedEnergy}**.`,
-          ephemeral: true,
-        });
-      }
-      p.jjk.cursedEnergy -= cost;
-      p.drako += drakoWanted;
-      await setPlayer(interaction.user.id, p);
+      const file = new AttachmentBuilder(png, { name: `exchange-${eventKey}.png` });
+      return interaction.reply({ files: [file], ephemeral: false });
+    }
 
+    if (p.jjk.cursedEnergy < cost) {
       return interaction.reply({
         content:
-          `✅ Exchanged ${currencyEmoji} **${cost}** → ${E_DRAKO} **${drakoWanted} Drako**.\n` +
+          `Need ${currencyEmoji} **${cost}** to buy ${E_DRAKO} **${drakoWanted} Drako**.\n` +
           `Rate: **${rate} ${currencyEmoji} = 1 ${E_DRAKO}** (one-way)\n` +
-          `Now: ${currencyEmoji} **${p.jjk.cursedEnergy}** • ${E_DRAKO} **${p.drako}**\n` +
-          `⚠️ Drako cannot be exchanged back.`,
-        ephemeral: false,
+          `You have ${currencyEmoji} **${p.jjk.cursedEnergy}**.`,
+        ephemeral: true,
       });
     }
-  }
+    p.jjk.cursedEnergy -= cost;
+    p.drako += drakoWanted;
+    await setPlayer(interaction.user.id, p);
 
+    const png = await buildExchangeImage({
+      eventKey,
+      rate,
+      cost,
+      drakoWanted,
+      currencyEmoji,
+      drakoEmoji: E_DRAKO,
+      afterCurrency: p.jjk.cursedEnergy,
+      afterDrako: p.drako,
+    });
+    const file = new AttachmentBuilder(png, { name: `exchange-${eventKey}.png` });
+    return interaction.reply({ files: [file], ephemeral: false });
+  }
   if (interaction.commandName === "spawnboss") {
     if (!hasEventRole(interaction.member)) {
       return interaction.reply({ content: "⛔ You don’t have the required role.", ephemeral: true });
@@ -362,3 +370,5 @@ module.exports = async function handleSlash(interaction) {
     });
   }
 };
+
+
