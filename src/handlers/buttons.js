@@ -43,6 +43,19 @@ function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function editShopMessage(interaction, payload) {
+  const msgPayload = { ...payload, flags: undefined };
+  try {
+    await interaction.editReply(msgPayload);
+    return true;
+  } catch {}
+  try {
+    await interaction.message?.edit(msgPayload);
+    return true;
+  } catch {}
+  return false;
+}
+
 function getTopDamageRows(boss, limit = 8) {
   const rows = [...(boss.damageByUser?.entries() || [])]
     .map(([uid, dmg]) => ({
@@ -137,7 +150,7 @@ module.exports = async function handleButtons(interaction) {
       page: nextPage,
       selectedKey,
     });
-    await interaction.message?.edit(payload).catch(() => {});
+    await editShopMessage(interaction, payload);
     return;
   }
 
@@ -160,11 +173,17 @@ module.exports = async function handleButtons(interaction) {
     }
 
     const inv = eventKey === "bleach" ? p.bleach.items : p.jjk.items;
+    if (inv[key] && item.type !== "pack") {
+      await interaction.followUp({ content: "You already own this item.", ephemeral: true }).catch(() => {});
+      await editShopMessage(interaction, buildShopV2Payload({ eventKey, player: p, page, selectedKey: key }));
+      return;
+    }
+
     const balance = eventKey === "bleach" ? p.bleach.reiatsu : p.jjk.cursedEnergy;
     if (balance < item.price) {
       const need = item.price - balance;
       await interaction.followUp({ content: `Need ${need} more to buy this item.`, ephemeral: true }).catch(() => {});
-      await interaction.message?.edit(buildShopV2Payload({ eventKey, player: p, page, selectedKey: key })).catch(() => {});
+      await editShopMessage(interaction, buildShopV2Payload({ eventKey, player: p, page, selectedKey: key }));
       return;
     }
 
@@ -187,7 +206,7 @@ module.exports = async function handleButtons(interaction) {
       cardStore[rolled.id] = afterCount;
 
       await setPlayer(interaction.user.id, p);
-      await interaction.message?.edit(buildShopV2Payload({ eventKey, player: p, page, selectedKey: key })).catch(() => {});
+      await editShopMessage(interaction, buildShopV2Payload({ eventKey, player: p, page, selectedKey: key }));
 
       const openingPng = await buildPackOpeningImage({
         eventKey,
@@ -222,12 +241,6 @@ module.exports = async function handleButtons(interaction) {
       return;
     }
 
-    if (inv[key]) {
-      await interaction.followUp({ content: "You already own this item.", ephemeral: true }).catch(() => {});
-      await interaction.message?.edit(buildShopV2Payload({ eventKey, player: p, page, selectedKey: key })).catch(() => {});
-      return;
-    }
-
     if (eventKey === "bleach") p.bleach.reiatsu -= item.price;
     else p.jjk.cursedEnergy -= item.price;
     inv[key] = true;
@@ -245,7 +258,7 @@ module.exports = async function handleButtons(interaction) {
 
     await setPlayer(interaction.user.id, p);
     await interaction.followUp({ content: `Purchased: ${item.name}`, ephemeral: true }).catch(() => {});
-    await interaction.message?.edit(buildShopV2Payload({ eventKey, player: p, page, selectedKey: key })).catch(() => {});
+    await editShopMessage(interaction, buildShopV2Payload({ eventKey, player: p, page, selectedKey: key }));
     return;
   }
 
