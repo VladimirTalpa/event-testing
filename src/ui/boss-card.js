@@ -164,6 +164,8 @@ function sanitizeDisplayText(input) {
     .replace(/\*\*/g, "")
     .replace(/__/g, "")
     .replace(/`/g, "")
+    .replace(/[|¦]+/g, " ")
+    .replace(/[\r\n\t]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -657,7 +659,8 @@ async function buildBossResultImage(def, opts = {}) {
   const pct = Math.max(0, Math.min(100, Math.round((hpLeft / hpTotal) * 100)));
   ctx.fillStyle = "rgba(245,245,255,0.95)";
   ctx.font = '600 34px "Inter", "Segoe UI", sans-serif';
-  ctx.fillText(`Boss HP: ${hpLeft}/${hpTotal} (${pct}%)`, 90, 280);
+  const hpLineResult = ellipsizeText(ctx, `Boss HP: ${hpLeft}/${hpTotal} (${pct}%)`, 940);
+  ctx.fillText(hpLineResult, 90, 280);
   hpBar(ctx, 90, 304, 970, 36, pct, theme);
 
   rr(ctx, 88, 366, 970, 468, 18);
@@ -710,7 +713,10 @@ async function buildBossResultImage(def, opts = {}) {
   ];
   ctx.fillStyle = "rgba(245,245,255,0.96)";
   ctx.font = '600 33px "Inter", "Segoe UI", sans-serif';
-  stats.forEach((s, i) => ctx.fillText(s, 1160, 500 + i * 56));
+  stats.forEach((s, i) => {
+    const line = ellipsizeText(ctx, s, 360);
+    ctx.fillText(line, 1160, 500 + i * 56);
+  });
 
   if (opts.deadOverlay) drawDeadOverlay(ctx, w, h);
 
@@ -773,7 +779,8 @@ async function buildBossLiveImage(def, opts = {}) {
   const pct = Math.max(0, Math.min(100, Math.round((hpLeft / hpTotal) * 100)));
   ctx.fillStyle = "rgba(245,245,255,0.95)";
   ctx.font = '600 34px "Inter", "Segoe UI", sans-serif';
-  ctx.fillText(`Boss HP: ${hpLeft}/${hpTotal} (${pct}%)`, 90, 258);
+  const hpLineLive = ellipsizeText(ctx, `Boss HP: ${hpLeft}/${hpTotal} (${pct}%)`, 940);
+  ctx.fillText(hpLineLive, 90, 258);
   hpBar(ctx, 90, 282, 970, 34, pct, theme);
 
   rr(ctx, 88, 342, 970, 492, 18);
@@ -911,7 +918,9 @@ async function buildBossRewardImage(def, opts = {}) {
 
       ctx.fillStyle = i === 0 ? theme.ok : "rgba(245,245,255,0.96)";
       ctx.font = '600 28px "Inter", "Segoe UI", sans-serif';
-      ctx.fillText(`${i + 1}. ${String(r.name || "Unknown")}  ${String(r.text || "")}`, 126, y);
+      const rawLine = `${i + 1}. ${sanitizeDisplayText(String(r.name || "Unknown"))}  ${sanitizeDisplayText(String(r.text || ""))}`;
+      const line = ellipsizeText(ctx, rawLine, 1340);
+      ctx.fillText(line, 126, y);
     });
   }
 
