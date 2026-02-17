@@ -161,9 +161,12 @@ function drawChip(ctx, x, y, text, theme) {
 
 function drawDamageBars(ctx, x, y, w, rows, theme) {
   const max = Math.max(1, ...rows.map((r) => Math.floor(r.dmg || 0)));
+  const total = Math.max(1, rows.reduce((acc, r) => acc + Math.max(0, Math.floor(r.dmg || 0)), 0));
   rows.forEach((r, i) => {
     const yy = y + i * 56;
-    const bw = Math.max(10, Math.floor((Math.floor(r.dmg || 0) / max) * w));
+    const dmg = Math.max(0, Math.floor(r.dmg || 0));
+    const pct = Math.max(0, Math.min(100, Math.round((dmg / total) * 100)));
+    const bw = Math.max(10, Math.floor((dmg / max) * w));
     rr(ctx, x, yy, w, 38, 8);
     ctx.fillStyle = "rgba(0,0,0,0.35)";
     ctx.fill();
@@ -175,7 +178,31 @@ function drawDamageBars(ctx, x, y, w, rows, theme) {
     ctx.fill();
     ctx.fillStyle = "rgba(245,245,255,0.98)";
     ctx.font = '600 26px "Inter", "Segoe UI", sans-serif';
-    ctx.fillText(`${i + 1}. ${String(r.name || "Unknown")}  ${Math.floor(r.dmg || 0)}`, x + 12, yy + 27);
+    const name = String(r.name || "Unknown");
+    const line = `${i + 1}. ${name}  ${dmg} DMG (${pct}%)`;
+    ctx.fillText(line, x + 12, yy + 27);
+  });
+}
+
+function drawDeadOverlay(ctx, w, h) {
+  ctx.save();
+  ctx.strokeStyle = "rgba(255,40,40,0.85)";
+  ctx.lineWidth = 18;
+  ctx.shadowColor = "rgba(255,40,40,0.85)";
+  ctx.shadowBlur = 22;
+  ctx.beginPath();
+  ctx.moveTo(80, 80);
+  ctx.lineTo(w - 80, h - 80);
+  ctx.moveTo(w - 80, 80);
+  ctx.lineTo(80, h - 80);
+  ctx.stroke();
+  ctx.restore();
+
+  glowText(ctx, "TÖT", Math.floor(w * 0.42), Math.floor(h * 0.54), {
+    size: 120,
+    gradA: "#ff9a9a",
+    gradB: "#ff2222",
+    glow: "rgba(255,30,30,0.9)",
   });
 }
 
@@ -501,6 +528,8 @@ async function buildBossResultImage(def, opts = {}) {
   ctx.font = '600 33px "Inter", "Segoe UI", sans-serif';
   stats.forEach((s, i) => ctx.fillText(s, 1160, 500 + i * 56));
 
+  if (opts.deadOverlay) drawDeadOverlay(ctx, w, h);
+
   return canvas.toBuffer("image/png");
 }
 
@@ -612,8 +641,91 @@ async function buildBossLiveImage(def, opts = {}) {
   return canvas.toBuffer("image/png");
 }
 
+async function buildBossRewardImage(def, opts = {}) {
+  const w = BOSS_W;
+  const h = BOSS_H;
+  const canvas = createCanvas(w, h);
+  const ctx = canvas.getContext("2d");
+  const theme = getTheme(def?.event);
+
+  const customBg = await loadBossBackground(def, "reward");
+  if (customBg) {
+    ctx.drawImage(customBg, 0, 0, w, h);
+    ctx.save();
+    ctx.fillStyle = "rgba(0,0,0,0.38)";
+    ctx.fillRect(0, 0, w, h);
+    ctx.restore();
+  } else {
+    const bg = ctx.createLinearGradient(0, 0, w, h);
+    bg.addColorStop(0, theme.bgA);
+    bg.addColorStop(0.45, theme.bgB);
+    bg.addColorStop(1, theme.bgC);
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, w, h);
+  }
+
+  particles(ctx, w, h, theme.particles, 300);
+  drawEnergyStreaks(ctx, w, h, theme, 12);
+  drawScanlines(ctx, w, h, 0.026);
+  drawVignette(ctx, w, h, "2,2,8", 0.4);
+
+  rr(ctx, 34, 28, w - 68, h - 56, 26);
+  ctx.strokeStyle = "rgba(255,255,255,0.24)";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  rr(ctx, 48, 42, w - 96, h - 84, 22);
+  ctx.strokeStyle = theme.line;
+  ctx.lineWidth = 1.4;
+  ctx.stroke();
+  drawCornerFlares(ctx, w, h, theme);
+
+  glowText(ctx, `${String(def?.name || "BOSS").toUpperCase()} REWARDS`, 88, 120, {
+    size: 68,
+    gradA: theme.textB,
+    gradB: theme.textA,
+    glow: theme.glow,
+  });
+
+  const rewardRows = Array.isArray(opts.rows) ? opts.rows.slice(0, 10) : [];
+  rr(ctx, 88, 170, 1420, 690, 18);
+  const panel = ctx.createLinearGradient(88, 170, 1508, 860);
+  panel.addColorStop(0, theme.panelA);
+  panel.addColorStop(1, theme.panelB);
+  ctx.fillStyle = panel;
+  ctx.fill();
+  ctx.strokeStyle = theme.line;
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+
+  ctx.fillStyle = "rgba(245,245,255,0.98)";
+  ctx.font = '700 34px "Orbitron", "Inter", "Segoe UI", sans-serif';
+  ctx.fillText("Receive Summary", 118, 226);
+
+  if (!rewardRows.length) {
+    ctx.font = '600 30px "Inter", "Segoe UI", sans-serif';
+    ctx.fillText("No rewards recorded.", 122, 286);
+  } else {
+    rewardRows.forEach((r, i) => {
+      const y = 286 + i * 58;
+      rr(ctx, 112, y - 34, 1370, 46, 9);
+      ctx.fillStyle = "rgba(0,0,0,0.28)";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,0.1)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.fillStyle = i === 0 ? theme.ok : "rgba(245,245,255,0.96)";
+      ctx.font = '600 28px "Inter", "Segoe UI", sans-serif';
+      ctx.fillText(`${i + 1}. ${String(r.name || "Unknown")}  ${String(r.text || "")}`, 126, y);
+    });
+  }
+
+  return canvas.toBuffer("image/png");
+}
+
 module.exports = {
   buildBossIntroImage,
   buildBossResultImage,
   buildBossLiveImage,
+  buildBossRewardImage,
 };

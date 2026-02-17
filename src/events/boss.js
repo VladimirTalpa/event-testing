@@ -23,7 +23,7 @@ const { clamp, safeName, sleep } = require("../core/utils");
 const { getPlayer, setPlayer } = require("../core/players");
 const { BOSSES } = require("../data/bosses");
 const { bossButtons, singleActionRow, comboDefenseRows, dualChoiceRow, triChoiceRow } = require("../ui/components");
-const { buildBossIntroImage, buildBossResultImage, buildBossLiveImage } = require("../ui/boss-card");
+const { buildBossIntroImage, buildBossResultImage, buildBossLiveImage, buildBossRewardImage } = require("../ui/boss-card");
 const {
   calcBleachSurvivalBonus,
   calcBleachReiatsuMultiplier,
@@ -215,6 +215,12 @@ function buildBossSpawnV2Payload(boss, channelId) {
   return { flags: MessageFlags.IsComponentsV2, components: [container] };
 }
 
+function trackRaidMessage(boss, msg) {
+  if (!msg?.id || !boss) return;
+  if (!Array.isArray(boss.raidMessageIds)) boss.raidMessageIds = [];
+  boss.raidMessageIds.push(msg.id);
+}
+
 function buildImagePanelV2Payload({ imageUrl, actionRows = [] }) {
   const container = new ContainerBuilder();
   if (imageUrl) {
@@ -238,7 +244,11 @@ async function sendRoundSummaryV2(channel, boss, title, lines) {
     noteC: lines[2] || "",
   });
   if (!payload) return;
-  await channel.send(payload).catch(() => {});
+  const msg = await channel.send(payload).catch(() => null);
+  if (msg?.id) {
+    if (!Array.isArray(boss.raidMessageIds)) boss.raidMessageIds = [];
+    boss.raidMessageIds.push(msg.id);
+  }
 }
 
 async function buildLivePngPayload(boss, opts = {}) {
@@ -269,7 +279,11 @@ async function upsertRaidHudMessage(channel, boss, phaseLabel, nextRoundSeconds 
   if (!payload) return;
   if (!boss.hudMessageId) {
     const msg = await channel.send(payload).catch(() => null);
-    if (msg?.id) boss.hudMessageId = msg.id;
+    if (msg?.id) {
+      boss.hudMessageId = msg.id;
+      if (!Array.isArray(boss.raidMessageIds)) boss.raidMessageIds = [];
+      boss.raidMessageIds.push(msg.id);
+    }
     return;
   }
   const msg = await channel.messages.fetch(boss.hudMessageId).catch(() => null);
@@ -290,18 +304,55 @@ async function sendBossResultCard(channel, boss, victory, survivorsCount = 0) {
     hpTotal: Math.max(1, Math.floor(boss.totalHp || 1)),
     survivors: survivorsCount,
     joined: boss.participants.size,
+    deadOverlay: !victory,
   }).catch(() => null);
 
   if (!png) return;
   const file = new AttachmentBuilder(png, { name: `boss-result-${boss.def.id}.png` });
-  await channel.send({ files: [file] }).catch(() => {});
+  const msg = await channel.send({ files: [file] }).catch(() => null);
+  if (msg?.id) {
+    if (!Array.isArray(boss.raidMessageIds)) boss.raidMessageIds = [];
+    boss.raidMessageIds.push(msg.id);
+  }
 }
 
-async function sendBossIntroSequence(channel, def) {
+async function sendBossIntroSequence(channel, def, boss) {
   const intro = await buildBossIntroImage(def, { joinMs: def.joinMs }).catch(() => null);
   if (intro) {
     const file = new AttachmentBuilder(intro, { name: `boss-intro-${def.id}.png` });
-    await channel.send({ files: [file] }).catch(() => {});
+    const msg = await channel.send({ files: [file] }).catch(() => null);
+    if (msg?.id && boss) {
+      if (!Array.isArray(boss.raidMessageIds)) boss.raidMessageIds = [];
+      boss.raidMessageIds.push(msg.id);
+    }
+  }
+}
+
+async function cleanupRaidPngMessages(channel, boss) {
+  const ids = new Set([
+    ...(Array.isArray(boss?.raidMessageIds) ? boss.raidMessageIds : []),
+    boss?.messageId || "",
+    boss?.hudMessageId || "",
+  ].filter(Boolean));
+  const arr = Array.from(ids).reverse();
+  for (const id of arr) {
+    const msg = await channel.messages.fetch(id).catch(() => null);
+    if (msg) await msg.delete().catch(() => {});
+  }
+}
+
+async function sendBossRewardCard(channel, boss, rewards) {
+  const rows = (Array.isArray(rewards) ? rewards : []).slice(0, 10).map((r) => ({
+    name: r.name,
+    text: `+${r.win} Win | +${r.banked} Bank | Total ${r.total}${r.extra ? ` | ${r.extra}` : ""}`,
+  }));
+  const png = await buildBossRewardImage(boss.def, { rows }).catch(() => null);
+  if (!png) return;
+  const file = new AttachmentBuilder(png, { name: `boss-reward-${boss.def.id}.png` });
+  const msg = await channel.send({ files: [file] }).catch(() => null);
+  if (msg?.id) {
+    if (!Array.isArray(boss.raidMessageIds)) boss.raidMessageIds = [];
+    boss.raidMessageIds.push(msg.id);
   }
 }
 
@@ -423,6 +474,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
             actionRows: singleActionRow(customId, r.buttonLabel || "Block", r.buttonEmoji || "ðŸ›¡ï¸", false),
           })
         ).catch(() => null);
+        trackRaidMessage(boss, msg);
 
         await sleep(r.windowMs || 5000);
 
@@ -504,6 +556,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
             actionRows: singleActionRow(customId, label, emoji, false),
           })
         ).catch(() => null);
+        trackRaidMessage(boss, msg);
 
         await sleep(r.windowMs || 5000);
 
@@ -595,6 +648,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
             actionRows: comboDefenseRows(token, boss.def.id, i),
           })
         ).catch(() => null);
+        trackRaidMessage(boss, msg);
 
         await sleep(r.windowMs || 5000);
 
@@ -748,6 +802,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
             actionRows: singleActionRow(customId, r.buttonLabel || "Block", r.buttonEmoji || "ðŸ›¡ï¸", false),
           })
         ).catch(() => null);
+        trackRaidMessage(boss, msg);
 
         await sleep(r.windowMs || 10000);
 
@@ -825,6 +880,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
             actionRows: dualChoiceRow(idA, cA.label, cA.emoji, idB, cB.label, cB.emoji, false),
           })
         ).catch(() => null);
+        trackRaidMessage(boss, msg);
 
         await sleep(r.windowMs || 3000);
 
@@ -939,6 +995,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
             actionRows: triChoiceRow(btns, false),
           })
         ).catch(() => null);
+        trackRaidMessage(boss, msg);
 
         await sleep(r.windowMs || 12000);
 
@@ -1004,6 +1061,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
             actionRows: triChoiceRow(btns, false),
           })
         ).catch(() => null);
+        trackRaidMessage(boss, msg);
 
         await sleep(r.windowMs || 8000);
 
@@ -1044,6 +1102,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
 
     const survivors = aliveIds(boss);
     if (!survivors.length) {
+      await cleanupRaidPngMessages(channel, boss);
       await upsertRaidHudMessage(channel, boss, "Team Wiped");
       await sendBossResultCard(channel, boss, false, 0);
       await sendRoundSummaryV2(channel, boss, "Raid Result", [
@@ -1054,6 +1113,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
     }
 
     const lines = [];
+    const rewardRows = [];
     for (const uid of survivors) {
       const player = await getPlayer(uid);
       const mult = getEventMultiplier(boss.def.event, player);
@@ -1067,6 +1127,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
       const win = Math.floor(winBase * mult);
       const hits = boss.hitBank.get(uid) || 0;
       const total = win + hits;
+      let extra = "";
 
       if (boss.def.event === "bleach") player.bleach.reiatsu += total;
       else player.jjk.cursedEnergy += total;
@@ -1076,11 +1137,13 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         const shards = randInt(boss.def.shardDropRange.min, boss.def.shardDropRange.max);
         player.jjk.materials.cursedShards += shards;
         lines.push(`ðŸ§© <@${uid}> Ð¿Ð¾Ð»ÑƒÑ‡Ð¸Ð» **${shards} Cursed Shards**.`);
+        extra += `${extra ? ", " : ""}${shards} Shards`;
       }
       if (boss.def.event === "jjk" && boss.def.expeditionKeyChance) {
         if (Math.random() < boss.def.expeditionKeyChance) {
           player.jjk.materials.expeditionKeys += 1;
           lines.push(`ðŸ—ï¸ <@${uid}> Ð¿Ð¾Ð»ÑƒÑ‡Ð¸Ð» **Expedition Key**!`);
+          extra += `${extra ? ", " : ""}1 Key`;
         }
       }
 
@@ -1102,16 +1165,25 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
             ? `ðŸŽ­ <@${uid}> obtained a **Boss role**!`
             : `âš ï¸ <@${uid}> won a role but bot couldn't assign: ${res.reason} (saved to wardrobe)`
         );
+        extra += `${extra ? ", " : ""}Role Drop`;
       }
+
+      rewardRows.push({
+        name: safeName(boss.participants.get(uid)?.displayName || uid),
+        win,
+        banked: hits,
+        total,
+        extra,
+      });
     }
 
     await upsertRaidHudMessage(channel, boss, "Raid Clear");
     await sendBossResultCard(channel, boss, true, survivors.length);
+    await sendBossRewardCard(channel, boss, rewardRows);
     await sendRoundSummaryV2(channel, boss, "Raid Result", [
       "Status: **Raid Clear**",
       `Survivors: **${survivors.length}**`,
     ]);
-    await channel.send(lines.join("\n").slice(0, 1900)).catch(() => {});
   } catch (e) {
     console.error("runBoss crashed:", e);
     await channel.send("âš ï¸ Boss event crashed. Please report to admin.").catch(() => {});
@@ -1130,26 +1202,6 @@ async function spawnBoss(channel, bossId, withPing = true) {
   }
   if (bossByChannel.has(channel.id)) return;
 
-  if (withPing) await channel.send(`<@&${PING_BOSS_ROLE_ID}>`).catch(() => {});
-
-  await sendBossIntroSequence(channel, def);
-
-  if (def.preText) {
-    await channel.send(def.preText).catch(() => {});
-    await sleep(def.preTextDelayMs || 10000);
-
-    if (def.teaserMedia) {
-      await channel.send(
-        buildImagePanelV2Payload({
-          title: `${def.name} Signature Detected`,
-          lines: ["Raid energy spike confirmed."],
-          imageUrl: def.teaserMedia,
-        })
-      ).catch(() => {});
-      await sleep(def.teaserDelayMs || 5000);
-    }
-  }
-
   const boss = {
     def,
     messageId: null,
@@ -1162,8 +1214,27 @@ async function spawnBoss(channel, bossId, withPing = true) {
     roundNo: 0,
     activeAction: null,
     hudMessageId: null,
+    raidMessageIds: [],
     reverseUsed: new Set(),
   };
+
+  if (withPing) await channel.send(`<@&${PING_BOSS_ROLE_ID}>`).catch(() => {});
+
+  await sendBossIntroSequence(channel, def, boss);
+
+  if (def.preText) {
+    await sleep(def.preTextDelayMs || 10000);
+
+    if (def.teaserMedia) {
+      const teaserMsg = await channel.send(
+        buildImagePanelV2Payload({
+          imageUrl: def.teaserMedia,
+        })
+      ).catch(() => null);
+      trackRaidMessage(boss, teaserMsg);
+      await sleep(def.teaserDelayMs || 5000);
+    }
+  }
 
   const spawnPayload = await buildLivePngPayload(boss, {
     phase: "JOIN WINDOW",
@@ -1177,6 +1248,7 @@ async function spawnBoss(channel, bossId, withPing = true) {
     : await channel.send(buildBossSpawnV2Payload(boss, channel.id));
 
   boss.messageId = msg.id;
+  trackRaidMessage(boss, msg);
   bossByChannel.set(channel.id, boss);
 
   setTimeout(() => {
