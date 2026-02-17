@@ -1,10 +1,11 @@
 ﻿
 const {
   PermissionsBitField,
-  EmbedBuilder,
   AttachmentBuilder,
   MessageFlags,
   ContainerBuilder,
+  MediaGalleryBuilder,
+  MediaGalleryItemBuilder,
   TextDisplayBuilder,
   SeparatorBuilder,
 } = require("discord.js");
@@ -24,7 +25,6 @@ const { BOSSES } = require("../data/bosses");
 const { bossButtons, singleActionRow, comboDefenseRows, dualChoiceRow, triChoiceRow } = require("../ui/components");
 const { buildBossIntroImage, buildBossResultImage } = require("../ui/boss-card");
 const {
-  bossVictoryEmbed,
   calcBleachSurvivalBonus,
   calcBleachReiatsuMultiplier,
   calcBleachDropLuckMultiplier,
@@ -256,6 +256,27 @@ async function sendRoundSummaryV2(channel, title, lines) {
   await channel.send({ flags: MessageFlags.IsComponentsV2, components: [container] }).catch(() => {});
 }
 
+function buildImagePanelV2Payload({ title, lines = [], imageUrl, actionRows = [] }) {
+  const container = new ContainerBuilder()
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent(`## ${title}`))
+    .addSeparatorComponents(new SeparatorBuilder())
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent(lines.filter(Boolean).join("\n") || "-"));
+
+  if (imageUrl) {
+    container.addMediaGalleryComponents(
+      new MediaGalleryBuilder().addItems(
+        new MediaGalleryItemBuilder().setURL(String(imageUrl))
+      )
+    );
+  }
+
+  if (Array.isArray(actionRows) && actionRows.length) {
+    container.addActionRowComponents(...actionRows);
+  }
+
+  return { flags: MessageFlags.IsComponentsV2, components: [container] };
+}
+
 async function upsertRaidHudMessage(channel, boss, phaseLabel, nextRoundSeconds = 0) {
   const payload = buildRaidHudV2Payload(boss, phaseLabel, nextRoundSeconds);
   if (!boss.hudMessageId) {
@@ -337,10 +358,16 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
       boss.roundNo = i + 1;
 
     
-      await sendRoundSummaryV2(channel, `${r.title || `Round ${i + 1}`}`, [
-        r.intro || "Prepare for the next mechanic.",
-        `Alive entering round: **${alive.length}**`,
-      ]);
+      await channel.send(
+        buildImagePanelV2Payload({
+          title: `${r.title || `Round ${i + 1}`}`,
+          lines: [
+            r.intro || "Prepare for the next mechanic.",
+            `Alive entering round: **${alive.length}**`,
+          ],
+          imageUrl: r.media || boss.def.spawnMedia,
+        })
+      ).catch(() => {});
 
      
       if (r.type === "pressure" || r.type === "attack") {
@@ -377,7 +404,6 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
 
         if (i < boss.def.rounds.length - 1) {
           await upsertRaidHudMessage(channel, boss, r.title || ("Round " + (i + 1)), Math.round(ROUND_COOLDOWN_MS / 1000));
-          await channel.send(`â³ Next round in **${Math.round(ROUND_COOLDOWN_MS / 1000)}s**...`).catch(() => {});
           await sleep(ROUND_COOLDOWN_MS);
         }
         continue;
@@ -395,16 +421,33 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         };
 
         const customId = `boss_action:${boss.def.id}:${i}:${token}:press:block`;
-        const msg = await channel.send({
-          content:
-            `ðŸ›¡ï¸ **COOP BLOCK WINDOW: ${Math.round((r.windowMs || 5000) / 1000)}s**\n` +
-            `Requirement: **${boss.activeAction.requiredPresses} different players** must press **Block**.`,
-          components: singleActionRow(customId, r.buttonLabel || "Block", r.buttonEmoji || "ðŸ›¡ï¸", false),
-        }).catch(() => null);
+        const msg = await channel.send(
+          buildImagePanelV2Payload({
+            title: `COOP BLOCK WINDOW ${Math.round((r.windowMs || 5000) / 1000)}s`,
+            lines: [
+              `Requirement: **${boss.activeAction.requiredPresses}** different players`,
+              "Press Block before timer ends.",
+            ],
+            imageUrl: r.media || boss.def.spawnMedia,
+            actionRows: singleActionRow(customId, r.buttonLabel || "Block", r.buttonEmoji || "ðŸ›¡ï¸", false),
+          })
+        ).catch(() => null);
 
         await sleep(r.windowMs || 5000);
 
-        if (msg?.id) await msg.edit({ components: singleActionRow(customId, r.buttonLabel || "Block", r.buttonEmoji || "ðŸ›¡ï¸", true) }).catch(() => {});
+        if (msg?.id) {
+          await msg.edit(
+            buildImagePanelV2Payload({
+              title: `COOP BLOCK WINDOW ${Math.round((r.windowMs || 5000) / 1000)}s`,
+              lines: [
+                `Requirement: **${boss.activeAction.requiredPresses}** different players`,
+                "Window closed.",
+              ],
+              imageUrl: r.media || boss.def.spawnMedia,
+              actionRows: singleActionRow(customId, r.buttonLabel || "Block", r.buttonEmoji || "ðŸ›¡ï¸", true),
+            })
+          ).catch(() => {});
+        }
 
         const pressed = boss.activeAction?.token === token ? boss.activeAction.pressed : new Set();
         const req = boss.activeAction?.requiredPresses || 4;
@@ -448,7 +491,6 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
 
         if (i < boss.def.rounds.length - 1) {
           await upsertRaidHudMessage(channel, boss, r.title || ("Round " + (i + 1)), Math.round(ROUND_COOLDOWN_MS / 1000));
-          await channel.send(`â³ Next round in **${Math.round(ROUND_COOLDOWN_MS / 1000)}s**...`).catch(() => {});
           await sleep(ROUND_COOLDOWN_MS);
         }
         continue;
@@ -463,14 +505,27 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         const emoji = r.buttonEmoji || (r.type === "finisher" ? "âš”ï¸" : "ðŸ›¡ï¸");
         const customId = `boss_action:${boss.def.id}:${i}:${token}:press:${r.type}`;
 
-        const msg = await channel.send({
-          content: `âš ï¸ **${label.toUpperCase()} WINDOW: ${Math.round((r.windowMs || 5000) / 1000)}s** â€” press **${label}**!`,
-          components: singleActionRow(customId, label, emoji, false),
-        }).catch(() => null);
+        const msg = await channel.send(
+          buildImagePanelV2Payload({
+            title: `${label.toUpperCase()} WINDOW ${Math.round((r.windowMs || 5000) / 1000)}s`,
+            lines: [`Press **${label}** before the timer ends.`],
+            imageUrl: r.media || boss.def.spawnMedia,
+            actionRows: singleActionRow(customId, label, emoji, false),
+          })
+        ).catch(() => null);
 
         await sleep(r.windowMs || 5000);
 
-        if (msg?.id) await msg.edit({ components: singleActionRow(customId, label, emoji, true) }).catch(() => {});
+        if (msg?.id) {
+          await msg.edit(
+            buildImagePanelV2Payload({
+              title: `${label.toUpperCase()} WINDOW ${Math.round((r.windowMs || 5000) / 1000)}s`,
+              lines: ["Window closed."],
+              imageUrl: r.media || boss.def.spawnMedia,
+              actionRows: singleActionRow(customId, label, emoji, true),
+            })
+          ).catch(() => {});
+        }
 
         const pressed = boss.activeAction?.token === token ? boss.activeAction.pressed : new Set();
         boss.activeAction = null;
@@ -517,7 +572,6 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
 
         if (i < boss.def.rounds.length - 1) {
           await upsertRaidHudMessage(channel, boss, r.title || ("Round " + (i + 1)), Math.round(ROUND_COOLDOWN_MS / 1000));
-          await channel.send(`â³ Next round in **${Math.round(ROUND_COOLDOWN_MS / 1000)}s**...`).catch(() => {});
           await sleep(ROUND_COOLDOWN_MS);
         }
         continue;
@@ -539,13 +593,17 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
 
         const seqText = seq.map(comboToEmoji).join(" ");
 
-        const msg = await channel.send({
-          content:
-            `ðŸŽ® **COMBO DEFENSE (QTE)** â€” You have **${Math.round((r.windowMs || 5000) / 1000)}s**\n` +
-            `Press in order: ${seqText}\n` +
-            `Mistake or timeout = a hit.`,
-          components: comboDefenseRows(token, boss.def.id, i),
-        }).catch(() => null);
+        const msg = await channel.send(
+          buildImagePanelV2Payload({
+            title: `COMBO DEFENSE ${Math.round((r.windowMs || 5000) / 1000)}s`,
+            lines: [
+              `Press in order: ${seqText}`,
+              "Mistake or timeout = a hit.",
+            ],
+            imageUrl: r.media || boss.def.spawnMedia,
+            actionRows: comboDefenseRows(token, boss.def.id, i),
+          })
+        ).catch(() => null);
 
         await sleep(r.windowMs || 5000);
 
@@ -554,7 +612,17 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
             row.components.forEach((b) => b.setDisabled(true));
             return row;
           });
-          await msg.edit({ components: disabledRows }).catch(() => {});
+          await msg.edit(
+            buildImagePanelV2Payload({
+              title: `COMBO DEFENSE ${Math.round((r.windowMs || 5000) / 1000)}s`,
+              lines: [
+                `Press in order: ${seqText}`,
+                "Window closed.",
+              ],
+              imageUrl: r.media || boss.def.spawnMedia,
+              actionRows: disabledRows,
+            })
+          ).catch(() => {});
         }
 
         const action = boss.activeAction;
@@ -606,7 +674,6 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
 
         if (i < boss.def.rounds.length - 1) {
           await upsertRaidHudMessage(channel, boss, r.title || ("Round " + (i + 1)), Math.round(ROUND_COOLDOWN_MS / 1000));
-          await channel.send(`â³ Next round in **${Math.round(ROUND_COOLDOWN_MS / 1000)}s**...`).catch(() => {});
           await sleep(ROUND_COOLDOWN_MS);
         }
         continue;
@@ -662,7 +729,6 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
 
         if (i < boss.def.rounds.length - 1) {
           await upsertRaidHudMessage(channel, boss, r.title || ("Round " + (i + 1)), Math.round(ROUND_COOLDOWN_MS / 1000));
-          await channel.send(`â³ Next round in **${Math.round(ROUND_COOLDOWN_MS / 1000)}s**...`).catch(() => {});
           await sleep(ROUND_COOLDOWN_MS);
         }
         continue;
@@ -683,14 +749,27 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
 
         const customId = `boss_action:${boss.def.id}:${i}:${token}:multi:${r.type}`;
 
-        const msg = await channel.send({
-          content: `ðŸ›¡ï¸ **BLOCK x${boss.activeAction.requiredPresses}** â€” you have **${Math.round((r.windowMs || 10000) / 1000)}s**`,
-          components: singleActionRow(customId, r.buttonLabel || "Block", r.buttonEmoji || "ðŸ›¡ï¸", false),
-        }).catch(() => null);
+        const msg = await channel.send(
+          buildImagePanelV2Payload({
+            title: `BLOCK x${boss.activeAction.requiredPresses} (${Math.round((r.windowMs || 10000) / 1000)}s)`,
+            lines: ["Press Block repeatedly before the timer ends."],
+            imageUrl: r.media || boss.def.spawnMedia,
+            actionRows: singleActionRow(customId, r.buttonLabel || "Block", r.buttonEmoji || "ðŸ›¡ï¸", false),
+          })
+        ).catch(() => null);
 
         await sleep(r.windowMs || 10000);
 
-        if (msg?.id) await msg.edit({ components: singleActionRow(customId, r.buttonLabel || "Block", r.buttonEmoji || "ðŸ›¡ï¸", true) }).catch(() => {});
+        if (msg?.id) {
+          await msg.edit(
+            buildImagePanelV2Payload({
+              title: `BLOCK x${boss.activeAction.requiredPresses} (${Math.round((r.windowMs || 10000) / 1000)}s)`,
+              lines: ["Window closed."],
+              imageUrl: r.media || boss.def.spawnMedia,
+              actionRows: singleActionRow(customId, r.buttonLabel || "Block", r.buttonEmoji || "ðŸ›¡ï¸", true),
+            })
+          ).catch(() => {});
+        }
 
         const action = boss.activeAction?.token === token ? boss.activeAction : null;
         boss.activeAction = null;
@@ -727,7 +806,6 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
 
         if (i < boss.def.rounds.length - 1) {
           await upsertRaidHudMessage(channel, boss, r.title || ("Round " + (i + 1)), Math.round(ROUND_COOLDOWN_MS / 1000));
-          await channel.send(`â³ Next round in **${Math.round(ROUND_COOLDOWN_MS / 1000)}s**...`).catch(() => {});
           await sleep(ROUND_COOLDOWN_MS);
         }
         continue;
@@ -748,16 +826,27 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         const idA = `boss_action:${boss.def.id}:${i}:${token}:choice:${cA.key}`;
         const idB = `boss_action:${boss.def.id}:${i}:${token}:choice:${cB.key}`;
 
-        const msg = await channel.send({
-          content: `âš¡ Choose fast â€” **${Math.round((r.windowMs || 3000) / 1000)}s**`,
-          components: dualChoiceRow(idA, cA.label, cA.emoji, idB, cB.label, cB.emoji, false),
-        }).catch(() => null);
+        const msg = await channel.send(
+          buildImagePanelV2Payload({
+            title: `CHOICE WINDOW ${Math.round((r.windowMs || 3000) / 1000)}s`,
+            lines: ["Pick the correct action quickly."],
+            imageUrl: r.media || boss.def.spawnMedia,
+            actionRows: dualChoiceRow(idA, cA.label, cA.emoji, idB, cB.label, cB.emoji, false),
+          })
+        ).catch(() => null);
 
         await sleep(r.windowMs || 3000);
 
-        if (msg?.id) await msg.edit({
-          components: dualChoiceRow(idA, cA.label, cA.emoji, idB, cB.label, cB.emoji, true),
-        }).catch(() => {});
+        if (msg?.id) {
+          await msg.edit(
+            buildImagePanelV2Payload({
+              title: `CHOICE WINDOW ${Math.round((r.windowMs || 3000) / 1000)}s`,
+              lines: ["Window closed."],
+              imageUrl: r.media || boss.def.spawnMedia,
+              actionRows: dualChoiceRow(idA, cA.label, cA.emoji, idB, cB.label, cB.emoji, true),
+            })
+          ).catch(() => {});
+        }
 
         const action = boss.activeAction?.token === token ? boss.activeAction : null;
         boss.activeAction = null;
@@ -777,15 +866,19 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         }
 
         if (r.afterText || r.afterMedia) {
-          const e = new EmbedBuilder().setColor(0x8e44ad).setImage(r.afterMedia || boss.def.spawnMedia);
-          await channel.send({ content: r.afterText || "", embeds: [e] }).catch(() => {});
+          await channel.send(
+            buildImagePanelV2Payload({
+              title: "Phase Outcome",
+              lines: [r.afterText || ""],
+              imageUrl: r.afterMedia || boss.def.spawnMedia,
+            })
+          ).catch(() => {});
         }
 
         await upsertRaidHudMessage(channel, boss, r.title || ("Round " + (i + 1)));
 
         if (i < boss.def.rounds.length - 1) {
           await upsertRaidHudMessage(channel, boss, r.title || ("Round " + (i + 1)), Math.round(ROUND_COOLDOWN_MS / 1000));
-          await channel.send(`â³ Next round in **${Math.round(ROUND_COOLDOWN_MS / 1000)}s**...`).catch(() => {});
           await sleep(ROUND_COOLDOWN_MS);
         }
         continue;
@@ -808,8 +901,13 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         }
 
         if (r.endMedia || r.endText) {
-          const e = new EmbedBuilder().setColor(0x8e44ad).setImage(r.endMedia || boss.def.spawnMedia);
-          await channel.send({ content: r.endText || "", embeds: [e] }).catch(() => {});
+          await channel.send(
+            buildImagePanelV2Payload({
+              title: "Adaptation Surge",
+              lines: [r.endText || ""],
+              imageUrl: r.endMedia || boss.def.spawnMedia,
+            })
+          ).catch(() => {});
         }
 
         await sendRoundSummaryV2(channel, `${r.title || ("Round " + (i + 1))} - Result`, [
@@ -820,7 +918,6 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
 
         if (i < boss.def.rounds.length - 1) {
           await upsertRaidHudMessage(channel, boss, r.title || ("Round " + (i + 1)), Math.round(ROUND_COOLDOWN_MS / 1000));
-          await channel.send(`â³ Next round in **${Math.round(ROUND_COOLDOWN_MS / 1000)}s**...`).catch(() => {});
           await sleep(ROUND_COOLDOWN_MS);
         }
         continue;
@@ -843,14 +940,27 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
           emoji: b.emoji,
         }));
 
-        const msg = await channel.send({
-          content: `ðŸ§  Do all 3 â€” **${Math.round((r.windowMs || 12000) / 1000)}s**`,
-          components: triChoiceRow(btns, false),
-        }).catch(() => null);
+        const msg = await channel.send(
+          buildImagePanelV2Payload({
+            title: `FOCUS WINDOW ${Math.round((r.windowMs || 12000) / 1000)}s`,
+            lines: ["Press all 3 buttons before timer ends."],
+            imageUrl: r.media || boss.def.spawnMedia,
+            actionRows: triChoiceRow(btns, false),
+          })
+        ).catch(() => null);
 
         await sleep(r.windowMs || 12000);
 
-        if (msg?.id) await msg.edit({ components: triChoiceRow(btns, true) }).catch(() => {});
+        if (msg?.id) {
+          await msg.edit(
+            buildImagePanelV2Payload({
+              title: `FOCUS WINDOW ${Math.round((r.windowMs || 12000) / 1000)}s`,
+              lines: ["Window closed."],
+              imageUrl: r.media || boss.def.spawnMedia,
+              actionRows: triChoiceRow(btns, true),
+            })
+          ).catch(() => {});
+        }
 
         const action = boss.activeAction?.token === token ? boss.activeAction : null;
         boss.activeAction = null;
@@ -874,7 +984,6 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         await upsertRaidHudMessage(channel, boss, r.title || ("Round " + (i + 1)));
 
         if (i < boss.def.rounds.length - 1) {
-          await channel.send(`â³ Next round in **${Math.round(ROUND_COOLDOWN_MS / 1000)}s**...`).catch(() => {});
           await sleep(ROUND_COOLDOWN_MS);
         }
         continue;
@@ -896,14 +1005,27 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
           emoji: c.emoji,
         }));
 
-        const msg = await channel.send({
-          content: `â³ Answer in **${Math.round((r.windowMs || 8000) / 1000)}s**`,
-          components: triChoiceRow(btns, false),
-        }).catch(() => null);
+        const msg = await channel.send(
+          buildImagePanelV2Payload({
+            title: `FINAL QUIZ ${Math.round((r.windowMs || 8000) / 1000)}s`,
+            lines: ["Choose the correct finisher before timer ends."],
+            imageUrl: r.media || boss.def.spawnMedia,
+            actionRows: triChoiceRow(btns, false),
+          })
+        ).catch(() => null);
 
         await sleep(r.windowMs || 8000);
 
-        if (msg?.id) await msg.edit({ components: triChoiceRow(btns, true) }).catch(() => {});
+        if (msg?.id) {
+          await msg.edit(
+            buildImagePanelV2Payload({
+              title: `FINAL QUIZ ${Math.round((r.windowMs || 8000) / 1000)}s`,
+              lines: ["Window closed."],
+              imageUrl: r.media || boss.def.spawnMedia,
+              actionRows: triChoiceRow(btns, true),
+            })
+          ).catch(() => {});
+        }
 
         const action = boss.activeAction?.token === token ? boss.activeAction : null;
         boss.activeAction = null;
@@ -994,7 +1116,10 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
 
     await upsertRaidHudMessage(channel, boss, "Raid Clear");
     await sendBossResultCard(channel, boss, true, survivors.length);
-    await channel.send({ embeds: [bossVictoryEmbed(boss.def, survivors.length)] }).catch(() => {});
+    await sendRoundSummaryV2(channel, "Raid Result", [
+      "Status: **Raid Clear**",
+      `Survivors: **${survivors.length}**`,
+    ]);
     await channel.send(lines.join("\n").slice(0, 1900)).catch(() => {});
   } catch (e) {
     console.error("runBoss crashed:", e);
@@ -1023,8 +1148,13 @@ async function spawnBoss(channel, bossId, withPing = true) {
     await sleep(def.preTextDelayMs || 10000);
 
     if (def.teaserMedia) {
-      const teaser = new EmbedBuilder().setColor(0x2f3136).setImage(def.teaserMedia);
-      await channel.send({ embeds: [teaser] }).catch(() => {});
+      await channel.send(
+        buildImagePanelV2Payload({
+          title: `${def.name} Signature Detected`,
+          lines: ["Raid energy spike confirmed."],
+          imageUrl: def.teaserMedia,
+        })
+      ).catch(() => {});
       await sleep(def.teaserDelayMs || 5000);
     }
   }
@@ -1056,6 +1186,7 @@ async function spawnBoss(channel, bossId, withPing = true) {
 }
 
 module.exports = { spawnBoss, runBoss };
+
 
 
 
