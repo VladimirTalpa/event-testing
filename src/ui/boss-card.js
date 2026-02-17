@@ -162,25 +162,93 @@ function drawChip(ctx, x, y, text, theme) {
 function drawDamageBars(ctx, x, y, w, rows, theme) {
   const max = Math.max(1, ...rows.map((r) => Math.floor(r.dmg || 0)));
   const total = Math.max(1, rows.reduce((acc, r) => acc + Math.max(0, Math.floor(r.dmg || 0)), 0));
+  const rowH = 52;
+  const rowGap = 14;
+
+  function compactDmg(n) {
+    const v = Math.max(0, Math.floor(n || 0));
+    if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(v >= 10_000_000 ? 0 : 1)}M`;
+    if (v >= 1000) return `${(v / 1000).toFixed(v >= 10_000 ? 0 : 1)}k`;
+    return String(v);
+  }
+
+  function fitName(base, maxWidth) {
+    let out = String(base || "Unknown");
+    ctx.font = '800 33px "Inter", "Segoe UI", sans-serif';
+    if (ctx.measureText(out).width <= maxWidth) return out;
+    while (out.length > 0 && ctx.measureText(`${out}...`).width > maxWidth) out = out.slice(0, -1);
+    return `${out}...`;
+  }
+
   rows.forEach((r, i) => {
-    const yy = y + i * 56;
+    const yy = y + i * (rowH + rowGap);
     const dmg = Math.max(0, Math.floor(r.dmg || 0));
     const pct = Math.max(0, Math.min(100, Math.round((dmg / total) * 100)));
-    const bw = Math.max(10, Math.floor((dmg / max) * w));
-    rr(ctx, x, yy, w, 38, 8);
-    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    const barMaxW = w - 10;
+    const bw = Math.max(20, Math.floor((dmg / max) * barMaxW));
+
+    rr(ctx, x, yy, w, rowH, 11);
+    ctx.fillStyle = "rgba(8,8,12,0.54)";
     ctx.fill();
-    rr(ctx, x + 2, yy + 2, bw - 4, 34, 7);
-    const g = ctx.createLinearGradient(x, yy, x + w, yy);
+    ctx.strokeStyle = "rgba(255,255,255,0.14)";
+    ctx.lineWidth = 1.1;
+    ctx.stroke();
+
+    const fx = x + 5;
+    const fy = yy + 5;
+    const fh = rowH - 10;
+    rr(ctx, fx, fy, bw, fh, 9);
+    const g = ctx.createLinearGradient(fx, fy, fx + barMaxW, fy);
     g.addColorStop(0, i === 0 ? theme.textB : theme.textA);
-    g.addColorStop(1, i === 0 ? theme.textA : theme.bad);
+    g.addColorStop(0.7, i === 0 ? theme.textA : theme.bad);
+    g.addColorStop(1, "rgba(255,52,52,0.95)");
     ctx.fillStyle = g;
+    ctx.shadowColor = theme.glow;
+    ctx.shadowBlur = i === 0 ? 18 : 12;
     ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Shine layer for a more premium bar finish.
+    rr(ctx, fx + 1, fy + 1, Math.max(8, bw - 2), Math.floor(fh * 0.46), 7);
+    const shine = ctx.createLinearGradient(fx, fy, fx, fy + fh * 0.46);
+    shine.addColorStop(0, "rgba(255,255,255,0.36)");
+    shine.addColorStop(1, "rgba(255,255,255,0.02)");
+    ctx.fillStyle = shine;
+    ctx.fill();
+
+    const badgeW = 182;
+    const badgeX = x + w - badgeW - 10;
+    rr(ctx, badgeX, yy + 7, badgeW, rowH - 14, 9);
+    ctx.fillStyle = "rgba(14,10,12,0.8)";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.18)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    const rank = `${i + 1}.`;
+    const name = fitName(String(r.name || "Unknown"), w - badgeW - 70);
+    const nameX = x + 14;
+    const nameY = yy + 35;
+
+    ctx.lineWidth = 2.2;
+    ctx.strokeStyle = "rgba(0,0,0,0.65)";
+    ctx.font = '800 33px "Inter", "Segoe UI", sans-serif';
+    ctx.strokeText(rank, nameX, nameY);
     ctx.fillStyle = "rgba(245,245,255,0.98)";
-    ctx.font = '600 26px "Inter", "Segoe UI", sans-serif';
-    const name = String(r.name || "Unknown");
-    const line = `${i + 1}. ${name}  ${dmg} DMG (${pct}%)`;
-    ctx.fillText(line, x + 12, yy + 27);
+    ctx.fillText(rank, nameX, nameY);
+
+    const rankW = ctx.measureText(rank).width;
+    ctx.strokeText(name, nameX + rankW + 8, nameY);
+    ctx.fillText(name, nameX + rankW + 8, nameY);
+
+    const valueText = `${compactDmg(dmg)} DMG`;
+    ctx.font = '800 31px "Orbitron", "Inter", "Segoe UI", sans-serif';
+    ctx.fillStyle = i === 0 ? theme.textB : "rgba(245,245,255,0.98)";
+    ctx.fillText(valueText, badgeX + 12, yy + 36);
+
+    ctx.font = '700 22px "Inter", "Segoe UI", sans-serif';
+    ctx.fillStyle = "rgba(220,225,255,0.94)";
+    ctx.fillText(`${pct}%`, badgeX + badgeW - 54, yy + 35);
   });
 }
 
