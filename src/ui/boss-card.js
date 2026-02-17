@@ -181,8 +181,8 @@ function ellipsizeText(ctx, text, maxWidth) {
 function drawDamageBars(ctx, x, y, w, rows, theme) {
   const max = Math.max(1, ...rows.map((r) => Math.floor(r.dmg || 0)));
   const total = Math.max(1, rows.reduce((acc, r) => acc + Math.max(0, Math.floor(r.dmg || 0)), 0));
-  const rowH = 54;
-  const rowGap = 14;
+  const rowH = 56;
+  const rowGap = 12;
 
   function compactDmg(n) {
     const v = Math.max(0, Math.floor(n || 0));
@@ -236,7 +236,7 @@ function drawDamageBars(ctx, x, y, w, rows, theme) {
     ctx.fillStyle = shine;
     ctx.fill();
 
-    const badgeW = 206;
+    const badgeW = 212;
     const badgeX = x + w - badgeW - 10;
     rr(ctx, badgeX, yy + 7, badgeW, rowH - 14, 9);
     ctx.fillStyle = "rgba(14,10,12,0.8)";
@@ -248,11 +248,11 @@ function drawDamageBars(ctx, x, y, w, rows, theme) {
     const rank = `${i + 1}.`;
     const name = fitName(sanitizeDisplayText(String(r.name || "Unknown")), w - badgeW - 78);
     const nameX = x + 14;
-    const nameY = yy + 35;
+    const nameY = yy + 36;
 
     ctx.lineWidth = 2.8;
     ctx.strokeStyle = "rgba(0,0,0,0.65)";
-    ctx.font = '900 34px "Inter", "Segoe UI", sans-serif';
+    ctx.font = '900 32px "Inter", "Segoe UI", sans-serif';
     ctx.strokeText(rank, nameX, nameY);
     ctx.fillStyle = "rgba(245,245,255,0.98)";
     ctx.fillText(rank, nameX, nameY);
@@ -262,15 +262,15 @@ function drawDamageBars(ctx, x, y, w, rows, theme) {
     ctx.fillText(name, nameX + rankW + 8, nameY);
 
     const valueText = `${compactDmg(dmg)} DMG`;
-    ctx.font = '900 30px "Orbitron", "Inter", "Segoe UI", sans-serif';
+    ctx.font = '900 28px "Orbitron", "Inter", "Segoe UI", sans-serif';
     ctx.fillStyle = i === 0 ? theme.textB : "rgba(245,245,255,0.98)";
     const valueW = ctx.measureText(valueText).width;
-    ctx.fillText(valueText, badgeX + badgeW - valueW - 14, yy + 31);
+    ctx.fillText(valueText, badgeX + badgeW - valueW - 14, yy + 30);
 
-    ctx.font = '700 21px "Inter", "Segoe UI", sans-serif';
+    ctx.font = '700 20px "Inter", "Segoe UI", sans-serif';
     ctx.fillStyle = "rgba(220,225,255,0.94)";
     const pctW = ctx.measureText(pctText).width;
-    ctx.fillText(pctText, badgeX + badgeW - pctW - 14, yy + 51);
+    ctx.fillText(pctText, badgeX + badgeW - pctW - 14, yy + 50);
   });
 }
 
@@ -296,13 +296,13 @@ function drawDeadOverlay(ctx, w, h) {
   ctx.stroke();
 
   glowText(ctx, "DEAFETED", 500, 432, {
-    size: 76,
+    size: 74,
     gradA: "#ffb3b3",
     gradB: "#ff2d2d",
     glow: "rgba(255,30,30,0.9)",
   });
-  glowText(ctx, "IT'S OVER FOR YOU", 430, 502, {
-    size: 58,
+  glowText(ctx, "IT'S OVER FOR YOU", 430, 500, {
+    size: 54,
     gradA: "#ffb3b3",
     gradB: "#ff2d2d",
     glow: "rgba(255,30,30,0.9)",
@@ -639,14 +639,14 @@ async function buildBossResultImage(def, opts = {}) {
 
   const statusText = opts.victory ? "RAID CLEAR" : "RAID FAILED";
   glowText(ctx, statusText, 88, 118, {
-    size: 74,
+    size: 68,
     gradA: opts.victory ? theme.textB : theme.textA,
     gradB: opts.victory ? theme.textA : theme.bad,
     glow: theme.glow,
   });
 
   const bossName = String(def?.name || "UNKNOWN").toUpperCase();
-  const bossSize = fitFont(ctx, bossName, 920, 100, 48);
+  const bossSize = fitFont(ctx, bossName, 920, 94, 46);
   glowText(ctx, bossName, 88, 222, {
     size: bossSize,
     gradA: theme.textA,
@@ -675,7 +675,7 @@ async function buildBossResultImage(def, opts = {}) {
 
   const top = Array.isArray(opts.topDamage) ? opts.topDamage.slice(0, 7) : [];
   ctx.fillStyle = "rgba(245,245,255,0.98)";
-  ctx.font = '700 42px "Orbitron", "Inter", "Segoe UI", sans-serif';
+  ctx.font = '700 40px "Orbitron", "Inter", "Segoe UI", sans-serif';
   ctx.fillText("Top Damage", 118, 428);
 
   if (!top.length) {
@@ -712,7 +712,7 @@ async function buildBossResultImage(def, opts = {}) {
     `Result: ${opts.victory ? "Victory" : "Defeat"}`,
   ];
   ctx.fillStyle = "rgba(245,245,255,0.96)";
-  ctx.font = '600 33px "Inter", "Segoe UI", sans-serif';
+  ctx.font = '600 31px "Inter", "Segoe UI", sans-serif';
   stats.forEach((s, i) => {
     const line = ellipsizeText(ctx, s, 360);
     ctx.fillText(line, 1160, 500 + i * 56);
@@ -768,7 +768,7 @@ async function buildBossLiveImage(def, opts = {}) {
     glow: theme.glow,
   });
   glowText(ctx, phase.toUpperCase(), 88, 198, {
-    size: 64,
+    size: 60,
     gradA: theme.textB,
     gradB: theme.textA,
     glow: theme.glow,
@@ -795,7 +795,7 @@ async function buildBossLiveImage(def, opts = {}) {
 
   const top = Array.isArray(opts.topDamage) ? opts.topDamage.slice(0, 7) : [];
   ctx.fillStyle = "rgba(245,245,255,0.98)";
-  ctx.font = '700 40px "Orbitron", "Inter", "Segoe UI", sans-serif';
+  ctx.font = '700 38px "Orbitron", "Inter", "Segoe UI", sans-serif';
   ctx.fillText("Top Damage", 118, 404);
   if (!top.length) {
     ctx.font = '600 30px "Inter", "Segoe UI", sans-serif';
@@ -818,25 +818,25 @@ async function buildBossLiveImage(def, opts = {}) {
     ctx.strokeStyle = theme.line;
     ctx.lineWidth = 1.2;
     ctx.stroke();
-    glowText(ctx, "RAID FLOW", 1160, 402, {
-      size: 36,
+    glowText(ctx, "RAID FLOW", 1160, 396, {
+      size: 34,
       gradA: theme.textA,
       gradB: theme.textB,
       glow: theme.glow,
     });
     ctx.fillStyle = "rgba(245,245,255,0.95)";
-    ctx.font = '700 28px "Inter", "Segoe UI", sans-serif';
+    ctx.font = '700 24px "Inter", "Segoe UI", sans-serif';
     notes.forEach((n, i) => {
-      const yy = 462 + i * 54;
-      rr(ctx, 1148, yy - 32, 372, 42, 9);
+      const yy = 448 + i * 62;
+      rr(ctx, 1148, yy - 30, 372, 48, 10);
       ctx.fillStyle = "rgba(0,0,0,0.34)";
       ctx.fill();
       ctx.strokeStyle = "rgba(255,255,255,0.14)";
       ctx.lineWidth = 1;
       ctx.stroke();
       ctx.fillStyle = "rgba(245,245,255,0.95)";
-      const clean = ellipsizeText(ctx, n, 350);
-      ctx.fillText(clean, 1162, yy - 4);
+      const clean = ellipsizeText(ctx, n, 346);
+      ctx.fillText(clean, 1162, yy + 3);
     });
   }
 
