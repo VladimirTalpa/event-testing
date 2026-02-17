@@ -25,6 +25,7 @@ const { safeName } = require("../core/utils");
 const { hasEventRole, hasBoosterRole, shopButtons, wardrobeComponents, pvpButtons } = require("../ui/components");
 const { shopEmbed, leaderboardEmbed, wardrobeEmbed } = require("../ui/embeds");
 const { buildInventoryImage } = require("../ui/inventory-card");
+const { buildBossResultImage, buildBossRewardImage, buildBossLiveImage } = require("../ui/boss-card");
 
 const { spawnBoss } = require("../events/boss");
 const { spawnMob } = require("../events/mob");
@@ -226,6 +227,63 @@ module.exports = async function handleSlash(interaction) {
     await interaction.reply({ content: `✅ Spawned **${def.name}**.`, ephemeral: true });
     await spawnBoss(channel, bossId, true);
     return;
+  }
+
+  if (interaction.commandName === "testreciview") {
+    if (!hasEventRole(interaction.member)) {
+      return interaction.reply({ content: "⛔ You don’t have the required role.", ephemeral: true });
+    }
+
+    const bossId = interaction.options.getString("boss", true);
+    const mode = interaction.options.getString("mode", true);
+    const def = BOSSES[bossId];
+    if (!def) return interaction.reply({ content: "❌ Unknown boss.", ephemeral: true });
+
+    const sampleTop = [
+      { name: safeName(interaction.member?.displayName || interaction.user.username), dmg: 45000 },
+      { name: "Silvers Rayleigh", dmg: 30000 },
+      { name: "Red_thz", dmg: 15000 },
+      { name: "Charlotte Katakuri", dmg: 15000 },
+    ];
+
+    if (mode === "reward") {
+      const png = await buildBossRewardImage(def, {
+        rows: [
+          { name: sampleTop[0].name, text: "+850 Win | +45 Bank | Total 895 | 12 Shards" },
+          { name: sampleTop[1].name, text: "+780 Win | +30 Bank | Total 810" },
+          { name: sampleTop[2].name, text: "+720 Win | +15 Bank | Total 735" },
+        ],
+      });
+      const file = new AttachmentBuilder(png, { name: `test-reward-${def.id}.png` });
+      return interaction.reply({ files: [file], ephemeral: true });
+    }
+
+    if (mode === "action") {
+      const png = await buildBossLiveImage(def, {
+        phase: "ROUND ACTIVE — COOP BLOCK",
+        hpLeft: 1825,
+        hpTotal: 1930,
+        topDamage: sampleTop,
+        noteA: "Status: BEGIN",
+        noteB: "Need 4 different players to press Block",
+        noteC: "Window ends in 5s",
+      });
+      const file = new AttachmentBuilder(png, { name: `test-action-${def.id}.png` });
+      return interaction.reply({ files: [file], ephemeral: true });
+    }
+
+    const victory = mode === "result_win";
+    const png = await buildBossResultImage(def, {
+      victory,
+      topDamage: sampleTop,
+      hpLeft: victory ? 0 : 1825,
+      hpTotal: 1930,
+      survivors: victory ? 3 : 0,
+      joined: 4,
+      deadOverlay: !victory,
+    });
+    const file = new AttachmentBuilder(png, { name: `test-result-${def.id}.png` });
+    return interaction.reply({ files: [file], ephemeral: true });
   }
 
   if (interaction.commandName === "spawnmob") {

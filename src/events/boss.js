@@ -354,11 +354,16 @@ async function updateBossSpawnMessage(channel, boss) {
 }
 
 async function sendActionWindowPng(channel, boss, opts = {}) {
+  const status = String(opts.status || "BEGIN").toUpperCase();
+  const objective = String(opts.objective || opts.noteA || "").trim();
+  const timerLine = Number.isFinite(opts.windowSec) && opts.windowSec > 0
+    ? `Window ends in ${opts.windowSec}s`
+    : String(opts.noteC || "").trim();
   const payload = await buildLivePngPayload(boss, {
     phase: opts.phase || "ACTION WINDOW",
-    noteA: opts.noteA || "",
-    noteB: opts.noteB || "",
-    noteC: opts.noteC || "",
+    noteA: `Status: ${status}`,
+    noteB: objective,
+    noteC: timerLine,
     components: opts.actionRows || [],
   });
   if (!payload) return null;
@@ -369,11 +374,16 @@ async function sendActionWindowPng(channel, boss, opts = {}) {
 
 async function editActionWindowPng(msg, boss, opts = {}) {
   if (!msg?.id) return;
+  const status = String(opts.status || "UPDATED").toUpperCase();
+  const objective = String(opts.objective || opts.noteA || "").trim();
+  const timerLine = Number.isFinite(opts.windowSec) && opts.windowSec > 0
+    ? `Window ends in ${opts.windowSec}s`
+    : String(opts.noteC || "").trim();
   const payload = await buildLivePngPayload(boss, {
     phase: opts.phase || "ACTION WINDOW",
-    noteA: opts.noteA || "",
-    noteB: opts.noteB || "",
-    noteC: opts.noteC || "",
+    noteA: `Status: ${status}`,
+    noteB: objective,
+    noteC: timerLine,
     components: opts.actionRows || [],
   });
   if (!payload) return;
@@ -414,6 +424,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         .split("\n")
         .filter(Boolean)[0] || "Prepare for the next mechanic.";
       await sendRoundSummaryV2(channel, boss, roundTitle, [
+        "Status: ROUND STARTED",
         introLine,
         `Alive entering round: ${alive.length}`,
       ]);
@@ -472,8 +483,9 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         const customId = `boss_action:${boss.def.id}:${i}:${token}:press:block`;
         const msg = await sendActionWindowPng(channel, boss, {
           phase: `COOP BLOCK WINDOW ${Math.round((r.windowMs || 5000) / 1000)}s`,
-          noteA: `Requirement: ${boss.activeAction.requiredPresses} different players`,
-          noteB: "Press Block before timer ends.",
+          status: "BEGIN",
+          objective: `Need ${boss.activeAction.requiredPresses} different players to press Block`,
+          windowSec: Math.round((r.windowMs || 5000) / 1000),
           actionRows: singleActionRow(customId, r.buttonLabel || "Block", r.buttonEmoji || "ðŸ›¡ï¸", false),
         });
 
@@ -481,8 +493,9 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
 
         await editActionWindowPng(msg, boss, {
           phase: `COOP BLOCK WINDOW ${Math.round((r.windowMs || 5000) / 1000)}s`,
-          noteA: `Requirement: ${boss.activeAction.requiredPresses} different players`,
-          noteB: "Window closed.",
+          status: "ENDED",
+          objective: `Need ${boss.activeAction.requiredPresses} different players to press Block`,
+          noteC: "Window closed. Resolving results...",
           actionRows: singleActionRow(customId, r.buttonLabel || "Block", r.buttonEmoji || "ðŸ›¡ï¸", true),
         });
 
@@ -544,7 +557,9 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
 
         const msg = await sendActionWindowPng(channel, boss, {
           phase: `${label.toUpperCase()} WINDOW ${Math.round((r.windowMs || 5000) / 1000)}s`,
-          noteA: `Press ${label} before the timer ends.`,
+          status: "BEGIN",
+          objective: `Press ${label} before timer ends`,
+          windowSec: Math.round((r.windowMs || 5000) / 1000),
           actionRows: singleActionRow(customId, label, emoji, false),
         });
 
@@ -552,7 +567,9 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
 
         await editActionWindowPng(msg, boss, {
           phase: `${label.toUpperCase()} WINDOW ${Math.round((r.windowMs || 5000) / 1000)}s`,
-          noteA: "Window closed.",
+          status: "ENDED",
+          objective: `Press ${label} before timer ends`,
+          noteC: "Window closed. Resolving results...",
           actionRows: singleActionRow(customId, label, emoji, true),
         });
 
@@ -624,8 +641,9 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
 
         const msg = await sendActionWindowPng(channel, boss, {
           phase: `COMBO DEFENSE ${Math.round((r.windowMs || 5000) / 1000)}s`,
-          noteA: `Press in order: ${seqText}`,
-          noteB: "Mistake or timeout = a hit.",
+          status: "BEGIN",
+          objective: `Press order: ${seqText}`,
+          windowSec: Math.round((r.windowMs || 5000) / 1000),
           actionRows: comboDefenseRows(token, boss.def.id, i),
         });
 
@@ -637,8 +655,9 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         });
         await editActionWindowPng(msg, boss, {
           phase: `COMBO DEFENSE ${Math.round((r.windowMs || 5000) / 1000)}s`,
-          noteA: `Press in order: ${seqText}`,
-          noteB: "Window closed.",
+          status: "ENDED",
+          objective: `Press order: ${seqText}`,
+          noteC: "Window closed. Mistake/timeout = hit.",
           actionRows: disabledRows,
         });
 
@@ -768,7 +787,9 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
 
         const msg = await sendActionWindowPng(channel, boss, {
           phase: `BLOCK x${boss.activeAction.requiredPresses} (${Math.round((r.windowMs || 10000) / 1000)}s)`,
-          noteA: "Press Block repeatedly before the timer ends.",
+          status: "BEGIN",
+          objective: `Press Block ${boss.activeAction.requiredPresses} times`,
+          windowSec: Math.round((r.windowMs || 10000) / 1000),
           actionRows: singleActionRow(customId, r.buttonLabel || "Block", r.buttonEmoji || "ðŸ›¡ï¸", false),
         });
 
@@ -776,7 +797,9 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
 
         await editActionWindowPng(msg, boss, {
           phase: `BLOCK x${boss.activeAction.requiredPresses} (${Math.round((r.windowMs || 10000) / 1000)}s)`,
-          noteA: "Window closed.",
+          status: "ENDED",
+          objective: `Press Block ${boss.activeAction.requiredPresses} times`,
+          noteC: "Window closed. Resolving results...",
           actionRows: singleActionRow(customId, r.buttonLabel || "Block", r.buttonEmoji || "ðŸ›¡ï¸", true),
         });
 
@@ -837,7 +860,9 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
 
         const msg = await sendActionWindowPng(channel, boss, {
           phase: `CHOICE WINDOW ${Math.round((r.windowMs || 3000) / 1000)}s`,
-          noteA: "Pick the correct action quickly.",
+          status: "BEGIN",
+          objective: "Pick the correct action quickly",
+          windowSec: Math.round((r.windowMs || 3000) / 1000),
           actionRows: dualChoiceRow(idA, cA.label, cA.emoji, idB, cB.label, cB.emoji, false),
         });
 
@@ -845,7 +870,9 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
 
         await editActionWindowPng(msg, boss, {
           phase: `CHOICE WINDOW ${Math.round((r.windowMs || 3000) / 1000)}s`,
-          noteA: "Window closed.",
+          status: "ENDED",
+          objective: "Pick the correct action quickly",
+          noteC: "Window closed. Resolving results...",
           actionRows: dualChoiceRow(idA, cA.label, cA.emoji, idB, cB.label, cB.emoji, true),
         });
 
@@ -931,7 +958,9 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
 
         const msg = await sendActionWindowPng(channel, boss, {
           phase: `FOCUS WINDOW ${Math.round((r.windowMs || 12000) / 1000)}s`,
-          noteA: "Press all 3 buttons before timer ends.",
+          status: "BEGIN",
+          objective: "Press all 3 buttons before timer ends",
+          windowSec: Math.round((r.windowMs || 12000) / 1000),
           actionRows: triChoiceRow(btns, false),
         });
 
@@ -939,7 +968,9 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
 
         await editActionWindowPng(msg, boss, {
           phase: `FOCUS WINDOW ${Math.round((r.windowMs || 12000) / 1000)}s`,
-          noteA: "Window closed.",
+          status: "ENDED",
+          objective: "Press all 3 buttons before timer ends",
+          noteC: "Window closed. Resolving results...",
           actionRows: triChoiceRow(btns, true),
         });
 
@@ -988,7 +1019,9 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
 
         const msg = await sendActionWindowPng(channel, boss, {
           phase: `FINAL QUIZ ${Math.round((r.windowMs || 8000) / 1000)}s`,
-          noteA: "Choose the correct finisher before timer ends.",
+          status: "BEGIN",
+          objective: "Choose the correct finisher before timer ends",
+          windowSec: Math.round((r.windowMs || 8000) / 1000),
           actionRows: triChoiceRow(btns, false),
         });
 
@@ -996,7 +1029,9 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
 
         await editActionWindowPng(msg, boss, {
           phase: `FINAL QUIZ ${Math.round((r.windowMs || 8000) / 1000)}s`,
-          noteA: "Window closed.",
+          status: "ENDED",
+          objective: "Choose the correct finisher before timer ends",
+          noteC: "Window closed. Resolving results...",
           actionRows: triChoiceRow(btns, true),
         });
 

@@ -80,6 +80,23 @@ const commands = [
     .addStringOption((opt) => opt.setName("boss").setDescription("Choose boss").setRequired(true).addChoices(...BOSS_CHOICES)),
 
   new SlashCommandBuilder()
+    .setName("testreciview")
+    .setDescription("Preview boss PNG cards (staff)")
+    .addStringOption((opt) => opt.setName("boss").setDescription("Choose boss").setRequired(true).addChoices(...BOSS_CHOICES))
+    .addStringOption((opt) =>
+      opt
+        .setName("mode")
+        .setDescription("Preview mode")
+        .setRequired(true)
+        .addChoices(
+          { name: "Action Preview", value: "action" },
+          { name: "Result Win", value: "result_win" },
+          { name: "Result Defeat", value: "result_lose" },
+          { name: "Reward Preview", value: "reward" }
+        )
+    ),
+
+  new SlashCommandBuilder()
     .setName("spawnmob")
     .setDescription("Spawn a mob (event staff only)")
     .addStringOption((opt) => opt.setName("event").setDescription("Which event mob?").setRequired(true).addChoices(...EVENT_CHOICES)),
