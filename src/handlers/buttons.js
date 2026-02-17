@@ -130,7 +130,7 @@ module.exports = async function handleButtons(interaction) {
       return;
     }
 
-    boss.participants.set(uid, { hits: 0, displayName: interaction.member?.displayName || interaction.user.username });
+    boss.participants.set(uid, { hits: 0, displayName: interaction.user.username });
 
     // Batch join HUD refresh to avoid heavy PNG re-render on every single click.
     scheduleBossJoinHudRefresh(channel, boss);
