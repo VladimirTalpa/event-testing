@@ -225,24 +225,25 @@ async function loadBossBackground(def, kind) {
   const bossId = String(def?.id || "").toLowerCase();
   const eventKey = String(def?.event || "").toLowerCase();
   const phase = String(kind || "").toLowerCase();
-  const files = [
-    `${bossId}_${phase}.png`,
-    `${bossId}_${phase}.jpg`,
-    `${bossId}_${phase}.jpeg`,
-    `${bossId}_${phase}.webp`,
-    `${eventKey}_${phase}.png`,
-    `${eventKey}_${phase}.jpg`,
-    `${eventKey}_${phase}.jpeg`,
-    `${eventKey}_${phase}.webp`,
-    `${phase}.png`,
-    `${phase}.jpg`,
-    `${phase}.jpeg`,
-    `${phase}.webp`,
-    "default.png",
-    "default.jpg",
-    "default.jpeg",
-    "default.webp",
-  ];
+  const phaseOrder = phase === "live" ? ["live", "result", "intro"] : [phase];
+  const files = [];
+  for (const p of phaseOrder) {
+    files.push(
+      `${bossId}_${p}.png`,
+      `${bossId}_${p}.jpg`,
+      `${bossId}_${p}.jpeg`,
+      `${bossId}_${p}.webp`,
+      `${eventKey}_${p}.png`,
+      `${eventKey}_${p}.jpg`,
+      `${eventKey}_${p}.jpeg`,
+      `${eventKey}_${p}.webp`,
+      `${p}.png`,
+      `${p}.jpg`,
+      `${p}.jpeg`,
+      `${p}.webp`
+    );
+  }
+  files.push("default.png", "default.jpg", "default.jpeg", "default.webp");
   for (const file of files) {
     const full = path.join(BOSS_BG_DIR, file);
     if (!fs.existsSync(full)) continue;
