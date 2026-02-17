@@ -194,6 +194,9 @@ module.exports = async function handleButtons(interaction) {
       if (!p.cards || typeof p.cards !== "object") p.cards = { bleach: {}, jjk: {} };
       if (!p.cards.bleach || typeof p.cards.bleach !== "object") p.cards.bleach = {};
       if (!p.cards.jjk || typeof p.cards.jjk !== "object") p.cards.jjk = {};
+      if (!p.cardLevels || typeof p.cardLevels !== "object") p.cardLevels = { bleach: {}, jjk: {} };
+      if (!p.cardLevels.bleach || typeof p.cardLevels.bleach !== "object") p.cardLevels.bleach = {};
+      if (!p.cardLevels.jjk || typeof p.cardLevels.jjk !== "object") p.cardLevels.jjk = {};
 
       const rolled = rollCard(eventKey);
       if (!rolled) {
@@ -202,8 +205,10 @@ module.exports = async function handleButtons(interaction) {
       }
 
       const cardStore = eventKey === "bleach" ? p.cards.bleach : p.cards.jjk;
+      const levelStore = eventKey === "bleach" ? p.cardLevels.bleach : p.cardLevels.jjk;
       const afterCount = Math.max(0, Number(cardStore[rolled.id] || 0)) + 1;
       cardStore[rolled.id] = afterCount;
+      if (!levelStore[rolled.id]) levelStore[rolled.id] = 1;
 
       await setPlayer(interaction.user.id, p);
       await editShopMessage(interaction, buildShopV2Payload({ eventKey, player: p, page, selectedKey: key }));
@@ -225,6 +230,7 @@ module.exports = async function handleButtons(interaction) {
         username: interaction.user.username,
         card: rolled,
         countOwned: afterCount,
+        level: levelStore[rolled.id] || 1,
       }).catch(() => null);
 
       if (revealPng) {

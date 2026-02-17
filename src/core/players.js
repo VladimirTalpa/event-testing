@@ -18,6 +18,9 @@ function normalizePlayer(raw = {}) {
   const cardsRaw = raw.cards && typeof raw.cards === "object" ? raw.cards : {};
   const bleachCardsRaw = cardsRaw.bleach && typeof cardsRaw.bleach === "object" ? cardsRaw.bleach : {};
   const jjkCardsRaw = cardsRaw.jjk && typeof cardsRaw.jjk === "object" ? cardsRaw.jjk : {};
+  const cardLevelsRaw = raw.cardLevels && typeof raw.cardLevels === "object" ? raw.cardLevels : {};
+  const bleachCardLevelsRaw = cardLevelsRaw.bleach && typeof cardLevelsRaw.bleach === "object" ? cardLevelsRaw.bleach : {};
+  const jjkCardLevelsRaw = cardLevelsRaw.jjk && typeof cardLevelsRaw.jjk === "object" ? cardLevelsRaw.jjk : {};
   const cursedShards =
     Number.isFinite(jjkMaterials.cursedShards) ? jjkMaterials.cursedShards :
     (Number.isFinite(jjk.cursedShards) ? jjk.cursedShards : 0);
@@ -75,6 +78,19 @@ function normalizePlayer(raw = {}) {
         Object.entries(jjkCardsRaw)
           .map(([k, v]) => [String(k), Math.max(0, Math.floor(Number(v || 0)))])
           .filter(([k, v]) => !!k && v > 0)
+      ),
+    },
+
+    cardLevels: {
+      bleach: Object.fromEntries(
+        Object.entries(bleachCardLevelsRaw)
+          .map(([k, v]) => [String(k), Math.max(1, Math.floor(Number(v || 1)))])
+          .filter(([k, v]) => !!k && v >= 1)
+      ),
+      jjk: Object.fromEntries(
+        Object.entries(jjkCardLevelsRaw)
+          .map(([k, v]) => [String(k), Math.max(1, Math.floor(Number(v || 1)))])
+          .filter(([k, v]) => !!k && v >= 1)
       ),
     },
   };

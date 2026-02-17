@@ -28,11 +28,41 @@ const { buildInventoryImage } = require("../ui/inventory-card");
 const { buildBossResultImage, buildBossRewardImage, buildBossLiveImage } = require("../ui/boss-card");
 const { buildExchangeImage } = require("../ui/exchange-card");
 const { buildShopV2Payload } = require("../ui/shop-v2");
+const { findCard, getCardById, cardStatsAtLevel, cardPower, CARD_MAX_LEVEL, CARD_POOL } = require("../data/cards");
 
 const { spawnBoss } = require("../events/boss");
 const { spawnMob } = require("../events/mob");
 const { pvpById } = require("../core/state");
 const EXCHANGE_CE_EMOJI_ID = "1473448154220335339";
+
+function getEventCardsMap(player, eventKey) {
+  return eventKey === "bleach" ? (player?.cards?.bleach || {}) : (player?.cards?.jjk || {});
+}
+
+function getEventLevelsMap(player, eventKey) {
+  return eventKey === "bleach" ? (player?.cardLevels?.bleach || {}) : (player?.cardLevels?.jjk || {});
+}
+
+function normalizeEventKey(v) {
+  return v === "jjk" ? "jjk" : "bleach";
+}
+
+function strongestOwnedCard(player, eventKey) {
+  const cardsMap = getEventCardsMap(player, eventKey);
+  const levels = getEventLevelsMap(player, eventKey);
+  let best = null;
+  for (const [cardId, amountRaw] of Object.entries(cardsMap)) {
+    const amount = Math.max(0, Number(amountRaw || 0));
+    if (amount <= 0) continue;
+    const card = getCardById(eventKey, cardId);
+    if (!card) continue;
+    const lv = Math.max(1, Number(levels[cardId] || 1));
+    const stats = cardStatsAtLevel(card, lv);
+    const power = cardPower(stats);
+    if (!best || power > best.power) best = { card, level: lv, amount, stats, power };
+  }
+  return best;
+}
 
 function isAllowedSpawnChannel(eventKey, channelId) {
   if (eventKey === "bleach") return channelId === BLEACH_CHANNEL_ID;
@@ -80,6 +110,166 @@ module.exports = async function handleSlash(interaction) {
       selectedKey: null,
       withFlags: true,
     }));
+  }
+
+  if (interaction.commandName === "cards") {
+    const eventKey = normalizeEventKey(interaction.options.getString("event", true));
+    const target = interaction.options.getUser("user") || interaction.user;
+    const p = await getPlayer(target.id);
+    const cardsMap = getEventCardsMap(p, eventKey);
+    const levels = getEventLevelsMap(p, eventKey);
+    const rows = [];
+
+    for (const c of CARD_POOL[eventKey] || []) {
+      const amount = Math.max(0, Number(cardsMap[c.id] || 0));
+      if (amount <= 0) continue;
+      const lv = Math.max(1, Number(levels[c.id] || 1));
+      const stats = cardStatsAtLevel(c, lv);
+      const power = cardPower(stats);
+      rows.push({ c, amount, lv, stats, power });
+    }
+
+    rows.sort((a, b) => b.power - a.power);
+    if (!rows.length) {
+      return interaction.reply({ content: `No ${eventKey.toUpperCase()} cards found. Open packs in /shop first.`, ephemeral: true });
+    }
+
+    const top = rows.slice(0, 12);
+    const lines = top.map((r, i) =>
+      `${i + 1}. **${r.c.name}** [${r.c.rarity}]  Lv.${r.lv}  x${r.amount}  | DMG ${r.stats.dmg} DEF ${r.stats.def} HP ${r.stats.hp} | Power ${r.power}`
+    );
+    return interaction.reply({
+      content: `**${safeName(target.username)} — ${eventKey.toUpperCase()} Cards**\n${lines.join("\n")}`,
+      ephemeral: target.id !== interaction.user.id,
+    });
+  }
+
+  if (interaction.commandName === "cardlevel") {
+    const eventKey = normalizeEventKey(interaction.options.getString("event", true));
+    const query = interaction.options.getString("card", true);
+    const times = Math.max(1, Number(interaction.options.getInteger("times") || 1));
+    const p = await getPlayer(interaction.user.id);
+    const card = findCard(eventKey, query);
+    if (!card) return interaction.reply({ content: "Card not found. Use exact id or close name.", ephemeral: true });
+
+    if (!p.cards || typeof p.cards !== "object") p.cards = { bleach: {}, jjk: {} };
+    if (!p.cardLevels || typeof p.cardLevels !== "object") p.cardLevels = { bleach: {}, jjk: {} };
+    if (!p.cards.bleach) p.cards.bleach = {};
+    if (!p.cards.jjk) p.cards.jjk = {};
+    if (!p.cardLevels.bleach) p.cardLevels.bleach = {};
+    if (!p.cardLevels.jjk) p.cardLevels.jjk = {};
+
+    const cardsMap = eventKey === "bleach" ? p.cards.bleach : p.cards.jjk;
+    const levels = eventKey === "bleach" ? p.cardLevels.bleach : p.cardLevels.jjk;
+    let amount = Math.max(0, Number(cardsMap[card.id] || 0));
+    let level = Math.max(1, Number(levels[card.id] || 1));
+
+    if (amount <= 0) return interaction.reply({ content: "You don't own this card yet.", ephemeral: true });
+
+    let upgraded = 0;
+    let spentDup = 0;
+    let spentDrako = 0;
+    let stopReason = "";
+
+    for (let i = 0; i < times; i++) {
+      if (level >= CARD_MAX_LEVEL) {
+        stopReason = `Card is already max level (${CARD_MAX_LEVEL}).`;
+        break;
+      }
+      const dupNeed = Math.max(1, Math.floor(level / 3) + 1);
+      const drakoNeed = 25 * level;
+      if (amount <= dupNeed) {
+        stopReason = `Need ${dupNeed} duplicates (and keep 1 copy).`;
+        break;
+      }
+      if (p.drako < drakoNeed) {
+        stopReason = `Need ${drakoNeed} Drako for next upgrade.`;
+        break;
+      }
+
+      amount -= dupNeed;
+      p.drako -= drakoNeed;
+      level += 1;
+      upgraded += 1;
+      spentDup += dupNeed;
+      spentDrako += drakoNeed;
+    }
+
+    cardsMap[card.id] = amount;
+    levels[card.id] = level;
+    await setPlayer(interaction.user.id, p);
+
+    const stats = cardStatsAtLevel(card, level);
+    if (upgraded <= 0) {
+      return interaction.reply({
+        content:
+          `Cannot upgrade **${card.name}** (Lv.${level}). ${stopReason}\n` +
+          `Current: x${amount} cards • Drako ${p.drako}`,
+        ephemeral: true,
+      });
+    }
+
+    return interaction.reply({
+      content:
+        `Upgraded **${card.name}** to **Lv.${level}** (+${upgraded}).\n` +
+        `Spent: ${spentDup} duplicates + ${spentDrako} Drako\n` +
+        `Now: DMG ${stats.dmg} • DEF ${stats.def} • HP ${stats.hp} • Power ${cardPower(stats)}\n` +
+        (stopReason ? `Note: ${stopReason}` : ""),
+      ephemeral: false,
+    });
+  }
+
+  if (interaction.commandName === "cardslash") {
+    const eventKey = normalizeEventKey(interaction.options.getString("event", true));
+    const myCardQuery = interaction.options.getString("card", true);
+    const enemy = interaction.options.getUser("user", true);
+    const enemyCardQuery = interaction.options.getString("enemy_card");
+
+    if (enemy.bot) return interaction.reply({ content: "You cannot clash with a bot.", ephemeral: true });
+    if (enemy.id === interaction.user.id) return interaction.reply({ content: "Pick another user.", ephemeral: true });
+
+    const me = await getPlayer(interaction.user.id);
+    const op = await getPlayer(enemy.id);
+    const myCard = findCard(eventKey, myCardQuery);
+    if (!myCard) return interaction.reply({ content: "Your card was not found.", ephemeral: true });
+
+    const myAmount = Math.max(0, Number(getEventCardsMap(me, eventKey)[myCard.id] || 0));
+    if (myAmount <= 0) return interaction.reply({ content: "You do not own that card.", ephemeral: true });
+
+    const myLevel = Math.max(1, Number(getEventLevelsMap(me, eventKey)[myCard.id] || 1));
+    const myStats = cardStatsAtLevel(myCard, myLevel);
+    const myPower = cardPower(myStats);
+
+    let enemyPick = null;
+    if (enemyCardQuery) {
+      const c = findCard(eventKey, enemyCardQuery);
+      if (!c) return interaction.reply({ content: "Enemy card query not found.", ephemeral: true });
+      const amount = Math.max(0, Number(getEventCardsMap(op, eventKey)[c.id] || 0));
+      if (amount <= 0) return interaction.reply({ content: "Enemy does not own that card.", ephemeral: true });
+      const lv = Math.max(1, Number(getEventLevelsMap(op, eventKey)[c.id] || 1));
+      const stats = cardStatsAtLevel(c, lv);
+      enemyPick = { card: c, level: lv, stats, power: cardPower(stats) };
+    } else {
+      enemyPick = strongestOwnedCard(op, eventKey);
+      if (!enemyPick) return interaction.reply({ content: "Enemy has no card in this event.", ephemeral: true });
+    }
+
+    const myRoll = myPower * (0.85 + Math.random() * 0.3);
+    const enemyRoll = enemyPick.power * (0.85 + Math.random() * 0.3);
+    const meWon = myRoll >= enemyRoll;
+
+    const winnerId = meWon ? interaction.user.id : enemy.id;
+    const loserId = meWon ? enemy.id : interaction.user.id;
+    const diff = Math.abs(Math.floor(myRoll - enemyRoll));
+
+    return interaction.reply({
+      content:
+        `**CARD SLASH — ${eventKey.toUpperCase()}**\n` +
+        `<@${interaction.user.id}> used **${myCard.name}** Lv.${myLevel} (Power ${myPower})\n` +
+        `<@${enemy.id}> used **${enemyPick.card.name}** Lv.${enemyPick.level} (Power ${enemyPick.power})\n` +
+        `Winner: <@${winnerId}> | Loser: <@${loserId}> | Impact ${diff}`,
+      ephemeral: false,
+    });
   }
 
   if (interaction.commandName === "leaderboard") {

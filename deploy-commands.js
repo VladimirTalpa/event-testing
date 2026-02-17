@@ -105,6 +105,27 @@ const commands = [
     .setName("wardrobe")
     .setDescription("Open your role wardrobe (equip/unequip saved roles)"),
 
+  new SlashCommandBuilder()
+    .setName("cards")
+    .setDescription("Show your card collection for one event")
+    .addStringOption((opt) => opt.setName("event").setDescription("Bleach or JJK").setRequired(true).addChoices(...EVENT_CHOICES))
+    .addUserOption((opt) => opt.setName("user").setDescription("User to check").setRequired(false)),
+
+  new SlashCommandBuilder()
+    .setName("cardlevel")
+    .setDescription("Upgrade one card level (consumes duplicates + Drako)")
+    .addStringOption((opt) => opt.setName("event").setDescription("Bleach or JJK").setRequired(true).addChoices(...EVENT_CHOICES))
+    .addStringOption((opt) => opt.setName("card").setDescription("Card id or name").setRequired(true))
+    .addIntegerOption((opt) => opt.setName("times").setDescription("How many upgrades").setRequired(false).setMinValue(1).setMaxValue(10)),
+
+  new SlashCommandBuilder()
+    .setName("cardslash")
+    .setDescription("Clash your card against another user")
+    .addStringOption((opt) => opt.setName("event").setDescription("Bleach or JJK").setRequired(true).addChoices(...EVENT_CHOICES))
+    .addStringOption((opt) => opt.setName("card").setDescription("Your card id or name").setRequired(true))
+    .addUserOption((opt) => opt.setName("user").setDescription("Opponent").setRequired(true))
+    .addStringOption((opt) => opt.setName("enemy_card").setDescription("Enemy card id/name (optional, else strongest)").setRequired(false)),
+
   //  pvpclash
   new SlashCommandBuilder()
     .setName("pvpclash")

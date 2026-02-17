@@ -54,6 +54,8 @@ const RARITY_COLORS = {
   Legendary: "#ffb347",
 };
 
+const CARD_MAX_LEVEL = 20;
+
 function pickRarity() {
   const total = RARITY_WEIGHTS.reduce((sum, x) => sum + Number(x.weight || 0), 0);
   const roll = Math.random() * (total || 1);
@@ -76,6 +78,40 @@ function getCardById(eventKey, cardId) {
   return pool.find((c) => c.id === cardId) || null;
 }
 
+function findCard(eventKey, query) {
+  const ek = eventKey === "jjk" ? "jjk" : "bleach";
+  const pool = CARD_POOL[ek] || [];
+  const q = String(query || "").trim().toLowerCase();
+  if (!q) return null;
+  return (
+    pool.find((c) => c.id.toLowerCase() === q) ||
+    pool.find((c) => String(c.name || "").toLowerCase() === q) ||
+    pool.find((c) => String(c.name || "").toLowerCase().includes(q)) ||
+    null
+  );
+}
+
+function statAtLevel(base, level, growthPerLevel) {
+  const lv = Math.max(1, Math.floor(Number(level || 1)));
+  const factor = 1 + Math.max(0, lv - 1) * growthPerLevel;
+  return Math.max(1, Math.floor(Number(base || 0) * factor));
+}
+
+function cardStatsAtLevel(card, level) {
+  return {
+    dmg: statAtLevel(card?.dmg || 0, level, 0.12),
+    def: statAtLevel(card?.def || 0, level, 0.1),
+    hp: statAtLevel(card?.hp || 0, level, 0.15),
+  };
+}
+
+function cardPower(stats) {
+  const dmg = Number(stats?.dmg || 0);
+  const def = Number(stats?.def || 0);
+  const hp = Number(stats?.hp || 0);
+  return Math.floor(dmg * 1.4 + def * 0.95 + hp * 0.28);
+}
+
 function rollCard(eventKey) {
   const ek = eventKey === "jjk" ? "jjk" : "bleach";
   const pool = CARD_POOL[ek] || [];
@@ -90,6 +126,10 @@ module.exports = {
   CARD_POOL,
   RARITY_WEIGHTS,
   RARITY_COLORS,
+  CARD_MAX_LEVEL,
   getCardById,
+  findCard,
+  cardStatsAtLevel,
+  cardPower,
   rollCard,
 };

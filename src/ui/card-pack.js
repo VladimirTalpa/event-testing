@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const { createCanvas, loadImage } = require("@napi-rs/canvas");
-const { RARITY_COLORS } = require("../data/cards");
+const { RARITY_COLORS, cardStatsAtLevel } = require("../data/cards");
 const { registerCanvasFonts } = require("./fonts");
 
 const CARDS_ROOT = path.join(__dirname, "..", "..", "assets", "cards");
@@ -175,7 +175,7 @@ async function buildPackOpeningImage({ eventKey = "bleach", username = "Player",
   return canvas.toBuffer("image/png");
 }
 
-async function buildCardRevealImage({ eventKey = "bleach", username = "Player", card = null, countOwned = 1 } = {}) {
+async function buildCardRevealImage({ eventKey = "bleach", username = "Player", card = null, countOwned = 1, level = 1 } = {}) {
   registerCanvasFonts();
   const W = 1280;
   const H = 720;
@@ -184,6 +184,8 @@ async function buildCardRevealImage({ eventKey = "bleach", username = "Player", 
   const theme = eventTheme(eventKey);
   const rarity = String(card?.rarity || "Common");
   const rarityColor = RARITY_COLORS[rarity] || "#c8d0e0";
+  const cardLevel = Math.max(1, Math.floor(Number(level || 1)));
+  const stats = cardStatsAtLevel(card, cardLevel);
 
   drawBackground(ctx, W, H, theme);
   drawHeader(ctx, W, theme, "CARD PULLED", `Player: ${username}`);
@@ -254,10 +256,11 @@ async function buildCardRevealImage({ eventKey = "bleach", username = "Player", 
   ctx.font = '700 28px "Inter", "Segoe UI", sans-serif';
   ctx.fillStyle = "rgba(225,225,240,0.95)";
   ctx.fillText(`Owned: ${Math.max(1, Number(countOwned || 1))}`, tx, cardY + 194);
+  ctx.fillText(`Level: ${cardLevel}`, tx + 220, cardY + 194);
 
-  drawStatBox(ctx, tx, cardY + 224, Math.floor((tw - 16) / 3), 92, "DMG", card?.dmg || 0, "#ff9360");
-  drawStatBox(ctx, tx + Math.floor((tw - 16) / 3) + 8, cardY + 224, Math.floor((tw - 16) / 3), 92, "DEF", card?.def || 0, "#6bd1ff");
-  drawStatBox(ctx, tx + (Math.floor((tw - 16) / 3) + 8) * 2, cardY + 224, Math.floor((tw - 16) / 3), 92, "HP", card?.hp || 0, "#8fff9b");
+  drawStatBox(ctx, tx, cardY + 224, Math.floor((tw - 16) / 3), 92, "DMG", stats.dmg, "#ff9360");
+  drawStatBox(ctx, tx + Math.floor((tw - 16) / 3) + 8, cardY + 224, Math.floor((tw - 16) / 3), 92, "DEF", stats.def, "#6bd1ff");
+  drawStatBox(ctx, tx + (Math.floor((tw - 16) / 3) + 8) * 2, cardY + 224, Math.floor((tw - 16) / 3), 92, "HP", stats.hp, "#8fff9b");
 
   rr(ctx, tx, cardY + 336, tw, 92, 14);
   ctx.fillStyle = "rgba(255,255,255,0.08)";
