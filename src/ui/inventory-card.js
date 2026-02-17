@@ -282,7 +282,7 @@ async function drawStatCard(ctx, card, colors) {
 function drawEquipmentSlot(ctx, s, colors) {
   drawGlassPanel(ctx, s.x, s.y, s.w, s.h, colors);
   rr(ctx, s.x + 8, s.y + 12, 5, s.h - 24, 3);
-  ctx.fillStyle = s.owned ? "rgba(34,211,238,0.9)" : "rgba(244,114,182,0.85)";
+  ctx.fillStyle = s.owned ? colors.stateOwned : colors.stateMissing;
   ctx.fill();
 
   ctx.fillStyle = "rgba(245,245,255,0.98)";
@@ -292,7 +292,7 @@ function drawEquipmentSlot(ctx, s, colors) {
   while (ctx.measureText(name).width > nameMax && name.length > 2) name = name.slice(0, -1);
   ctx.fillText(name, s.x + 68, s.y + 57);
 
-  ctx.fillStyle = s.owned ? "#22d3ee" : "#f472b6";
+  ctx.fillStyle = s.owned ? colors.stateOwnedText : colors.stateMissingText;
   ctx.font = '700 47px "Orbitron", "Inter", "Segoe UI", sans-serif';
   ctx.fillText(s.owned ? "✓" : "✗", s.x + 18, s.y + 57);
 }
@@ -310,18 +310,22 @@ async function buildInventoryImage(eventKey, player, user, bonusMaxBleach = 30, 
   const layoutHeight = BASE_HEIGHT;
 
   const colors = isBleach
-    ? {
+      ? {
         bg1: "#060302",
         bg2: "#1a0902",
         bg3: "#321203",
         panelA: "rgba(22,10,4,0.76)",
         panelB: "rgba(46,18,7,0.58)",
         stroke: "rgba(251,146,60,0.78)",
-        accentBlue: "rgba(251,146,60,0.97)",
-        accentPink: "rgba(255,212,133,0.97)",
+        accentBlue: "rgba(255,140,45,0.97)",
+        accentPink: "rgba(255,110,30,0.97)",
         gradA: "#ff8a00",
-        gradB: "#ffd06b",
-        particlePalette: ["255,180,95", "255,120,50", "255,220,170"],
+        gradB: "#ff5e00",
+        particlePalette: ["255,152,64", "255,118,40", "255,92,26"],
+        stateOwned: "rgba(255,140,45,0.95)",
+        stateMissing: "rgba(148,66,20,0.92)",
+        stateOwnedText: "#ffab4a",
+        stateMissingText: "#b66b38",
       }
     : {
         bg1: "#030303",
@@ -330,11 +334,15 @@ async function buildInventoryImage(eventKey, player, user, bonusMaxBleach = 30, 
         panelA: "rgba(22,8,10,0.76)",
         panelB: "rgba(45,10,14,0.58)",
         stroke: "rgba(248,113,113,0.78)",
-        accentBlue: "rgba(248,113,113,0.97)",
-        accentPink: "rgba(239,68,68,0.97)",
-        gradA: "#ff7070",
-        gradB: "#ff1f4d",
-        particlePalette: ["255,120,120", "255,70,90", "255,180,180"],
+        accentBlue: "rgba(255,86,86,0.97)",
+        accentPink: "rgba(219,39,39,0.97)",
+        gradA: "#ff4d4d",
+        gradB: "#c41230",
+        particlePalette: ["255,98,98", "235,48,48", "190,22,34"],
+        stateOwned: "rgba(255,86,86,0.95)",
+        stateMissing: "rgba(120,24,36,0.92)",
+        stateOwnedText: "#ff6f6f",
+        stateMissingText: "#b84152",
       };
 
   const topShift = 26;
