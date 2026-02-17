@@ -5,6 +5,7 @@ const { DRAKO_RATE_BLEACH, DRAKO_RATE_JJK } = require("../config");
 
 const EMOJI = {
   reiatsu: "1473060860644561016",
+  cursedEnergy: "1469821211872727040",
   drako: "1473061778614255668",
   rate: "1473064972333486285",
   bossBonus: "1473063682979401829",
@@ -438,7 +439,7 @@ async function buildInventoryImage(eventKey, player, user, bonusMaxBleach = 30, 
   ctx.restore();
 
   const stats = [
-    { x: 78, y: 316 + statsShift, w: 420, h: 128, label: isBleach ? "Reiatsu" : "Cursed Energy", value: n(currency), emoji: EMOJI.reiatsu },
+    { x: 78, y: 316 + statsShift, w: 420, h: 128, label: isBleach ? "Reiatsu" : "Cursed Energy", value: n(currency), emoji: isBleach ? EMOJI.reiatsu : EMOJI.cursedEnergy },
     { x: 518, y: 316 + statsShift, w: 420, h: 128, label: "Drako Coin", value: n(player.drako), emoji: EMOJI.drako },
     { x: 958, y: 316 + statsShift, w: 420, h: 128, label: "Boss Bonus", value: `${n(survival)}% / ${cap}%`, emoji: EMOJI.bossBonus },
     { x: 1398, y: 316 + statsShift, w: 360, h: 128, label: "Exchange Rate", value: `${rate}->1Drako`, emoji: EMOJI.rate },
