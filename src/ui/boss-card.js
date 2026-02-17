@@ -503,7 +503,116 @@ async function buildBossResultImage(def, opts = {}) {
   return canvas.toBuffer("image/png");
 }
 
+async function buildBossLiveImage(def, opts = {}) {
+  const w = BOSS_W;
+  const h = BOSS_H;
+  const canvas = createCanvas(w, h);
+  const ctx = canvas.getContext("2d");
+  const theme = getTheme(def?.event);
+
+  const customBg = await loadBossBackground(def, "live");
+  if (customBg) {
+    ctx.drawImage(customBg, 0, 0, w, h);
+    ctx.save();
+    ctx.fillStyle = "rgba(0,0,0,0.4)";
+    ctx.fillRect(0, 0, w, h);
+    ctx.restore();
+  } else {
+    const bg = ctx.createLinearGradient(0, 0, w, h);
+    bg.addColorStop(0, theme.bgA);
+    bg.addColorStop(0.45, theme.bgB);
+    bg.addColorStop(1, theme.bgC);
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, w, h);
+  }
+  particles(ctx, w, h, theme.particles, 320);
+  drawEnergyStreaks(ctx, w, h, theme, 12);
+  drawScanlines(ctx, w, h, 0.028);
+  drawVignette(ctx, w, h, "2,2,8", 0.42);
+
+  rr(ctx, 34, 28, w - 68, h - 56, 26);
+  ctx.strokeStyle = "rgba(255,255,255,0.24)";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  rr(ctx, 48, 42, w - 96, h - 84, 22);
+  ctx.strokeStyle = theme.line;
+  ctx.lineWidth = 1.4;
+  ctx.stroke();
+  drawCornerFlares(ctx, w, h, theme);
+
+  const phase = String(opts.phase || "LIVE");
+  glowText(ctx, `${String(def?.name || "BOSS").toUpperCase()} - LIVE`, 88, 120, {
+    size: 52,
+    gradA: theme.textA,
+    gradB: theme.textB,
+    glow: theme.glow,
+  });
+  glowText(ctx, phase.toUpperCase(), 88, 198, {
+    size: 64,
+    gradA: theme.textB,
+    gradB: theme.textA,
+    glow: theme.glow,
+  });
+
+  const hpLeft = Math.max(0, Math.floor(opts.hpLeft || 0));
+  const hpTotal = Math.max(1, Math.floor(opts.hpTotal || 1));
+  const pct = Math.max(0, Math.min(100, Math.round((hpLeft / hpTotal) * 100)));
+  ctx.fillStyle = "rgba(245,245,255,0.95)";
+  ctx.font = '600 34px "Inter", "Segoe UI", sans-serif';
+  ctx.fillText(`Boss HP: ${hpLeft}/${hpTotal} (${pct}%)`, 90, 258);
+  hpBar(ctx, 90, 282, 970, 34, pct, theme);
+
+  rr(ctx, 88, 342, 970, 492, 18);
+  const left = ctx.createLinearGradient(88, 342, 1058, 834);
+  left.addColorStop(0, theme.panelA);
+  left.addColorStop(1, theme.panelB);
+  ctx.fillStyle = left;
+  ctx.fill();
+  ctx.strokeStyle = theme.line;
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+
+  const top = Array.isArray(opts.topDamage) ? opts.topDamage.slice(0, 7) : [];
+  ctx.fillStyle = "rgba(245,245,255,0.98)";
+  ctx.font = '700 40px "Orbitron", "Inter", "Segoe UI", sans-serif';
+  ctx.fillText("Top Damage", 118, 404);
+  if (!top.length) {
+    ctx.font = '600 30px "Inter", "Segoe UI", sans-serif';
+    ctx.fillText("No registered damage.", 120, 466);
+  } else {
+    drawDamageBars(ctx, 118, 430, 910, top, theme);
+  }
+
+  const noteA = String(opts.noteA || "").trim();
+  const noteB = String(opts.noteB || "").trim();
+  const noteC = String(opts.noteC || "").trim();
+  const notes = [noteA, noteB, noteC].filter(Boolean);
+  if (notes.length) {
+    rr(ctx, 1120, 342, 430, 492, 18);
+    const right = ctx.createLinearGradient(1120, 342, 1550, 834);
+    right.addColorStop(0, theme.panelA);
+    right.addColorStop(1, theme.panelB);
+    ctx.fillStyle = right;
+    ctx.fill();
+    ctx.strokeStyle = theme.line;
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+    glowText(ctx, "Action", 1160, 402, {
+      size: 40,
+      gradA: theme.textA,
+      gradB: theme.textB,
+      glow: theme.glow,
+    });
+    ctx.fillStyle = "rgba(245,245,255,0.95)";
+    ctx.font = '600 30px "Inter", "Segoe UI", sans-serif';
+    notes.forEach((n, i) => ctx.fillText(`• ${n}`, 1160, 468 + i * 52));
+  }
+
+  return canvas.toBuffer("image/png");
+}
+
 module.exports = {
   buildBossIntroImage,
   buildBossResultImage,
+  buildBossLiveImage,
 };

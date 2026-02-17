@@ -23,7 +23,7 @@ const { clamp, safeName, sleep } = require("../core/utils");
 const { getPlayer, setPlayer } = require("../core/players");
 const { BOSSES } = require("../data/bosses");
 const { bossButtons, singleActionRow, comboDefenseRows, dualChoiceRow, triChoiceRow } = require("../ui/components");
-const { buildBossIntroImage, buildBossResultImage } = require("../ui/boss-card");
+const { buildBossIntroImage, buildBossResultImage, buildBossLiveImage } = require("../ui/boss-card");
 const {
   calcBleachSurvivalBonus,
   calcBleachReiatsuMultiplier,
@@ -215,53 +215,8 @@ function buildBossSpawnV2Payload(boss, channelId) {
   return { flags: MessageFlags.IsComponentsV2, components: [container] };
 }
 
-function buildRaidHudV2Payload(boss, phaseLabel, nextRoundSeconds = 0) {
-  const top = getTopDamageRows(boss, 5);
-  const hpPct = getHpPercent(boss);
-  const alive = aliveIds(boss).length;
-  const hpLeft = Math.max(0, Math.floor(boss.currentHp || 0));
-  const rounds = Array.isArray(boss.def?.rounds) ? boss.def.rounds.length : 0;
-  const roundNo = Math.min(rounds, Math.max(1, Number(boss.roundNo || 1)));
-  const nextText = nextRoundSeconds > 0 ? `\n- Next in: **${nextRoundSeconds}s**` : "";
-  const topText = top.length ? top.map((r, i) => `${i + 1}. ${r.name}: ${r.dmg}`).join("\n") : "No damage yet.";
-
-  const container = new ContainerBuilder()
-    .addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(`## ${boss.def.name} - LIVE RAID HUD`)
-    )
-    .addSeparatorComponents(new SeparatorBuilder())
-    .addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(
-        `- Phase: **${phaseLabel}**\n` +
-        `- Round: **${roundNo}/${rounds}**\n` +
-        `- HP: **${hpLeft}/${boss.totalHp} (${hpPct}%)**\n` +
-        `- Bar: \`${hpBarText(hpPct)}\`\n` +
-        `- Alive: **${alive}** | Joined: **${boss.participants.size}**${nextText}`
-      )
-    )
-    .addSeparatorComponents(new SeparatorBuilder())
-    .addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(`### Top Damage\n${topText}`)
-    );
-
-  return { flags: MessageFlags.IsComponentsV2, components: [container] };
-}
-
-async function sendRoundSummaryV2(channel, title, lines) {
-  const content = lines.filter(Boolean).join("\n");
-  const container = new ContainerBuilder()
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent(`### ${title}`))
-    .addSeparatorComponents(new SeparatorBuilder())
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent(content || "No changes."));
-  await channel.send({ flags: MessageFlags.IsComponentsV2, components: [container] }).catch(() => {});
-}
-
-function buildImagePanelV2Payload({ title, lines = [], imageUrl, actionRows = [] }) {
-  const container = new ContainerBuilder()
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent(`## ${title}`))
-    .addSeparatorComponents(new SeparatorBuilder())
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent(lines.filter(Boolean).join("\n") || "-"));
-
+function buildImagePanelV2Payload({ imageUrl, actionRows = [] }) {
+  const container = new ContainerBuilder();
   if (imageUrl) {
     container.addMediaGalleryComponents(
       new MediaGalleryBuilder().addItems(
@@ -269,16 +224,49 @@ function buildImagePanelV2Payload({ title, lines = [], imageUrl, actionRows = []
       )
     );
   }
-
   if (Array.isArray(actionRows) && actionRows.length) {
     container.addActionRowComponents(...actionRows);
   }
-
   return { flags: MessageFlags.IsComponentsV2, components: [container] };
 }
 
+async function sendRoundSummaryV2(channel, boss, title, lines) {
+  const payload = await buildLivePngPayload(boss, {
+    phase: title,
+    noteA: lines[0] || "",
+    noteB: lines[1] || "",
+    noteC: lines[2] || "",
+  });
+  if (!payload) return;
+  await channel.send(payload).catch(() => {});
+}
+
+async function buildLivePngPayload(boss, opts = {}) {
+  const png = await buildBossLiveImage(boss.def, {
+    phase: opts.phase || "LIVE",
+    hpLeft: Math.max(0, Math.floor(boss.currentHp || 0)),
+    hpTotal: Math.max(1, Math.floor(boss.totalHp || 1)),
+    topDamage: getTopDamageRows(boss, 7),
+    noteA: opts.noteA || "",
+    noteB: opts.noteB || "",
+    noteC: opts.noteC || "",
+  }).catch(() => null);
+
+  if (!png) return null;
+  const file = new AttachmentBuilder(png, { name: `raid-live-${boss.def.id}.png` });
+  const payload = { files: [file] };
+  if (opts.components) payload.components = opts.components;
+  return payload;
+}
+
 async function upsertRaidHudMessage(channel, boss, phaseLabel, nextRoundSeconds = 0) {
-  const payload = buildRaidHudV2Payload(boss, phaseLabel, nextRoundSeconds);
+  const payload = await buildLivePngPayload(boss, {
+    phase: phaseLabel,
+    noteA: `Round ${Math.min((boss.def.rounds || []).length, Math.max(1, Number(boss.roundNo || 1)))}/${(boss.def.rounds || []).length}`,
+    noteB: `Alive ${aliveIds(boss).length} • Joined ${boss.participants.size}`,
+    noteC: nextRoundSeconds > 0 ? `Next in ${nextRoundSeconds}s` : "",
+  });
+  if (!payload) return;
   if (!boss.hudMessageId) {
     const msg = await channel.send(payload).catch(() => null);
     if (msg?.id) boss.hudMessageId = msg.id;
@@ -310,10 +298,6 @@ async function sendBossResultCard(channel, boss, victory, survivorsCount = 0) {
 }
 
 async function sendBossIntroSequence(channel, def) {
-  await channel.send("`[ANOMALY]` Dimensional signature detected...").catch(() => {});
-  await sleep(1200);
-  await channel.send("`[SYSTEM]` Raid gateway stabilizing...").catch(() => {});
-  await sleep(1200);
   const intro = await buildBossIntroImage(def, { joinMs: def.joinMs }).catch(() => null);
   if (intro) {
     const file = new AttachmentBuilder(intro, { name: `boss-intro-${def.id}.png` });
@@ -324,8 +308,15 @@ async function sendBossIntroSequence(channel, def) {
 async function updateBossSpawnMessage(channel, boss) {
   const msg = await channel.messages.fetch(boss.messageId).catch(() => null);
   if (!msg) return;
-
-  await msg.edit(buildBossSpawnV2Payload(boss, channel.id)).catch(() => {});
+  const payload = await buildLivePngPayload(boss, {
+    phase: "JOIN WINDOW",
+    noteA: `Join time ${Math.round(boss.def.joinMs / 1000)}s`,
+    noteB: `Joined ${boss.participants.size}`,
+    noteC: "Press Join Battle to enter",
+    components: bossButtons(!boss.joining),
+  });
+  if (!payload) return;
+  await msg.edit(payload).catch(() => {});
 }
 
 async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
@@ -394,7 +385,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
           await sleep(250);
         }
 
-        await sendRoundSummaryV2(channel, `${r.title || ("Round " + (i + 1))} - Result`, [
+        await sendRoundSummaryV2(channel, boss, `${r.title || ("Round " + (i + 1))} - Result`, [
           `Success: **${successCount}**`,
           `Failed: **${failCount}**`,
           `Banked this round: **${bankedTotal}**`,
@@ -480,7 +471,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
           }
         }
 
-        await sendRoundSummaryV2(channel, `${r.title || ("Round " + (i + 1))} - Result`, [
+        await sendRoundSummaryV2(channel, boss, `${r.title || ("Round " + (i + 1))} - Result`, [
           `Blocks registered: **${pressed.size}/${req}**`,
           `Counter success: **${successCount}**`,
           `Failed: **${failedCount}**`,
@@ -561,7 +552,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
           await sleep(170);
         }
 
-        await sendRoundSummaryV2(channel, `${r.title || ("Round " + (i + 1))} - Result`, [
+        await sendRoundSummaryV2(channel, boss, `${r.title || ("Round " + (i + 1))} - Result`, [
           `Success: **${successCount}**`,
           `Failed: **${failCount}**`,
           `Reverse saves: **${savedByReverse}**`,
@@ -663,7 +654,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
           await sleep(170);
         }
 
-        await sendRoundSummaryV2(channel, `${r.title || ("Round " + (i + 1))} - Result`, [
+        await sendRoundSummaryV2(channel, boss, `${r.title || ("Round " + (i + 1))} - Result`, [
           `Completed combo: **${successCount}**`,
           `Failed combo: **${failCount}**`,
           `Reverse saves: **${savedByReverse}**`,
@@ -702,7 +693,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
             eliminate(uid, boss);
             await sleep(100);
           }
-          await sendRoundSummaryV2(channel, `${r.title || ("Round " + (i + 1))} - Result`, [
+          await sendRoundSummaryV2(channel, boss, `${r.title || ("Round " + (i + 1))} - Result`, [
             `Successful rolls: **${wins}/${required}**`,
             `Outcome: **TEAM WIPE**`,
             eliminated.length ? `Eliminated: ${eliminated.join(", ")}` : "",
@@ -718,7 +709,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
               bankedTotal += add;
             }
           }
-          await sendRoundSummaryV2(channel, `${r.title || ("Round " + (i + 1))} - Result`, [
+          await sendRoundSummaryV2(channel, boss, `${r.title || ("Round " + (i + 1))} - Result`, [
             `Successful rolls: **${wins}/${required}**`,
             `Outcome: **Success**`,
             `Banked this round: **${bankedTotal}**`,
@@ -796,7 +787,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
           await sleep(140);
         }
 
-        await sendRoundSummaryV2(channel, `${r.title || ("Round " + (i + 1))} - Result`, [
+        await sendRoundSummaryV2(channel, boss, `${r.title || ("Round " + (i + 1))} - Result`, [
           `Met presses: **${successCount}**`,
           `Failed presses: **${failCount}**`,
           `Banked this round: **${bankedTotal}**`,
@@ -887,7 +878,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
     
       if (r.type === "scripted_hit_all") {
         await sleep(r.delayMs || 5000);
-        await sendRoundSummaryV2(channel, `${r.title || ("Round " + (i + 1))} - Alert`, [
+        await sendRoundSummaryV2(channel, boss, `${r.title || ("Round " + (i + 1))} - Alert`, [
           "Adaptation surge detected.",
           "All active fighters are hit by the wave.",
         ]);
@@ -910,7 +901,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
           ).catch(() => {});
         }
 
-        await sendRoundSummaryV2(channel, `${r.title || ("Round " + (i + 1))} - Result`, [
+        await sendRoundSummaryV2(channel, boss, `${r.title || ("Round " + (i + 1))} - Result`, [
           `Targets hit: **${nowAlive.length}**`,
           eliminated.length ? `Eliminated: ${eliminated.join(", ")}` : "",
         ]);
@@ -1055,7 +1046,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
     if (!survivors.length) {
       await upsertRaidHudMessage(channel, boss, "Team Wiped");
       await sendBossResultCard(channel, boss, false, 0);
-      await sendRoundSummaryV2(channel, "Raid Result", [
+      await sendRoundSummaryV2(channel, boss, "Raid Result", [
         "Status: **Team Wiped**",
         "No survivors remained in the final phase.",
       ]);
@@ -1116,7 +1107,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
 
     await upsertRaidHudMessage(channel, boss, "Raid Clear");
     await sendBossResultCard(channel, boss, true, survivors.length);
-    await sendRoundSummaryV2(channel, "Raid Result", [
+    await sendRoundSummaryV2(channel, boss, "Raid Result", [
       "Status: **Raid Clear**",
       `Survivors: **${survivors.length}**`,
     ]);
@@ -1174,7 +1165,16 @@ async function spawnBoss(channel, bossId, withPing = true) {
     reverseUsed: new Set(),
   };
 
-  const msg = await channel.send(buildBossSpawnV2Payload(boss, channel.id));
+  const spawnPayload = await buildLivePngPayload(boss, {
+    phase: "JOIN WINDOW",
+    noteA: `Join time ${Math.round(def.joinMs / 1000)}s`,
+    noteB: `Joined 0`,
+    noteC: "Press Join Battle to enter",
+    components: bossButtons(false),
+  });
+  const msg = spawnPayload
+    ? await channel.send(spawnPayload)
+    : await channel.send(buildBossSpawnV2Payload(boss, channel.id));
 
   boss.messageId = msg.id;
   bossByChannel.set(channel.id, boss);
@@ -1186,6 +1186,7 @@ async function spawnBoss(channel, bossId, withPing = true) {
 }
 
 module.exports = { spawnBoss, runBoss };
+
 
 
 
