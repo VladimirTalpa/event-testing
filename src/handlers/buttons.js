@@ -10,6 +10,8 @@ const {
 const { MOBS } = require("../data/mobs");
 const { BLEACH_SHOP_ITEMS, JJK_SHOP_ITEMS } = require("../data/shop");
 const { buildBossLiveImage } = require("../ui/boss-card");
+const JOIN_HUD_REFRESH_DELAY_MS = 900;
+const joinHudRefreshState = new Map();
 
 async function tryGiveRole(guild, userId, roleId) {
   try {
@@ -59,6 +61,53 @@ async function buildBossSpawnPngPayload(boss) {
   return { files: [file], components: bossButtons(!boss.joining) };
 }
 
+async function flushBossJoinHud(channelId) {
+  const boss = bossByChannel.get(channelId);
+  if (!boss || !boss.joining || !boss.messageId) return;
+  const channel = boss.messageChannel;
+  if (!channel) return;
+
+  const msg = await channel.messages.fetch(boss.messageId).catch(() => null);
+  if (!msg) return;
+
+  const payload = await buildBossSpawnPngPayload(boss);
+  if (payload) await msg.edit(payload).catch(() => {});
+}
+
+function scheduleBossJoinHudRefresh(channel, boss) {
+  if (!channel?.id || !boss) return;
+  boss.messageChannel = channel;
+  const key = channel.id;
+
+  let st = joinHudRefreshState.get(key);
+  if (!st) st = { timer: null, running: false, dirty: false };
+  st.dirty = true;
+
+  if (st.timer || st.running) {
+    joinHudRefreshState.set(key, st);
+    return;
+  }
+
+  st.timer = setTimeout(async () => {
+    const curr = joinHudRefreshState.get(key);
+    if (!curr) return;
+    curr.timer = null;
+    if (curr.running) return;
+    curr.running = true;
+    try {
+      while (curr.dirty) {
+        curr.dirty = false;
+        await flushBossJoinHud(key);
+      }
+    } finally {
+      curr.running = false;
+      if (!curr.dirty && !curr.timer) joinHudRefreshState.delete(key);
+    }
+  }, JOIN_HUD_REFRESH_DELAY_MS);
+  if (typeof st.timer?.unref === "function") st.timer.unref();
+  joinHudRefreshState.set(key, st);
+}
+
 module.exports = async function handleButtons(interaction) {
   try { await interaction.deferUpdate(); } catch {}
 
@@ -83,12 +132,8 @@ module.exports = async function handleButtons(interaction) {
 
     boss.participants.set(uid, { hits: 0, displayName: interaction.member?.displayName || interaction.user.username });
 
-    // update spawn message
-    const msg = await channel.messages.fetch(boss.messageId).catch(() => null);
-    if (msg) {
-      const payload = await buildBossSpawnPngPayload(boss);
-      if (payload) await msg.edit(payload).catch(() => {});
-    }
+    // Batch join HUD refresh to avoid heavy PNG re-render on every single click.
+    scheduleBossJoinHudRefresh(channel, boss);
 
     await interaction.followUp({ content: "✅ Joined the fight.", ephemeral: true }).catch(() => {});
     return;
