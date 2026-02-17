@@ -1,5 +1,5 @@
 ﻿
-const { PermissionsBitField, EmbedBuilder } = require("discord.js");
+const { PermissionsBitField, EmbedBuilder, AttachmentBuilder } = require("discord.js");
 
 const {
   BLEACH_CHANNEL_ID,
@@ -14,6 +14,7 @@ const { clamp, safeName, sleep } = require("../core/utils");
 const { getPlayer, setPlayer } = require("../core/players");
 const { BOSSES } = require("../data/bosses");
 const { bossButtons, singleActionRow, comboDefenseRows, dualChoiceRow, triChoiceRow } = require("../ui/components");
+const { buildBossIntroImage, buildBossResultImage } = require("../ui/boss-card");
 const {
   bossSpawnEmbed,
   bossRoundEmbed,
@@ -164,43 +165,13 @@ function getTopDamageRows(boss, limit = 8) {
   return rows.slice(0, limit);
 }
 
-function buildBossPreviewChartUrl(boss) {
-  const top = getTopDamageRows(boss, 7);
-  const hpLeft = Math.max(0, Math.floor(boss.currentHp || 0));
-  const hpPct = getHpPercent(boss);
-
-  const labels = ["Boss HP Left", ...top.map((r) => r.name.slice(0, 20))];
-  const values = [hpLeft, ...top.map((r) => r.dmg)];
-  const colors = ["#e74c3c", ...top.map(() => "#3498db")];
-
-  const chart = {
-    type: "bar",
-    data: {
-      labels,
-      datasets: [{ data: values, backgroundColor: colors, borderRadius: 8 }],
-    },
-    options: {
-      indexAxis: "y",
-      plugins: {
-        legend: { display: false },
-        title: {
-          display: true,
-          text: `${boss.def.name} HP ${hpLeft}/${boss.totalHp} (${hpPct}%)`,
-          color: "#ffffff",
-          font: { size: 18 },
-        },
-      },
-      scales: {
-        x: { beginAtZero: true, ticks: { color: "#d8dee9" }, grid: { color: "#3b4252" } },
-        y: { ticks: { color: "#d8dee9" }, grid: { display: false } },
-      },
-    },
-  };
-
-  return `https://quickchart.io/chart?width=960&height=540&format=png&backgroundColor=%2321262d&c=${encodeURIComponent(JSON.stringify(chart))}`;
+function hpBarText(pct, width = 20) {
+  const p = Math.max(0, Math.min(100, pct));
+  const fill = Math.round((p / 100) * width);
+  return `${"#".repeat(fill)}${"-".repeat(Math.max(0, width - fill))}`;
 }
 
-async function sendBossPreviewCard(channel, boss, phaseLabel) {
+function buildRaidHudEmbed(boss, phaseLabel, nextRoundSeconds = 0) {
   const top = getTopDamageRows(boss, 5);
   const topText = top.length
     ? top.map((r, i) => `${i + 1}. ${r.name}: ${r.dmg}`).join("\n")
@@ -208,22 +179,69 @@ async function sendBossPreviewCard(channel, boss, phaseLabel) {
 
   const hpPct = getHpPercent(boss);
   const alive = aliveIds(boss).length;
+  const hpLeft = Math.max(0, Math.floor(boss.currentHp || 0));
+  const rounds = Array.isArray(boss.def?.rounds) ? boss.def.rounds.length : 0;
+  const roundNo = Math.min(rounds, Math.max(1, Number(boss.roundNo || 1)));
+  const etaText = nextRoundSeconds > 0 ? `\nNext mechanic in: **${nextRoundSeconds}s**` : "";
 
-  const embed = new EmbedBuilder()
-    .setColor(0x1abc9c)
-    .setTitle(`${boss.def.name} - Battle Card`)
+  return new EmbedBuilder()
+    .setColor(boss.def.event === "bleach" ? 0xff7b1c : 0xdc2626)
+    .setTitle(`${boss.def.name} - LIVE RAID HUD`)
     .setDescription(
       `Phase: **${phaseLabel}**\n` +
-      `HP: **${Math.max(0, Math.floor(boss.currentHp || 0))}/${boss.totalHp} (${hpPct}%)**`
+      `Round: **${roundNo}/${rounds}**\n` +
+      `HP: **${hpLeft}/${boss.totalHp} (${hpPct}%)**\n` +
+      `\`${hpBarText(hpPct)}\`${etaText}`
     )
     .addFields(
       { name: "Alive", value: `\`${alive}\``, inline: true },
       { name: "Joined", value: `\`${boss.participants.size}\``, inline: true },
       { name: "Top Damage", value: topText, inline: false }
-    )
-    .setImage(buildBossPreviewChartUrl(boss));
+    );
+}
 
-  await channel.send({ embeds: [embed] }).catch(() => {});
+async function upsertRaidHudMessage(channel, boss, phaseLabel, nextRoundSeconds = 0) {
+  const embed = buildRaidHudEmbed(boss, phaseLabel, nextRoundSeconds);
+  if (!boss.hudMessageId) {
+    const msg = await channel.send({ embeds: [embed] }).catch(() => null);
+    if (msg?.id) boss.hudMessageId = msg.id;
+    return;
+  }
+  const msg = await channel.messages.fetch(boss.hudMessageId).catch(() => null);
+  if (!msg) {
+    const resend = await channel.send({ embeds: [embed] }).catch(() => null);
+    if (resend?.id) boss.hudMessageId = resend.id;
+    return;
+  }
+  await msg.edit({ embeds: [embed] }).catch(() => {});
+}
+
+async function sendBossResultCard(channel, boss, victory, survivorsCount = 0) {
+  const topDamage = getTopDamageRows(boss, 8);
+  const png = await buildBossResultImage(boss.def, {
+    victory,
+    topDamage,
+    hpLeft: Math.max(0, Math.floor(boss.currentHp || 0)),
+    hpTotal: Math.max(1, Math.floor(boss.totalHp || 1)),
+    survivors: survivorsCount,
+    joined: boss.participants.size,
+  }).catch(() => null);
+
+  if (!png) return;
+  const file = new AttachmentBuilder(png, { name: `boss-result-${boss.def.id}.png` });
+  await channel.send({ files: [file] }).catch(() => {});
+}
+
+async function sendBossIntroSequence(channel, def) {
+  await channel.send("`[ANOMALY]` Dimensional signature detected...").catch(() => {});
+  await sleep(1200);
+  await channel.send("`[SYSTEM]` Raid gateway stabilizing...").catch(() => {});
+  await sleep(1200);
+  const intro = await buildBossIntroImage(def, { joinMs: def.joinMs }).catch(() => null);
+  if (intro) {
+    const file = new AttachmentBuilder(intro, { name: `boss-intro-${def.id}.png` });
+    await channel.send({ files: [file] }).catch(() => {});
+  }
 }
 
 async function updateBossSpawnMessage(channel, boss) {
@@ -260,13 +278,15 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
     }
     if (!boss.damageByUser) boss.damageByUser = new Map();
 
-    await sendBossPreviewCard(channel, boss, "Fight Start");
+    boss.roundNo = 1;
+    await upsertRaidHudMessage(channel, boss, "Fight Start");
 
     for (let i = 0; i < boss.def.rounds.length; i++) {
       alive = aliveIds(boss);
       if (!alive.length) break;
 
       const r = boss.def.rounds[i];
+      boss.roundNo = i + 1;
 
     
       if (r.type !== "final_quiz") {
@@ -295,9 +315,10 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
           await sleep(250);
         }
 
-        await sendBossPreviewCard(channel, boss, r.title || ("Round " + (i + 1)));
+        await upsertRaidHudMessage(channel, boss, r.title || ("Round " + (i + 1)));
 
         if (i < boss.def.rounds.length - 1) {
+          await upsertRaidHudMessage(channel, boss, r.title || ("Round " + (i + 1)), Math.round(ROUND_COOLDOWN_MS / 1000));
           await channel.send(`â³ Next round in **${Math.round(ROUND_COOLDOWN_MS / 1000)}s**...`).catch(() => {});
           await sleep(ROUND_COOLDOWN_MS);
         }
@@ -352,9 +373,10 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
           }
         }
 
-        await sendBossPreviewCard(channel, boss, r.title || ("Round " + (i + 1)));
+        await upsertRaidHudMessage(channel, boss, r.title || ("Round " + (i + 1)));
 
         if (i < boss.def.rounds.length - 1) {
+          await upsertRaidHudMessage(channel, boss, r.title || ("Round " + (i + 1)), Math.round(ROUND_COOLDOWN_MS / 1000));
           await channel.send(`â³ Next round in **${Math.round(ROUND_COOLDOWN_MS / 1000)}s**...`).catch(() => {});
           await sleep(ROUND_COOLDOWN_MS);
         }
@@ -405,9 +427,10 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
           await sleep(170);
         }
 
-        await sendBossPreviewCard(channel, boss, r.title || ("Round " + (i + 1)));
+        await upsertRaidHudMessage(channel, boss, r.title || ("Round " + (i + 1)));
 
         if (i < boss.def.rounds.length - 1) {
+          await upsertRaidHudMessage(channel, boss, r.title || ("Round " + (i + 1)), Math.round(ROUND_COOLDOWN_MS / 1000));
           await channel.send(`â³ Next round in **${Math.round(ROUND_COOLDOWN_MS / 1000)}s**...`).catch(() => {});
           await sleep(ROUND_COOLDOWN_MS);
         }
@@ -478,9 +501,10 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
           await sleep(170);
         }
 
-        await sendBossPreviewCard(channel, boss, r.title || ("Round " + (i + 1)));
+        await upsertRaidHudMessage(channel, boss, r.title || ("Round " + (i + 1)));
 
         if (i < boss.def.rounds.length - 1) {
+          await upsertRaidHudMessage(channel, boss, r.title || ("Round " + (i + 1)), Math.round(ROUND_COOLDOWN_MS / 1000));
           await channel.send(`â³ Next round in **${Math.round(ROUND_COOLDOWN_MS / 1000)}s**...`).catch(() => {});
           await sleep(ROUND_COOLDOWN_MS);
         }
@@ -521,9 +545,10 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
           }
         }
 
-        await sendBossPreviewCard(channel, boss, r.title || ("Round " + (i + 1)));
+        await upsertRaidHudMessage(channel, boss, r.title || ("Round " + (i + 1)));
 
         if (i < boss.def.rounds.length - 1) {
+          await upsertRaidHudMessage(channel, boss, r.title || ("Round " + (i + 1)), Math.round(ROUND_COOLDOWN_MS / 1000));
           await channel.send(`â³ Next round in **${Math.round(ROUND_COOLDOWN_MS / 1000)}s**...`).catch(() => {});
           await sleep(ROUND_COOLDOWN_MS);
         }
@@ -572,9 +597,10 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
           await sleep(140);
         }
 
-        await sendBossPreviewCard(channel, boss, r.title || ("Round " + (i + 1)));
+        await upsertRaidHudMessage(channel, boss, r.title || ("Round " + (i + 1)));
 
         if (i < boss.def.rounds.length - 1) {
+          await upsertRaidHudMessage(channel, boss, r.title || ("Round " + (i + 1)), Math.round(ROUND_COOLDOWN_MS / 1000));
           await channel.send(`â³ Next round in **${Math.round(ROUND_COOLDOWN_MS / 1000)}s**...`).catch(() => {});
           await sleep(ROUND_COOLDOWN_MS);
         }
@@ -629,9 +655,10 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
           await channel.send({ content: r.afterText || "", embeds: [e] }).catch(() => {});
         }
 
-        await sendBossPreviewCard(channel, boss, r.title || ("Round " + (i + 1)));
+        await upsertRaidHudMessage(channel, boss, r.title || ("Round " + (i + 1)));
 
         if (i < boss.def.rounds.length - 1) {
+          await upsertRaidHudMessage(channel, boss, r.title || ("Round " + (i + 1)), Math.round(ROUND_COOLDOWN_MS / 1000));
           await channel.send(`â³ Next round in **${Math.round(ROUND_COOLDOWN_MS / 1000)}s**...`).catch(() => {});
           await sleep(ROUND_COOLDOWN_MS);
         }
@@ -658,9 +685,10 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
           await channel.send({ content: r.endText || "", embeds: [e] }).catch(() => {});
         }
 
-        await sendBossPreviewCard(channel, boss, r.title || ("Round " + (i + 1)));
+        await upsertRaidHudMessage(channel, boss, r.title || ("Round " + (i + 1)));
 
         if (i < boss.def.rounds.length - 1) {
+          await upsertRaidHudMessage(channel, boss, r.title || ("Round " + (i + 1)), Math.round(ROUND_COOLDOWN_MS / 1000));
           await channel.send(`â³ Next round in **${Math.round(ROUND_COOLDOWN_MS / 1000)}s**...`).catch(() => {});
           await sleep(ROUND_COOLDOWN_MS);
         }
@@ -712,7 +740,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
           await sleep(140);
         }
 
-        await sendBossPreviewCard(channel, boss, r.title || ("Round " + (i + 1)));
+        await upsertRaidHudMessage(channel, boss, r.title || ("Round " + (i + 1)));
 
         if (i < boss.def.rounds.length - 1) {
           await channel.send(`â³ Next round in **${Math.round(ROUND_COOLDOWN_MS / 1000)}s**...`).catch(() => {});
@@ -763,7 +791,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
           await sleep(120);
         }
 
-        await sendBossPreviewCard(channel, boss, r.title || ("Round " + (i + 1)));
+        await upsertRaidHudMessage(channel, boss, r.title || ("Round " + (i + 1)));
 
         // no next round after final
         continue;
@@ -772,6 +800,8 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
 
     const survivors = aliveIds(boss);
     if (!survivors.length) {
+      await upsertRaidHudMessage(channel, boss, "Team Wiped");
+      await sendBossResultCard(channel, boss, false, 0);
       await channel.send({ embeds: [bossDefeatEmbed(boss.def)] }).catch(() => {});
       return;
     }
@@ -828,6 +858,8 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
       }
     }
 
+    await upsertRaidHudMessage(channel, boss, "Raid Clear");
+    await sendBossResultCard(channel, boss, true, survivors.length);
     await channel.send({ embeds: [bossVictoryEmbed(boss.def, survivors.length)] }).catch(() => {});
     await channel.send(lines.join("\n").slice(0, 1900)).catch(() => {});
   } catch (e) {
@@ -850,7 +882,8 @@ async function spawnBoss(channel, bossId, withPing = true) {
 
   if (withPing) await channel.send(`<@&${PING_BOSS_ROLE_ID}>`).catch(() => {});
 
-  
+  await sendBossIntroSequence(channel, def);
+
   if (def.preText) {
     await channel.send(def.preText).catch(() => {});
     await sleep(def.preTextDelayMs || 10000);
@@ -871,7 +904,9 @@ async function spawnBoss(channel, bossId, withPing = true) {
     damageByUser: new Map(),
     totalHp: 0,
     currentHp: 0,
+    roundNo: 0,
     activeAction: null,
+    hudMessageId: null,
     reverseUsed: new Set(),
   };
 
@@ -890,5 +925,6 @@ async function spawnBoss(channel, bossId, withPing = true) {
 }
 
 module.exports = { spawnBoss, runBoss };
+
 
 
