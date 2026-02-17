@@ -3,7 +3,13 @@ const { bossByChannel, mobByChannel, pvpById } = require("../core/state");
 const { getPlayer, setPlayer } = require("../core/players");
 const { safeName } = require("../core/utils");
 const { mobEmbed, shopEmbed, wardrobeEmbed } = require("../ui/embeds");
-const { CID, mobButtons, shopButtons, pvpButtons } = require("../ui/components");
+const { CID, bossButtons, mobButtons, shopButtons, pvpButtons } = require("../ui/components");
+const {
+  MessageFlags,
+  ContainerBuilder,
+  TextDisplayBuilder,
+  SeparatorBuilder,
+} = require("discord.js");
 const { MOBS } = require("../data/mobs");
 const { BLEACH_SHOP_ITEMS, JJK_SHOP_ITEMS } = require("../data/shop");
 
@@ -27,6 +33,39 @@ function ensureOwnedRole(player, roleId) {
   if (!roleId) return;
   const id = String(roleId);
   if (!player.ownedRoles.includes(id)) player.ownedRoles.push(id);
+}
+
+function buildBossSpawnV2Payload(boss, channelId) {
+  const fighters = [...boss.participants.values()];
+  const joined = fighters.length;
+  const joinedNames = joined ? fighters.map((p) => safeName(p.displayName)).slice(0, 8).join(", ") : "No fighters yet";
+  const reward =
+    boss.def.winRewardRange
+      ? `${boss.def.winRewardRange.min}-${boss.def.winRewardRange.max}`
+      : `${boss.def.winReward}`;
+  const maxHits = boss.def.maxHits ?? 2;
+
+  const container = new ContainerBuilder()
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(`## ${boss.def.icon} ${boss.def.name} RAID`)
+    )
+    .addSeparatorComponents(new SeparatorBuilder())
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `- Difficulty: **${boss.def.difficulty}**\n` +
+        `- Join Window: **${Math.round(boss.def.joinMs / 1000)}s**\n` +
+        `- Reward: **${reward}** | +**${boss.def.hitReward}** banked\n` +
+        `- Eliminated at: **${maxHits}/${maxHits} hits**\n` +
+        `- Channel: <#${channelId}>`
+      )
+    )
+    .addSeparatorComponents(new SeparatorBuilder())
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(`**Joined (${joined}):** ${joinedNames}`)
+    )
+    .addActionRowComponents(...bossButtons(!boss.joining));
+
+  return { flags: MessageFlags.IsComponentsV2, components: [container] };
 }
 
 module.exports = async function handleButtons(interaction) {
@@ -54,19 +93,9 @@ module.exports = async function handleButtons(interaction) {
     boss.participants.set(uid, { hits: 0, displayName: interaction.member?.displayName || interaction.user.username });
 
     // update spawn message
-    const fighters = [...boss.participants.values()];
-    const fightersText = fighters.length
-      ? fighters.map((p) => safeName(p.displayName)).join(", ").slice(0, 1000)
-      : "`No fighters yet`";
-
     const msg = await channel.messages.fetch(boss.messageId).catch(() => null);
     if (msg) {
-      const { bossSpawnEmbed } = require("../ui/embeds");
-      const { bossButtons } = require("../ui/components");
-      await msg.edit({
-        embeds: [bossSpawnEmbed(boss.def, channel.name, fighters.length, fightersText)],
-        components: bossButtons(!boss.joining),
-      }).catch(() => {});
+      await msg.edit(buildBossSpawnV2Payload(boss, channel.id)).catch(() => {});
     }
 
     await interaction.followUp({ content: "✅ Joined the fight.", ephemeral: true }).catch(() => {});

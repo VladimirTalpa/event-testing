@@ -1,5 +1,13 @@
 ﻿
-const { PermissionsBitField, EmbedBuilder, AttachmentBuilder } = require("discord.js");
+const {
+  PermissionsBitField,
+  EmbedBuilder,
+  AttachmentBuilder,
+  MessageFlags,
+  ContainerBuilder,
+  TextDisplayBuilder,
+  SeparatorBuilder,
+} = require("discord.js");
 
 const {
   BLEACH_CHANNEL_ID,
@@ -16,10 +24,7 @@ const { BOSSES } = require("../data/bosses");
 const { bossButtons, singleActionRow, comboDefenseRows, dualChoiceRow, triChoiceRow } = require("../ui/components");
 const { buildBossIntroImage, buildBossResultImage } = require("../ui/boss-card");
 const {
-  bossSpawnEmbed,
-  bossRoundEmbed,
   bossVictoryEmbed,
-  bossDefeatEmbed,
   calcBleachSurvivalBonus,
   calcBleachReiatsuMultiplier,
   calcBleachDropLuckMultiplier,
@@ -93,11 +98,17 @@ function aliveIds(boss) {
 async function applyHit(uid, boss, channel, reasonText) {
   const maxHits = getMaxHits(boss.def);
   const st = boss.participants.get(uid);
-  if (!st) return;
+  if (!st) return { hit: false, eliminated: false, name: "unknown", reasonText };
   st.hits++;
-  const name = safeName(st.displayName);
-  await channel.send(`ðŸ’¥ **${name}** ${reasonText} (**${st.hits}/${maxHits}**)`).catch(() => {});
-  if (st.hits >= maxHits) await channel.send(`â˜ ï¸ **${name}** was eliminated.`).catch(() => {});
+  const eliminated = st.hits >= maxHits;
+  return {
+    hit: true,
+    eliminated,
+    name: safeName(st.displayName),
+    reasonText,
+    hits: st.hits,
+    maxHits,
+  };
 }
 
 function eliminate(uid, boss) {
@@ -171,49 +182,94 @@ function hpBarText(pct, width = 20) {
   return `${"#".repeat(fill)}${"-".repeat(Math.max(0, width - fill))}`;
 }
 
-function buildRaidHudEmbed(boss, phaseLabel, nextRoundSeconds = 0) {
-  const top = getTopDamageRows(boss, 5);
-  const topText = top.length
-    ? top.map((r, i) => `${i + 1}. ${r.name}: ${r.dmg}`).join("\n")
-    : "No damage yet.";
+function buildBossSpawnV2Payload(boss, channelId) {
+  const fighters = [...boss.participants.values()];
+  const joined = fighters.length;
+  const joinedNames = joined ? fighters.map((p) => safeName(p.displayName)).slice(0, 8).join(", ") : "No fighters yet";
+  const reward =
+    boss.def.winRewardRange
+      ? `${boss.def.winRewardRange.min}-${boss.def.winRewardRange.max}`
+      : `${boss.def.winReward}`;
+  const maxHits = getMaxHits(boss.def);
 
+  const container = new ContainerBuilder()
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(`## ${boss.def.icon} ${boss.def.name} RAID`)
+    )
+    .addSeparatorComponents(new SeparatorBuilder())
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `- Difficulty: **${boss.def.difficulty}**\n` +
+        `- Join Window: **${Math.round(boss.def.joinMs / 1000)}s**\n` +
+        `- Reward: **${reward}** | +**${boss.def.hitReward}** banked\n` +
+        `- Eliminated at: **${maxHits}/${maxHits} hits**\n` +
+        `- Channel: <#${channelId}>`
+      )
+    )
+    .addSeparatorComponents(new SeparatorBuilder())
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(`**Joined (${joined}):** ${joinedNames}`)
+    )
+    .addActionRowComponents(...bossButtons(!boss.joining));
+
+  return { flags: MessageFlags.IsComponentsV2, components: [container] };
+}
+
+function buildRaidHudV2Payload(boss, phaseLabel, nextRoundSeconds = 0) {
+  const top = getTopDamageRows(boss, 5);
   const hpPct = getHpPercent(boss);
   const alive = aliveIds(boss).length;
   const hpLeft = Math.max(0, Math.floor(boss.currentHp || 0));
   const rounds = Array.isArray(boss.def?.rounds) ? boss.def.rounds.length : 0;
   const roundNo = Math.min(rounds, Math.max(1, Number(boss.roundNo || 1)));
-  const etaText = nextRoundSeconds > 0 ? `\nNext mechanic in: **${nextRoundSeconds}s**` : "";
+  const nextText = nextRoundSeconds > 0 ? `\n- Next in: **${nextRoundSeconds}s**` : "";
+  const topText = top.length ? top.map((r, i) => `${i + 1}. ${r.name}: ${r.dmg}`).join("\n") : "No damage yet.";
 
-  return new EmbedBuilder()
-    .setColor(boss.def.event === "bleach" ? 0xff7b1c : 0xdc2626)
-    .setTitle(`${boss.def.name} - LIVE RAID HUD`)
-    .setDescription(
-      `Phase: **${phaseLabel}**\n` +
-      `Round: **${roundNo}/${rounds}**\n` +
-      `HP: **${hpLeft}/${boss.totalHp} (${hpPct}%)**\n` +
-      `\`${hpBarText(hpPct)}\`${etaText}`
+  const container = new ContainerBuilder()
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(`## ${boss.def.name} - LIVE RAID HUD`)
     )
-    .addFields(
-      { name: "Alive", value: `\`${alive}\``, inline: true },
-      { name: "Joined", value: `\`${boss.participants.size}\``, inline: true },
-      { name: "Top Damage", value: topText, inline: false }
+    .addSeparatorComponents(new SeparatorBuilder())
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `- Phase: **${phaseLabel}**\n` +
+        `- Round: **${roundNo}/${rounds}**\n` +
+        `- HP: **${hpLeft}/${boss.totalHp} (${hpPct}%)**\n` +
+        `- Bar: \`${hpBarText(hpPct)}\`\n` +
+        `- Alive: **${alive}** | Joined: **${boss.participants.size}**${nextText}`
+      )
+    )
+    .addSeparatorComponents(new SeparatorBuilder())
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(`### Top Damage\n${topText}`)
     );
+
+  return { flags: MessageFlags.IsComponentsV2, components: [container] };
+}
+
+async function sendRoundSummaryV2(channel, title, lines) {
+  const content = lines.filter(Boolean).join("\n");
+  const container = new ContainerBuilder()
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent(`### ${title}`))
+    .addSeparatorComponents(new SeparatorBuilder())
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent(content || "No changes."));
+  await channel.send({ flags: MessageFlags.IsComponentsV2, components: [container] }).catch(() => {});
 }
 
 async function upsertRaidHudMessage(channel, boss, phaseLabel, nextRoundSeconds = 0) {
-  const embed = buildRaidHudEmbed(boss, phaseLabel, nextRoundSeconds);
+  const payload = buildRaidHudV2Payload(boss, phaseLabel, nextRoundSeconds);
   if (!boss.hudMessageId) {
-    const msg = await channel.send({ embeds: [embed] }).catch(() => null);
+    const msg = await channel.send(payload).catch(() => null);
     if (msg?.id) boss.hudMessageId = msg.id;
     return;
   }
   const msg = await channel.messages.fetch(boss.hudMessageId).catch(() => null);
   if (!msg) {
-    const resend = await channel.send({ embeds: [embed] }).catch(() => null);
+    const resend = await channel.send(payload).catch(() => null);
     if (resend?.id) boss.hudMessageId = resend.id;
     return;
   }
-  await msg.edit({ embeds: [embed] }).catch(() => {});
+  await msg.edit(payload).catch(() => {});
 }
 
 async function sendBossResultCard(channel, boss, victory, survivorsCount = 0) {
@@ -245,18 +301,10 @@ async function sendBossIntroSequence(channel, def) {
 }
 
 async function updateBossSpawnMessage(channel, boss) {
-  const fighters = [...boss.participants.values()];
-  const fightersText = fighters.length
-    ? fighters.map((p) => safeName(p.displayName)).join(", ").slice(0, 1000)
-    : "`No fighters yet`";
-
   const msg = await channel.messages.fetch(boss.messageId).catch(() => null);
   if (!msg) return;
 
-  await msg.edit({
-    embeds: [bossSpawnEmbed(boss.def, channel.name, fighters.length, fightersText)],
-    components: bossButtons(!boss.joining),
-  }).catch(() => {});
+  await msg.edit(buildBossSpawnV2Payload(boss, channel.id)).catch(() => {});
 }
 
 async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
@@ -289,32 +337,42 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
       boss.roundNo = i + 1;
 
     
-      if (r.type !== "final_quiz") {
-        await channel.send({ embeds: [bossRoundEmbed(boss.def, i, alive.length)] }).catch(() => {});
-      } else {
-        await channel.send(`â“ **${r.title}**\n${r.intro}`).catch(() => {});
-      }
+      await sendRoundSummaryV2(channel, `${r.title || `Round ${i + 1}`}`, [
+        r.intro || "Prepare for the next mechanic.",
+        `Alive entering round: **${alive.length}**`,
+      ]);
 
      
       if (r.type === "pressure" || r.type === "attack") {
+        let successCount = 0;
+        let failCount = 0;
+        let bankedTotal = 0;
+        const eliminated = [];
         for (const uid of alive) {
           const player = await getPlayer(uid);
           const chance = computeSurviveChance(boss.def.event, player, boss.def.baseChance, bonusMaxBleach, bonusMaxJjk);
           const ok = Math.random() < chance;
 
           if (!ok) {
-            await applyHit(uid, boss, channel, `couldn't withstand **${boss.def.name}**!`);
+            const hit = await applyHit(uid, boss, channel, `couldn't withstand **${boss.def.name}**!`);
+            failCount += 1;
+            if (hit?.eliminated) eliminated.push(hit.name);
           } else {
             const mult = getEventMultiplier(boss.def.event, player);
             const add = Math.floor(boss.def.hitReward * mult);
             bankSuccess(uid, boss, add);
-
-            const nm = safeName(boss.participants.get(uid)?.displayName);
-            await channel.send(`âœ… **${nm}** succeeded! (+ ${add} banked)`).catch(() => {});
+            successCount += 1;
+            bankedTotal += add;
           }
           await sleep(250);
         }
 
+        await sendRoundSummaryV2(channel, `${r.title || ("Round " + (i + 1))} - Result`, [
+          `Success: **${successCount}**`,
+          `Failed: **${failCount}**`,
+          `Banked this round: **${bankedTotal}**`,
+          eliminated.length ? `Eliminated: ${eliminated.join(", ")}` : "",
+        ]);
         await upsertRaidHudMessage(channel, boss, r.title || ("Round " + (i + 1)));
 
         if (i < boss.def.rounds.length - 1) {
@@ -354,25 +412,38 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
 
         const nowAlive = aliveIds(boss);
         const success = pressed.size >= req;
+        let failedCount = 0;
+        let successCount = 0;
+        let bankedTotal = 0;
+        const eliminated = [];
 
         if (!success) {
-          await channel.send(`âŒ Not enough blocks (${pressed.size}/${req}). Everyone takes a hit!`).catch(() => {});
           for (const uid of nowAlive) {
-            await applyHit(uid, boss, channel, `failed to block in time!`);
+            const hit = await applyHit(uid, boss, channel, `failed to block in time!`);
+            failedCount += 1;
+            if (hit?.eliminated) eliminated.push(hit.name);
             await sleep(140);
           }
         } else {
-          await channel.send(`âœ… Block succeeded (${pressed.size}/${req}). Pressers counterattacked!`).catch(() => {});
           for (const uid of nowAlive) {
             if (pressed.has(uid)) {
               const player = await getPlayer(uid);
               const mult = getEventMultiplier(boss.def.event, player);
               const add = Math.floor(boss.def.hitReward * mult);
               bankSuccess(uid, boss, add);
+              successCount += 1;
+              bankedTotal += add;
             }
           }
         }
 
+        await sendRoundSummaryV2(channel, `${r.title || ("Round " + (i + 1))} - Result`, [
+          `Blocks registered: **${pressed.size}/${req}**`,
+          `Counter success: **${successCount}**`,
+          `Failed: **${failedCount}**`,
+          `Banked this round: **${bankedTotal}**`,
+          eliminated.length ? `Eliminated: ${eliminated.join(", ")}` : "",
+        ]);
         await upsertRaidHudMessage(channel, boss, r.title || ("Round " + (i + 1)));
 
         if (i < boss.def.rounds.length - 1) {
@@ -405,6 +476,11 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         boss.activeAction = null;
 
         const nowAlive = aliveIds(boss);
+        let successCount = 0;
+        let failCount = 0;
+        let savedByReverse = 0;
+        let bankedTotal = 0;
+        const eliminated = [];
 
         for (const uid of nowAlive) {
           const player = await getPlayer(uid);
@@ -415,18 +491,28 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
             const mult = getEventMultiplier(boss.def.event, player);
             const add = Math.floor(boss.def.hitReward * mult);
             bankSuccess(uid, boss, add);
+            successCount += 1;
+            bankedTotal += add;
           } else {
             if (hasReverse && !boss.reverseUsed.has(uid)) {
               boss.reverseUsed.add(uid);
-              const nm = safeName(boss.participants.get(uid)?.displayName);
-              await channel.send(`âœ¨ **${nm}** was saved by Reverse Technique! (ignored 1 hit)`).catch(() => {});
+              savedByReverse += 1;
             } else {
-              await applyHit(uid, boss, channel, `was too slow!`);
+              const hit = await applyHit(uid, boss, channel, `was too slow!`);
+              failCount += 1;
+              if (hit?.eliminated) eliminated.push(hit.name);
             }
           }
           await sleep(170);
         }
 
+        await sendRoundSummaryV2(channel, `${r.title || ("Round " + (i + 1))} - Result`, [
+          `Success: **${successCount}**`,
+          `Failed: **${failCount}**`,
+          `Reverse saves: **${savedByReverse}**`,
+          `Banked this round: **${bankedTotal}**`,
+          eliminated.length ? `Eliminated: ${eliminated.join(", ")}` : "",
+        ]);
         await upsertRaidHudMessage(channel, boss, r.title || ("Round " + (i + 1)));
 
         if (i < boss.def.rounds.length - 1) {
@@ -475,6 +561,11 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         boss.activeAction = null;
 
         const nowAlive = aliveIds(boss);
+        let successCount = 0;
+        let failCount = 0;
+        let savedByReverse = 0;
+        let bankedTotal = 0;
+        const eliminated = [];
 
         for (const uid of nowAlive) {
           const player = await getPlayer(uid);
@@ -489,18 +580,28 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
             const mult = getEventMultiplier(boss.def.event, player);
             const add = Math.floor(boss.def.hitReward * mult);
             bankSuccess(uid, boss, add);
+            successCount += 1;
+            bankedTotal += add;
           } else {
             if (hasReverse && !boss.reverseUsed.has(uid)) {
               boss.reverseUsed.add(uid);
-              const nm = safeName(boss.participants.get(uid)?.displayName);
-              await channel.send(`âœ¨ **${nm}** was saved by Reverse Technique! (ignored 1 hit)`).catch(() => {});
+              savedByReverse += 1;
             } else {
-              await applyHit(uid, boss, channel, `failed the Combo Defense!`);
+              const hit = await applyHit(uid, boss, channel, `failed the Combo Defense!`);
+              failCount += 1;
+              if (hit?.eliminated) eliminated.push(hit.name);
             }
           }
           await sleep(170);
         }
 
+        await sendRoundSummaryV2(channel, `${r.title || ("Round " + (i + 1))} - Result`, [
+          `Completed combo: **${successCount}**`,
+          `Failed combo: **${failCount}**`,
+          `Reverse saves: **${savedByReverse}**`,
+          `Banked this round: **${bankedTotal}**`,
+          eliminated.length ? `Eliminated: ${eliminated.join(", ")}` : "",
+        ]);
         await upsertRaidHudMessage(channel, boss, r.title || ("Round " + (i + 1)));
 
         if (i < boss.def.rounds.length - 1) {
@@ -527,22 +628,34 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         }
 
         if (wins < required) {
-          await channel.send(`âŒ Not enough successful final hits (${wins}/${required}). **Everyone loses.**`).catch(() => {});
+          const eliminated = [];
           for (const uid of nowAlive) {
-            await applyHit(uid, boss, channel, `was overwhelmed in the final push!`);
+            const hit = await applyHit(uid, boss, channel, `was overwhelmed in the final push!`);
+            if (hit?.name) eliminated.push(hit.name);
             eliminate(uid, boss);
             await sleep(100);
           }
+          await sendRoundSummaryV2(channel, `${r.title || ("Round " + (i + 1))} - Result`, [
+            `Successful rolls: **${wins}/${required}**`,
+            `Outcome: **TEAM WIPE**`,
+            eliminated.length ? `Eliminated: ${eliminated.join(", ")}` : "",
+          ]);
         } else {
-          await channel.send(`âœ… Final push succeeded! (${wins}/${required}) Winners dealt the decisive blow.`).catch(() => {});
+          let bankedTotal = 0;
           for (const uid of nowAlive) {
             if (winners.has(uid)) {
               const player = await getPlayer(uid);
               const mult = getEventMultiplier(boss.def.event, player);
               const add = Math.floor(boss.def.hitReward * mult);
               bankSuccess(uid, boss, add);
+              bankedTotal += add;
             }
           }
+          await sendRoundSummaryV2(channel, `${r.title || ("Round " + (i + 1))} - Result`, [
+            `Successful rolls: **${wins}/${required}**`,
+            `Outcome: **Success**`,
+            `Banked this round: **${bankedTotal}**`,
+          ]);
         }
 
         await upsertRaidHudMessage(channel, boss, r.title || ("Round " + (i + 1)));
@@ -583,6 +696,10 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         boss.activeAction = null;
 
         const nowAlive = aliveIds(boss);
+        let successCount = 0;
+        let failCount = 0;
+        let bankedTotal = 0;
+        const eliminated = [];
         for (const uid of nowAlive) {
           const cnt = action?.counts?.get(uid) || 0;
           if (cnt >= (action?.requiredPresses || 3)) {
@@ -590,13 +707,22 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
             const mult = getEventMultiplier(boss.def.event, player);
             const add = Math.floor(boss.def.hitReward * mult);
             bankSuccess(uid, boss, add);
-            await channel.send(`âœ… <@${uid}> Blocked! (pressed ${cnt})`).catch(() => {});
+            successCount += 1;
+            bankedTotal += add;
           } else {
-            await applyHit(uid, boss, channel, `failed to block enough times! (pressed ${cnt})`);
+            const hit = await applyHit(uid, boss, channel, `failed to block enough times! (pressed ${cnt})`);
+            failCount += 1;
+            if (hit?.eliminated) eliminated.push(hit.name);
           }
           await sleep(140);
         }
 
+        await sendRoundSummaryV2(channel, `${r.title || ("Round " + (i + 1))} - Result`, [
+          `Met presses: **${successCount}**`,
+          `Failed presses: **${failCount}**`,
+          `Banked this round: **${bankedTotal}**`,
+          eliminated.length ? `Eliminated: ${eliminated.join(", ")}` : "",
+        ]);
         await upsertRaidHudMessage(channel, boss, r.title || ("Round " + (i + 1)));
 
         if (i < boss.def.rounds.length - 1) {
@@ -668,15 +794,16 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
     
       if (r.type === "scripted_hit_all") {
         await sleep(r.delayMs || 5000);
-
-        for (const line of (r.spamLines || [])) {
-          await channel.send(line).catch(() => {});
-          await sleep(350);
-        }
+        await sendRoundSummaryV2(channel, `${r.title || ("Round " + (i + 1))} - Alert`, [
+          "Adaptation surge detected.",
+          "All active fighters are hit by the wave.",
+        ]);
 
         const nowAlive = aliveIds(boss);
+        const eliminated = [];
         for (const uid of nowAlive) {
-          await applyHit(uid, boss, channel, `was struck by the adaptation surge!`);
+          const hit = await applyHit(uid, boss, channel, `was struck by the adaptation surge!`);
+          if (hit?.eliminated) eliminated.push(hit.name);
           await sleep(120);
         }
 
@@ -685,6 +812,10 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
           await channel.send({ content: r.endText || "", embeds: [e] }).catch(() => {});
         }
 
+        await sendRoundSummaryV2(channel, `${r.title || ("Round " + (i + 1))} - Result`, [
+          `Targets hit: **${nowAlive.length}**`,
+          eliminated.length ? `Eliminated: ${eliminated.join(", ")}` : "",
+        ]);
         await upsertRaidHudMessage(channel, boss, r.title || ("Round " + (i + 1)));
 
         if (i < boss.def.rounds.length - 1) {
@@ -802,7 +933,10 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
     if (!survivors.length) {
       await upsertRaidHudMessage(channel, boss, "Team Wiped");
       await sendBossResultCard(channel, boss, false, 0);
-      await channel.send({ embeds: [bossDefeatEmbed(boss.def)] }).catch(() => {});
+      await sendRoundSummaryV2(channel, "Raid Result", [
+        "Status: **Team Wiped**",
+        "No survivors remained in the final phase.",
+      ]);
       return;
     }
 
@@ -910,10 +1044,7 @@ async function spawnBoss(channel, bossId, withPing = true) {
     reverseUsed: new Set(),
   };
 
-  const msg = await channel.send({
-    embeds: [bossSpawnEmbed(def, channel.name, 0, "`No fighters yet`")],
-    components: bossButtons(false),
-  });
+  const msg = await channel.send(buildBossSpawnV2Payload(boss, channel.id));
 
   boss.messageId = msg.id;
   bossByChannel.set(channel.id, boss);
