@@ -181,6 +181,46 @@ function drawParticles(ctx, width, height, palette = ["255,255,255"], count = 34
   }
 }
 
+function drawAtmosphere(ctx, width, height, colors) {
+  const aura = ctx.createRadialGradient(width * 0.78, height * 0.18, 40, width * 0.78, height * 0.18, height * 0.74);
+  aura.addColorStop(0, "rgba(255,255,255,0.18)");
+  aura.addColorStop(0.45, colors.accentBlue.replace("0.97", "0.22"));
+  aura.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = aura;
+  ctx.fillRect(0, 0, width, height);
+
+  const haze = ctx.createLinearGradient(0, 0, 0, height);
+  haze.addColorStop(0, "rgba(255,255,255,0.06)");
+  haze.addColorStop(0.3, "rgba(255,255,255,0)");
+  haze.addColorStop(0.7, "rgba(255,255,255,0)");
+  haze.addColorStop(1, "rgba(0,0,0,0.28)");
+  ctx.fillStyle = haze;
+  ctx.fillRect(0, 0, width, height);
+}
+
+function drawEnergyStreaks(ctx, width, height, colors, count = 10) {
+  for (let i = 0; i < count; i++) {
+    const x1 = 120 + Math.random() * (width - 260);
+    const y1 = 80 + Math.random() * (height - 160);
+    const x2 = x1 + 140 + Math.random() * 480;
+    const y2 = y1 + (-40 + Math.random() * 80);
+    const g = ctx.createLinearGradient(x1, y1, x2, y2);
+    g.addColorStop(0, "rgba(255,255,255,0)");
+    g.addColorStop(0.5, colors.stroke);
+    g.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.save();
+    ctx.strokeStyle = g;
+    ctx.lineWidth = 1.5 + Math.random() * 1.5;
+    ctx.shadowColor = colors.accentBlue;
+    ctx.shadowBlur = 10 + Math.random() * 12;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.quadraticCurveTo((x1 + x2) * 0.5, y1 - 24 + Math.random() * 48, x2, y2);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
 async function loadEmojiImage(id) {
   const key = String(id || "");
   if (!key) return null;
@@ -222,6 +262,11 @@ function drawGlassPanel(ctx, x, y, w, h, colors) {
   ctx.lineWidth = 1.4;
   rr(ctx, x, y, w, h, 16);
   ctx.stroke();
+
+  rr(ctx, x + 3, y + 3, w - 6, h - 6, 13);
+  ctx.strokeStyle = "rgba(255,255,255,0.12)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
 }
 
 async function drawAvatar(ctx, avatarUrl, x, y, size, colors) {
@@ -251,6 +296,16 @@ async function drawAvatar(ctx, avatarUrl, x, y, size, colors) {
     ctx.fillStyle = f;
     ctx.fillRect(x, y, size, size);
   }
+  ctx.restore();
+
+  ctx.save();
+  const ring = ctx.createRadialGradient(x + size * 0.5, y + size * 0.5, size * 0.45, x + size * 0.5, y + size * 0.5, size * 0.72);
+  ring.addColorStop(0, "rgba(255,255,255,0)");
+  ring.addColorStop(1, colors.accentPink.replace("0.97", "0.28"));
+  ctx.fillStyle = ring;
+  ctx.beginPath();
+  ctx.arc(x + size / 2, y + size / 2, size * 0.74, 0, Math.PI * 2);
+  ctx.fill();
   ctx.restore();
 }
 
@@ -356,6 +411,8 @@ async function buildInventoryImage(eventKey, player, user, bonusMaxBleach = 30, 
     ctx.globalAlpha = 0.35;
     drawParticles(ctx, width, height, colors.particlePalette, 380);
     ctx.restore();
+    drawEnergyStreaks(ctx, width, height, colors, 16);
+    drawAtmosphere(ctx, width, height, colors);
   } else {
     const bg = ctx.createLinearGradient(0, 0, width, height);
     bg.addColorStop(0, colors.bg1);
@@ -365,6 +422,8 @@ async function buildInventoryImage(eventKey, player, user, bonusMaxBleach = 30, 
     ctx.fillRect(0, 0, width, height);
 
     drawParticles(ctx, width, height, colors.particlePalette, 420);
+    drawEnergyStreaks(ctx, width, height, colors, 14);
+    drawAtmosphere(ctx, width, height, colors);
 
     rr(ctx, 32, 32, width - 64, height - 64, 30);
     ctx.strokeStyle = "rgba(255,255,255,0.22)";

@@ -75,6 +75,104 @@ function particles(ctx, w, h, palette, count = 260) {
   }
 }
 
+function drawVignette(ctx, w, h, color = "0,0,0", strength = 0.5) {
+  const g = ctx.createRadialGradient(w * 0.5, h * 0.5, Math.min(w, h) * 0.2, w * 0.5, h * 0.5, Math.max(w, h) * 0.62);
+  g.addColorStop(0, `rgba(${color},0)`);
+  g.addColorStop(1, `rgba(${color},${strength})`);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+}
+
+function drawScanlines(ctx, w, h, alpha = 0.05) {
+  ctx.save();
+  ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+  for (let y = 0; y < h; y += 4) ctx.fillRect(0, y, w, 1);
+  ctx.restore();
+}
+
+function drawEnergyStreaks(ctx, w, h, theme, count = 14) {
+  for (let i = 0; i < count; i++) {
+    const x1 = Math.random() * w * 0.88;
+    const y1 = 40 + Math.random() * (h - 120);
+    const x2 = x1 + 120 + Math.random() * 460;
+    const y2 = y1 + (-36 + Math.random() * 72);
+    const g = ctx.createLinearGradient(x1, y1, x2, y2);
+    g.addColorStop(0, "rgba(255,255,255,0)");
+    g.addColorStop(0.5, theme.line);
+    g.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.save();
+    ctx.strokeStyle = g;
+    ctx.lineWidth = 1.2 + Math.random() * 1.8;
+    ctx.shadowColor = theme.glow;
+    ctx.shadowBlur = 10 + Math.random() * 14;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.quadraticCurveTo((x1 + x2) * 0.5, y1 - 18 + Math.random() * 36, x2, y2);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function drawCornerFlares(ctx, w, h, theme) {
+  const pts = [
+    [44, 42],
+    [w - 44, 42],
+    [44, h - 42],
+    [w - 44, h - 42],
+  ];
+  for (const [x, y] of pts) {
+    const g = ctx.createRadialGradient(x, y, 2, x, y, 26);
+    g.addColorStop(0, theme.textB);
+    g.addColorStop(0.35, theme.textA);
+    g.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(x, y, 26, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawChip(ctx, x, y, text, theme) {
+  ctx.font = '700 26px "Orbitron", "Inter", "Segoe UI", sans-serif';
+  const tw = ctx.measureText(text).width;
+  const cw = Math.ceil(tw + 44);
+  rr(ctx, x, y, cw, 44, 10);
+  const g = ctx.createLinearGradient(x, y, x + cw, y);
+  g.addColorStop(0, "rgba(255,255,255,0.1)");
+  g.addColorStop(1, "rgba(255,255,255,0.02)");
+  ctx.fillStyle = g;
+  ctx.fill();
+  ctx.strokeStyle = theme.line;
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+  glowText(ctx, text, x + 20, y + 31, {
+    size: 26,
+    gradA: theme.textA,
+    gradB: theme.textB,
+    glow: theme.glow,
+  });
+}
+
+function drawDamageBars(ctx, x, y, w, rows, theme) {
+  const max = Math.max(1, ...rows.map((r) => Math.floor(r.dmg || 0)));
+  rows.forEach((r, i) => {
+    const yy = y + i * 56;
+    const bw = Math.max(10, Math.floor((Math.floor(r.dmg || 0) / max) * w));
+    rr(ctx, x, yy, w, 38, 8);
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    ctx.fill();
+    rr(ctx, x + 2, yy + 2, bw - 4, 34, 7);
+    const g = ctx.createLinearGradient(x, yy, x + w, yy);
+    g.addColorStop(0, i === 0 ? theme.textB : theme.textA);
+    g.addColorStop(1, i === 0 ? theme.textA : theme.bad);
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.fillStyle = "rgba(245,245,255,0.98)";
+    ctx.font = '600 26px "Inter", "Segoe UI", sans-serif';
+    ctx.fillText(`${i + 1}. ${String(r.name || "Unknown")}  ${Math.floor(r.dmg || 0)}`, x + 12, yy + 27);
+  });
+}
+
 function getTheme(eventKey) {
   if (eventKey === "bleach") {
     return {
@@ -148,12 +246,20 @@ async function buildBossIntroImage(def, opts = {}) {
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, w, h);
   particles(ctx, w, h, theme.particles, 420);
+  drawEnergyStreaks(ctx, w, h, theme, 20);
+  drawScanlines(ctx, w, h, 0.03);
+  drawVignette(ctx, w, h, "2,2,8", 0.46);
 
   const art = await tryLoadImage(def?.spawnMedia);
   if (art) {
     ctx.save();
-    ctx.globalAlpha = 0.28;
+    ctx.globalAlpha = 0.32;
     ctx.drawImage(art, w - 660, 40, 620, 820);
+    const artGlow = ctx.createRadialGradient(w - 320, h * 0.5, 50, w - 320, h * 0.5, 320);
+    artGlow.addColorStop(0, "rgba(255,255,255,0.18)");
+    artGlow.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = artGlow;
+    ctx.fillRect(w - 700, 0, 700, h);
     ctx.restore();
   }
 
@@ -165,6 +271,7 @@ async function buildBossIntroImage(def, opts = {}) {
   ctx.strokeStyle = theme.line;
   ctx.lineWidth = 1.4;
   ctx.stroke();
+  drawCornerFlares(ctx, w, h, theme);
 
   glowText(ctx, "RAID ANOMALY DETECTED", 92, 118, {
     size: 56,
@@ -187,13 +294,13 @@ async function buildBossIntroImage(def, opts = {}) {
   ctx.fillText(`Difficulty: ${def?.difficulty || "Unknown"}`, 94, 324);
 
   const joinSec = Math.max(1, Math.floor((opts.joinMs || def?.joinMs || 0) / 1000));
-  ctx.font = '700 52px "Orbitron", "Inter", "Segoe UI", sans-serif';
   glowText(ctx, `JOIN WINDOW ${joinSec}s`, 92, 410, {
     size: 52,
     gradA: theme.textA,
     gradB: theme.textB,
     glow: theme.glow,
   });
+  drawChip(ctx, 1090, 84, `DIFFICULTY ${String(def?.difficulty || "UNKNOWN").toUpperCase()}`, theme);
 
   rr(ctx, 88, 448, 910, 320, 18);
   const panel = ctx.createLinearGradient(88, 448, 998, 768);
@@ -246,6 +353,9 @@ async function buildBossResultImage(def, opts = {}) {
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, w, h);
   particles(ctx, w, h, theme.particles, 360);
+  drawEnergyStreaks(ctx, w, h, theme, 16);
+  drawScanlines(ctx, w, h, 0.03);
+  drawVignette(ctx, w, h, "2,2,8", 0.44);
 
   rr(ctx, 34, 28, w - 68, h - 56, 26);
   ctx.strokeStyle = "rgba(255,255,255,0.24)";
@@ -255,6 +365,7 @@ async function buildBossResultImage(def, opts = {}) {
   ctx.strokeStyle = theme.line;
   ctx.lineWidth = 1.4;
   ctx.stroke();
+  drawCornerFlares(ctx, w, h, theme);
 
   const statusText = opts.victory ? "RAID CLEAR" : "RAID FAILED";
   glowText(ctx, statusText, 88, 118, {
@@ -296,15 +407,11 @@ async function buildBossResultImage(def, opts = {}) {
   ctx.font = '700 42px "Orbitron", "Inter", "Segoe UI", sans-serif';
   ctx.fillText("Top Damage", 118, 428);
 
-  ctx.font = '600 31px "Inter", "Segoe UI", sans-serif';
   if (!top.length) {
+    ctx.font = '600 31px "Inter", "Segoe UI", sans-serif';
     ctx.fillText("No registered damage.", 120, 492);
   } else {
-    top.forEach((r, i) => {
-      const color = i === 0 ? theme.ok : "rgba(245,245,255,0.95)";
-      ctx.fillStyle = color;
-      ctx.fillText(`${i + 1}. ${String(r.name || "Unknown")} - ${Math.floor(r.dmg || 0)}`, 120, 492 + i * 52);
-    });
+    drawDamageBars(ctx, 118, 454, 910, top, theme);
   }
 
   const survivors = Math.max(0, Number(opts.survivors || 0));
@@ -344,4 +451,3 @@ module.exports = {
   buildBossIntroImage,
   buildBossResultImage,
 };
-
