@@ -267,10 +267,10 @@ function drawDamageBars(ctx, x, y, w, rows, theme) {
     const valueW = ctx.measureText(valueText).width;
     ctx.fillText(valueText, badgeX + badgeW - valueW - 14, yy + 31);
 
-    ctx.font = '700 22px "Inter", "Segoe UI", sans-serif';
+    ctx.font = '700 21px "Inter", "Segoe UI", sans-serif';
     ctx.fillStyle = "rgba(220,225,255,0.94)";
     const pctW = ctx.measureText(pctText).width;
-    ctx.fillText(pctText, badgeX + badgeW - pctW - 14, yy + 48);
+    ctx.fillText(pctText, badgeX + badgeW - pctW - 14, yy + 51);
   });
 }
 
