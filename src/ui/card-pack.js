@@ -5,6 +5,7 @@ const { RARITY_COLORS, cardStatsAtLevel } = require("../data/cards");
 const { registerCanvasFonts } = require("./fonts");
 
 const CARDS_ROOT = path.join(__dirname, "..", "..", "assets", "cards");
+const TEMPLATES_ROOT = path.join(__dirname, "..", "..", "assets", "templates");
 
 function rr(ctx, x, y, w, h, r) {
   const radius = Math.max(0, Math.min(r, Math.floor(Math.min(w, h) / 2)));
@@ -127,14 +128,18 @@ function drawPack(ctx, w, h, theme, label) {
 
 async function loadCardArt(eventKey, cardId) {
   const ek = eventKey === "jjk" ? "jjk" : "bleach";
-  const base = path.join(CARDS_ROOT, ek);
+  const eventBase = path.join(CARDS_ROOT, ek);
+  const genericBase = CARDS_ROOT;
   const exts = ["png", "jpg", "jpeg", "webp"];
+  const bases = [eventBase, genericBase, TEMPLATES_ROOT];
   for (const ext of exts) {
-    const p = path.join(base, `${cardId}.${ext}`);
-    if (!fs.existsSync(p)) continue;
-    try {
-      return await loadImage(p);
-    } catch {}
+    for (const base of bases) {
+      const p = path.join(base, `${cardId}.${ext}`);
+      if (!fs.existsSync(p)) continue;
+      try {
+        return await loadImage(p);
+      } catch {}
+    }
   }
   return null;
 }
