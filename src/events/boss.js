@@ -30,6 +30,7 @@ const {
   calcJjkCEMultiplier,
   calcJjkDropLuckMultiplier,
 } = require("../ui/embeds");
+const JOIN_WATCHDOG_MS = 1500;
 
 /* ===================== ROLE ADD/REMOVE ===================== */
 async function tryGiveRole(guild, userId, roleId) {
@@ -1138,8 +1139,27 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
     console.error("runBoss crashed:", e);
     await channel.send("Boss event crashed. Please report to admin.").catch(() => {});
   } finally {
+    if (boss?.joinTimer) {
+      clearTimeout(boss.joinTimer);
+      boss.joinTimer = null;
+    }
     bossByChannel.delete(channel.id);
   }
+}
+
+function startBossRunIfReady(channel, boss, reason = "timer") {
+  if (!channel || !boss) return false;
+  if (boss.started || boss.starting) return false;
+  boss.starting = true;
+  boss.started = true;
+  if (boss.joinTimer) {
+    clearTimeout(boss.joinTimer);
+    boss.joinTimer = null;
+  }
+  runBoss(channel, boss).catch((e) => {
+    console.error(`runBoss start failed (${reason}):`, e);
+  });
+  return true;
 }
 
 async function spawnBoss(channel, bossId, withPing = true) {
@@ -1166,6 +1186,11 @@ async function spawnBoss(channel, bossId, withPing = true) {
     hudMessageId: null,
     raidMessageIds: [],
     reverseUsed: new Set(),
+    started: false,
+    starting: false,
+    joinEndsAt: Date.now() + Number(def.joinMs || 0),
+    joinTimer: null,
+    channelRef: channel,
   };
 
   if (withPing) await channel.send(`<@&${PING_BOSS_ROLE_ID}>`).catch(() => {});
@@ -1191,11 +1216,27 @@ async function spawnBoss(channel, bossId, withPing = true) {
   trackRaidMessage(boss, msg);
   bossByChannel.set(channel.id, boss);
 
-  setTimeout(() => {
+  boss.joinTimer = setTimeout(() => {
     const still = bossByChannel.get(channel.id);
-    if (still && still.messageId === boss.messageId) runBoss(channel, still).catch(() => {});
+    if (still && still.messageId === boss.messageId) {
+      startBossRunIfReady(channel, still, "join-timeout");
+    }
   }, def.joinMs);
+  if (typeof boss.joinTimer?.unref === "function") boss.joinTimer.unref();
 }
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [chId, boss] of bossByChannel.entries()) {
+    if (!boss?.joining) continue;
+    if (boss.started || boss.starting) continue;
+    if (!Number.isFinite(boss.joinEndsAt)) continue;
+    if (now < boss.joinEndsAt) continue;
+    const ch = boss.channelRef;
+    if (!ch) continue;
+    startBossRunIfReady(ch, boss, `watchdog:${chId}`);
+  }
+}, JOIN_WATCHDOG_MS).unref?.();
 
 module.exports = { spawnBoss, runBoss };
 
