@@ -10,6 +10,7 @@ const {
 const { MOBS } = require("../data/mobs");
 const { BLEACH_SHOP_ITEMS, JJK_SHOP_ITEMS } = require("../data/shop");
 const { buildBossLiveImage } = require("../ui/boss-card");
+const { buildShopV2Payload } = require("../ui/shop-v2");
 const JOIN_HUD_REFRESH_DELAY_MS = 900;
 const joinHudRefreshState = new Map();
 
@@ -115,6 +116,77 @@ module.exports = async function handleButtons(interaction) {
   if (!channel || !channel.isTextBased()) return;
 
   const cid = interaction.customId;
+
+  if (cid.startsWith("shopv2_nav:")) {
+    const [, eventKeyRaw, pageRaw, selectedRaw, dir] = cid.split(":");
+    const eventKey = eventKeyRaw === "jjk" ? "jjk" : "bleach";
+    const page = Number(pageRaw || 0);
+    const nextPage = dir === "next" ? page + 1 : page - 1;
+    const selectedKey = selectedRaw && selectedRaw !== "none" ? selectedRaw : null;
+    const p = await getPlayer(interaction.user.id);
+    const payload = buildShopV2Payload({
+      eventKey,
+      player: p,
+      page: nextPage,
+      selectedKey,
+    });
+    await interaction.message?.edit(payload).catch(() => {});
+    return;
+  }
+
+  if (cid.startsWith("shopv2_buy:")) {
+    const [, eventKeyRaw, pageRaw, selectedRaw] = cid.split(":");
+    const eventKey = eventKeyRaw === "jjk" ? "jjk" : "bleach";
+    const page = Number(pageRaw || 0);
+    const key = selectedRaw && selectedRaw !== "none" ? selectedRaw : null;
+    if (!key) {
+      await interaction.followUp({ content: "Select an item first.", ephemeral: true }).catch(() => {});
+      return;
+    }
+
+    const p = await getPlayer(interaction.user.id);
+    const itemList = eventKey === "bleach" ? BLEACH_SHOP_ITEMS : JJK_SHOP_ITEMS;
+    const item = itemList.find((x) => x.key === key);
+    if (!item) {
+      await interaction.followUp({ content: "Unknown item.", ephemeral: true }).catch(() => {});
+      return;
+    }
+
+    const inv = eventKey === "bleach" ? p.bleach.items : p.jjk.items;
+    if (inv[key]) {
+      await interaction.followUp({ content: "You already own this item.", ephemeral: true }).catch(() => {});
+      await interaction.message?.edit(buildShopV2Payload({ eventKey, player: p, page, selectedKey: key })).catch(() => {});
+      return;
+    }
+
+    const balance = eventKey === "bleach" ? p.bleach.reiatsu : p.jjk.cursedEnergy;
+    if (balance < item.price) {
+      const need = item.price - balance;
+      await interaction.followUp({ content: `Need ${need} more to buy this item.`, ephemeral: true }).catch(() => {});
+      await interaction.message?.edit(buildShopV2Payload({ eventKey, player: p, page, selectedKey: key })).catch(() => {});
+      return;
+    }
+
+    if (eventKey === "bleach") p.bleach.reiatsu -= item.price;
+    else p.jjk.cursedEnergy -= item.price;
+    inv[key] = true;
+
+    if (item.roleId) {
+      ensureOwnedRole(p, item.roleId);
+      const res = await tryGiveRole(interaction.guild, interaction.user.id, item.roleId);
+      if (!res.ok) {
+        await interaction.followUp({
+          content: `Bought role, but bot couldn't assign: ${res.reason} (saved to wardrobe)`,
+          ephemeral: true,
+        }).catch(() => {});
+      }
+    }
+
+    await setPlayer(interaction.user.id, p);
+    await interaction.followUp({ content: `Purchased: ${item.name}`, ephemeral: true }).catch(() => {});
+    await interaction.message?.edit(buildShopV2Payload({ eventKey, player: p, page, selectedKey: key })).catch(() => {});
+    return;
+  }
 
   /* ===================== Boss join ===================== */
   if (cid === CID.BOSS_JOIN) {

@@ -22,11 +22,12 @@ const {
 
 const { getPlayer, setPlayer, getTopPlayers } = require("../core/players");
 const { safeName } = require("../core/utils");
-const { hasEventRole, hasBoosterRole, shopButtons, wardrobeComponents, pvpButtons } = require("../ui/components");
-const { shopEmbed, leaderboardEmbed, wardrobeEmbed } = require("../ui/embeds");
+const { hasEventRole, hasBoosterRole, wardrobeComponents, pvpButtons } = require("../ui/components");
+const { leaderboardEmbed, wardrobeEmbed } = require("../ui/embeds");
 const { buildInventoryImage } = require("../ui/inventory-card");
 const { buildBossResultImage, buildBossRewardImage, buildBossLiveImage } = require("../ui/boss-card");
 const { buildExchangeImage } = require("../ui/exchange-card");
+const { buildShopV2Payload } = require("../ui/shop-v2");
 
 const { spawnBoss } = require("../events/boss");
 const { spawnMob } = require("../events/mob");
@@ -72,11 +73,13 @@ module.exports = async function handleSlash(interaction) {
   if (interaction.commandName === "shop") {
     const eventKey = interaction.options.getString("event", true);
     const p = await getPlayer(interaction.user.id);
-    return interaction.reply({
-      embeds: [shopEmbed(eventKey, p)],
-      components: shopButtons(eventKey, p),
-      ephemeral: true,
-    });
+    return interaction.reply(buildShopV2Payload({
+      eventKey,
+      player: p,
+      page: 0,
+      selectedKey: null,
+      withFlags: true,
+    }));
   }
 
   if (interaction.commandName === "leaderboard") {

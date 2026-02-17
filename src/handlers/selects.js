@@ -2,6 +2,7 @@
 const { getPlayer } = require("../core/players");
 const { wardrobeEmbed } = require("../ui/embeds");
 const { wardrobeComponents } = require("../ui/components");
+const { buildShopV2Payload } = require("../ui/shop-v2");
 
 async function tryGiveRole(guild, userId, roleId) {
   try {
@@ -35,6 +36,31 @@ async function tryRemoveRole(guild, userId, roleId) {
 }
 
 module.exports = async function handleSelects(interaction) {
+  if (interaction.customId.startsWith("shopv2_event:")) {
+    const [, pageRaw] = interaction.customId.split(":");
+    const eventKey = interaction.values?.[0] === "jjk" ? "jjk" : "bleach";
+    const p = await getPlayer(interaction.user.id);
+    return interaction.update(buildShopV2Payload({
+      eventKey,
+      player: p,
+      page: Number(pageRaw || 0),
+      selectedKey: null,
+    }));
+  }
+
+  if (interaction.customId.startsWith("shopv2_pick:")) {
+    const [, eventKeyRaw, pageRaw] = interaction.customId.split(":");
+    const eventKey = eventKeyRaw === "jjk" ? "jjk" : "bleach";
+    const selectedKey = interaction.values?.[0] || null;
+    const p = await getPlayer(interaction.user.id);
+    return interaction.update(buildShopV2Payload({
+      eventKey,
+      player: p,
+      page: Number(pageRaw || 0),
+      selectedKey,
+    }));
+  }
+
   if (interaction.customId !== "wardrobe_select") return;
 
   const roleId = interaction.values?.[0];
