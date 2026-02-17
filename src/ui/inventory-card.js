@@ -95,6 +95,44 @@ function neonGradient(ctx, x, y, text) {
   return g;
 }
 
+function fitTextSize(ctx, text, maxWidth, baseSize, minSize = 20, family = '"Orbitron", "Inter", "Segoe UI", sans-serif', weight = 700) {
+  let size = baseSize;
+  while (size > minSize) {
+    ctx.font = `${weight} ${size}px ${family}`;
+    if (ctx.measureText(String(text)).width <= maxWidth) break;
+    size -= 1;
+  }
+  return size;
+}
+
+function drawGradientText(ctx, text, x, y, opts = {}) {
+  const {
+    size = 48,
+    weight = 700,
+    family = '"Orbitron", "Inter", "Segoe UI", sans-serif',
+    stroke = "rgba(16, 24, 40, 0.95)",
+    strokeWidth = 3,
+    glow = "rgba(34,211,238,0.5)",
+  } = opts;
+
+  ctx.font = `${weight} ${size}px ${family}`;
+  const grad = neonGradient(ctx, x, y, text);
+
+  ctx.save();
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = stroke;
+  ctx.lineWidth = strokeWidth;
+  ctx.strokeText(String(text), x, y);
+  ctx.restore();
+
+  ctx.save();
+  ctx.shadowColor = glow;
+  ctx.shadowBlur = 12;
+  ctx.fillStyle = grad;
+  ctx.fillText(String(text), x, y);
+  ctx.restore();
+}
+
 function drawParticles(ctx, width, height) {
   for (let i = 0; i < 340; i++) {
     const x = Math.random() * width;
@@ -197,16 +235,28 @@ async function drawStatCard(ctx, card, colors) {
   ctx.font = '600 19px "Inter", "Segoe UI", sans-serif';
   ctx.fillText(card.label, tx, card.y + 35);
 
-  ctx.font = '700 45px "Orbitron", "Inter", "Segoe UI", sans-serif';
-  ctx.fillStyle = neonGradient(ctx, card.x + 20, card.y + 88, card.value);
-  ctx.fillText(card.value, card.x + 20, card.y + 89);
+  const max = card.w - 36;
+  const size = fitTextSize(ctx, card.value, max, 45, 24);
+  drawGradientText(ctx, card.value, card.x + 20, card.y + 89, {
+    size,
+    stroke: "rgba(9, 8, 20, 0.95)",
+    strokeWidth: 2.5,
+    glow: colors.accentBlue,
+  });
 }
 
 function drawEquipmentSlot(ctx, s, colors) {
   drawGlassPanel(ctx, s.x, s.y, s.w, s.h, colors);
+  rr(ctx, s.x + 8, s.y + 12, 5, s.h - 24, 3);
+  ctx.fillStyle = s.owned ? "rgba(34,211,238,0.9)" : "rgba(244,114,182,0.85)";
+  ctx.fill();
+
   ctx.fillStyle = "rgba(245,245,255,0.98)";
-  ctx.font = '600 39px "Inter", "Segoe UI", sans-serif';
-  ctx.fillText(s.name, s.x + 68, s.y + 57);
+  ctx.font = '600 38px "Inter", "Segoe UI", sans-serif';
+  const nameMax = s.w - 120;
+  let name = s.name;
+  while (ctx.measureText(name).width > nameMax && name.length > 2) name = name.slice(0, -1);
+  ctx.fillText(name, s.x + 68, s.y + 57);
 
   ctx.fillStyle = s.owned ? "#22d3ee" : "#f472b6";
   ctx.font = '700 47px "Orbitron", "Inter", "Segoe UI", sans-serif';
@@ -283,16 +333,28 @@ async function buildInventoryImage(eventKey, player, user, bonusMaxBleach = 30, 
   await drawAvatar(ctx, avatarUrl, 78, 82 + topShift, 260, colors);
 
   ctx.font = '800 86px "Orbitron", "Inter", "Segoe UI", sans-serif';
-  ctx.fillStyle = neonGradient(ctx, 410, 164, isBleach ? "BLEACH INVENTORY" : "JJK INVENTORY");
-  ctx.fillText(isBleach ? "BLEACH INVENTORY" : "JJK INVENTORY", 410, 164 + topShift);
+  drawGradientText(ctx, isBleach ? "BLEACH INVENTORY" : "JJK INVENTORY", 410, 164 + topShift, {
+    size: 86,
+    strokeWidth: 4,
+    glow: colors.accentPink,
+  });
 
-  ctx.font = '600 56px "Inter", "Segoe UI", sans-serif';
-  ctx.fillStyle = neonGradient(ctx, 410, 244 + topShift, user?.username || "unknown");
-  ctx.fillText(user?.username || "unknown", 410, 244 + topShift);
+  drawGradientText(ctx, user?.username || "unknown", 410, 244 + topShift, {
+    size: 56,
+    weight: 600,
+    family: '"Inter", "Segoe UI", sans-serif',
+    strokeWidth: 3,
+    glow: colors.accentBlue,
+  });
 
-  ctx.font = '700 52px "Orbitron", "Inter", "Segoe UI", sans-serif';
-  ctx.fillStyle = neonGradient(ctx, 1360, 244 + topShift, String(power));
-  ctx.fillText(n(power), 1360, 244 + topShift);
+  const powerText = n(power);
+  const powerMaxWidth = width - 1360 - 90;
+  const powerSize = fitTextSize(ctx, powerText, powerMaxWidth, 52, 28);
+  drawGradientText(ctx, powerText, 1360, 244 + topShift, {
+    size: powerSize,
+    strokeWidth: 3,
+    glow: colors.accentPink,
+  });
 
   ctx.save();
   ctx.strokeStyle = colors.accentBlue;
@@ -318,9 +380,11 @@ async function buildInventoryImage(eventKey, player, user, bonusMaxBleach = 30, 
   for (const s of stats) await drawStatCard(ctx, s, colors);
 
   drawGlassPanel(ctx, 78, 628 + equipShift, 1680, 500 - equipShift, colors);
-  ctx.font = '700 74px "Orbitron", "Inter", "Segoe UI", sans-serif';
-  ctx.fillStyle = neonGradient(ctx, 106, 703 + equipShift, "EQUIPMENT");
-  ctx.fillText("EQUIPMENT", 106, 703 + equipShift);
+  drawGradientText(ctx, "EQUIPMENT", 106, 703 + equipShift, {
+    size: 74,
+    strokeWidth: 4,
+    glow: colors.accentBlue,
+  });
 
   const slots = isBleach
       ? [
