@@ -133,10 +133,10 @@ function randomComboSeq() {
   return seq;
 }
 function comboToEmoji(c) {
-  if (c === "red") return "ðŸ”´";
-  if (c === "blue") return "ðŸ”µ";
-  if (c === "green") return "ðŸŸ¢";
-  return "ðŸŸ¡";
+  if (c === "red") return "RED";
+  if (c === "blue") return "BLUE";
+  if (c === "green") return "GREEN";
+  return "YELLOW";
 }
 
 function randInt(a, b) {
@@ -397,7 +397,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
 
     let alive = aliveIds(boss);
     if (!alive.length) {
-      await channel.send(`ðŸ’¨ Nobody joined. **${boss.def.name}** vanished.`).catch(() => {});
+      await channel.send(`Nobody joined. ${boss.def.name} vanished.`).catch(() => {});
       return;
     }
 
@@ -486,7 +486,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
           status: "BEGIN",
           objective: `Need ${boss.activeAction.requiredPresses} different players to press Block`,
           windowSec: Math.round((r.windowMs || 5000) / 1000),
-          actionRows: singleActionRow(customId, r.buttonLabel || "Block", r.buttonEmoji || "ðŸ›¡ï¸", false),
+          actionRows: singleActionRow(customId, r.buttonLabel || "Block", r.buttonEmoji || "🛡️", false),
         });
 
         await sleep(r.windowMs || 5000);
@@ -496,7 +496,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
           status: "ENDED",
           objective: `Need ${boss.activeAction.requiredPresses} different players to press Block`,
           noteC: "Window closed. Resolving results...",
-          actionRows: singleActionRow(customId, r.buttonLabel || "Block", r.buttonEmoji || "ðŸ›¡ï¸", true),
+          actionRows: singleActionRow(customId, r.buttonLabel || "Block", r.buttonEmoji || "🛡️", true),
         });
 
         const pressed = boss.activeAction?.token === token ? boss.activeAction.pressed : new Set();
@@ -790,7 +790,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
           status: "BEGIN",
           objective: `Press Block ${boss.activeAction.requiredPresses} times`,
           windowSec: Math.round((r.windowMs || 10000) / 1000),
-          actionRows: singleActionRow(customId, r.buttonLabel || "Block", r.buttonEmoji || "ðŸ›¡ï¸", false),
+          actionRows: singleActionRow(customId, r.buttonLabel || "Block", r.buttonEmoji || "🛡️", false),
         });
 
         await sleep(r.windowMs || 10000);
@@ -800,7 +800,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
           status: "ENDED",
           objective: `Press Block ${boss.activeAction.requiredPresses} times`,
           noteC: "Window closed. Resolving results...",
-          actionRows: singleActionRow(customId, r.buttonLabel || "Block", r.buttonEmoji || "ðŸ›¡ï¸", true),
+          actionRows: singleActionRow(customId, r.buttonLabel || "Block", r.buttonEmoji || "🛡️", true),
         });
 
         const action = boss.activeAction?.token === token ? boss.activeAction : null;
@@ -1090,13 +1090,13 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
       if (boss.def.event === "jjk" && boss.def.shardDropRange) {
         const shards = randInt(boss.def.shardDropRange.min, boss.def.shardDropRange.max);
         player.jjk.materials.cursedShards += shards;
-        lines.push(`ðŸ§© <@${uid}> Ð¿Ð¾Ð»ÑƒÑ‡Ð¸Ð» **${shards} Cursed Shards**.`);
+        lines.push(`<@${uid}> received ${shards} Cursed Shards.`);
         extra += `${extra ? ", " : ""}${shards} Shards`;
       }
       if (boss.def.event === "jjk" && boss.def.expeditionKeyChance) {
         if (Math.random() < boss.def.expeditionKeyChance) {
           player.jjk.materials.expeditionKeys += 1;
-          lines.push(`ðŸ—ï¸ <@${uid}> Ð¿Ð¾Ð»ÑƒÑ‡Ð¸Ð» **Expedition Key**!`);
+          lines.push(`<@${uid}> received an Expedition Key.`);
           extra += `${extra ? ", " : ""}1 Key`;
         }
       }
@@ -1116,7 +1116,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         const res = await tryGiveRole(channel.guild, uid, boss.def.roleDropId);
         lines.push(
           res.ok
-            ? `ðŸŽ­ <@${uid}> obtained a **Boss role**!`
+            ? `<@${uid}> obtained a Boss role.`
             : `Warning: <@${uid}> won a role but bot couldn't assign: ${res.reason} (saved to wardrobe)`
         );
         extra += `${extra ? ", " : ""}Role Drop`;
