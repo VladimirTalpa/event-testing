@@ -159,10 +159,27 @@ function drawChip(ctx, x, y, text, theme) {
   });
 }
 
+function sanitizeDisplayText(input) {
+  return String(input || "")
+    .replace(/\*\*/g, "")
+    .replace(/__/g, "")
+    .replace(/`/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function ellipsizeText(ctx, text, maxWidth) {
+  const raw = sanitizeDisplayText(text);
+  if (ctx.measureText(raw).width <= maxWidth) return raw;
+  let out = raw;
+  while (out.length > 0 && ctx.measureText(`${out}...`).width > maxWidth) out = out.slice(0, -1);
+  return `${out}...`;
+}
+
 function drawDamageBars(ctx, x, y, w, rows, theme) {
   const max = Math.max(1, ...rows.map((r) => Math.floor(r.dmg || 0)));
   const total = Math.max(1, rows.reduce((acc, r) => acc + Math.max(0, Math.floor(r.dmg || 0)), 0));
-  const rowH = 52;
+  const rowH = 54;
   const rowGap = 14;
 
   function compactDmg(n) {
@@ -216,7 +233,7 @@ function drawDamageBars(ctx, x, y, w, rows, theme) {
     ctx.fillStyle = shine;
     ctx.fill();
 
-    const badgeW = 202;
+    const badgeW = 206;
     const badgeX = x + w - badgeW - 10;
     rr(ctx, badgeX, yy + 7, badgeW, rowH - 14, 9);
     ctx.fillStyle = "rgba(14,10,12,0.8)";
@@ -226,7 +243,7 @@ function drawDamageBars(ctx, x, y, w, rows, theme) {
     ctx.stroke();
 
     const rank = `${i + 1}.`;
-    const name = fitName(String(r.name || "Unknown"), w - badgeW - 78);
+    const name = fitName(sanitizeDisplayText(String(r.name || "Unknown")), w - badgeW - 78);
     const nameX = x + 14;
     const nameY = yy + 35;
 
@@ -245,13 +262,13 @@ function drawDamageBars(ctx, x, y, w, rows, theme) {
     ctx.font = '900 30px "Orbitron", "Inter", "Segoe UI", sans-serif';
     ctx.fillStyle = i === 0 ? theme.textB : "rgba(245,245,255,0.98)";
     const valueW = ctx.measureText(valueText).width;
-    ctx.fillText(valueText, badgeX + badgeW - valueW - 14, yy + 36);
+    ctx.fillText(valueText, badgeX + badgeW - valueW - 14, yy + 31);
 
     ctx.font = '700 22px "Inter", "Segoe UI", sans-serif';
     ctx.fillStyle = "rgba(220,225,255,0.94)";
     const pctText = `${pct}%`;
     const pctW = ctx.measureText(pctText).width;
-    ctx.fillText(pctText, badgeX + badgeW - pctW - 14, yy + 19);
+    ctx.fillText(pctText, badgeX + badgeW - pctW - 14, yy + 48);
   });
 }
 
@@ -269,10 +286,23 @@ function drawDeadOverlay(ctx, w, h) {
   ctx.stroke();
   ctx.restore();
 
-  glowText(ctx, "DEAFETED IT'S OVER FOR YOU", Math.floor(w * 0.11), Math.floor(h * 0.54), {
-    size: 82,
-    gradA: "#ff9a9a",
-    gradB: "#ff2222",
+  rr(ctx, 328, 360, 944, 166, 14);
+  ctx.fillStyle = "rgba(16,2,4,0.72)";
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255,80,80,0.78)";
+  ctx.lineWidth = 1.6;
+  ctx.stroke();
+
+  glowText(ctx, "DEAFETED", 500, 432, {
+    size: 76,
+    gradA: "#ffb3b3",
+    gradB: "#ff2d2d",
+    glow: "rgba(255,30,30,0.9)",
+  });
+  glowText(ctx, "IT'S OVER FOR YOU", 430, 502, {
+    size: 58,
+    gradA: "#ffb3b3",
+    gradB: "#ff2d2d",
     glow: "rgba(255,30,30,0.9)",
   });
 }
@@ -798,7 +828,8 @@ async function buildBossLiveImage(def, opts = {}) {
       ctx.lineWidth = 1;
       ctx.stroke();
       ctx.fillStyle = "rgba(245,245,255,0.95)";
-      ctx.fillText(n, 1162, yy - 4);
+      const clean = ellipsizeText(ctx, n, 350);
+      ctx.fillText(clean, 1162, yy - 4);
     });
   }
 
