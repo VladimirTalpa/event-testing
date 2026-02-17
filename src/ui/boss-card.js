@@ -1,4 +1,10 @@
+const fs = require("fs");
+const path = require("path");
 const { createCanvas, loadImage } = require("@napi-rs/canvas");
+
+const BOSS_BG_DIR = path.join(__dirname, "..", "..", "assets", "templates", "boss");
+const BOSS_W = 1600;
+const BOSS_H = 900;
 
 function rr(ctx, x, y, w, h, r) {
   const radius = Math.max(0, Math.min(r, Math.floor(Math.min(w, h) / 2)));
@@ -215,6 +221,38 @@ async function tryLoadImage(url) {
   }
 }
 
+async function loadBossBackground(def, kind) {
+  const bossId = String(def?.id || "").toLowerCase();
+  const eventKey = String(def?.event || "").toLowerCase();
+  const phase = String(kind || "").toLowerCase();
+  const files = [
+    `${bossId}_${phase}.png`,
+    `${bossId}_${phase}.jpg`,
+    `${bossId}_${phase}.jpeg`,
+    `${bossId}_${phase}.webp`,
+    `${eventKey}_${phase}.png`,
+    `${eventKey}_${phase}.jpg`,
+    `${eventKey}_${phase}.jpeg`,
+    `${eventKey}_${phase}.webp`,
+    `${phase}.png`,
+    `${phase}.jpg`,
+    `${phase}.jpeg`,
+    `${phase}.webp`,
+    "default.png",
+    "default.jpg",
+    "default.jpeg",
+    "default.webp",
+  ];
+  for (const file of files) {
+    const full = path.join(BOSS_BG_DIR, file);
+    if (!fs.existsSync(full)) continue;
+    try {
+      return await loadImage(full);
+    } catch {}
+  }
+  return null;
+}
+
 function hpBar(ctx, x, y, w, h, pct, theme) {
   rr(ctx, x, y, w, h, 12);
   ctx.fillStyle = "rgba(0,0,0,0.45)";
@@ -233,18 +271,27 @@ function hpBar(ctx, x, y, w, h, pct, theme) {
 }
 
 async function buildBossIntroImage(def, opts = {}) {
-  const w = 1600;
-  const h = 900;
+  const w = BOSS_W;
+  const h = BOSS_H;
   const canvas = createCanvas(w, h);
   const ctx = canvas.getContext("2d");
   const theme = getTheme(def?.event);
 
-  const bg = ctx.createLinearGradient(0, 0, w, h);
-  bg.addColorStop(0, theme.bgA);
-  bg.addColorStop(0.45, theme.bgB);
-  bg.addColorStop(1, theme.bgC);
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, w, h);
+  const customBg = await loadBossBackground(def, "intro");
+  if (customBg) {
+    ctx.drawImage(customBg, 0, 0, w, h);
+    ctx.save();
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    ctx.fillRect(0, 0, w, h);
+    ctx.restore();
+  } else {
+    const bg = ctx.createLinearGradient(0, 0, w, h);
+    bg.addColorStop(0, theme.bgA);
+    bg.addColorStop(0.45, theme.bgB);
+    bg.addColorStop(1, theme.bgC);
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, w, h);
+  }
   particles(ctx, w, h, theme.particles, 420);
   drawEnergyStreaks(ctx, w, h, theme, 20);
   drawScanlines(ctx, w, h, 0.03);
@@ -340,18 +387,27 @@ async function buildBossIntroImage(def, opts = {}) {
 }
 
 async function buildBossResultImage(def, opts = {}) {
-  const w = 1600;
-  const h = 900;
+  const w = BOSS_W;
+  const h = BOSS_H;
   const canvas = createCanvas(w, h);
   const ctx = canvas.getContext("2d");
   const theme = getTheme(def?.event);
 
-  const bg = ctx.createLinearGradient(0, 0, w, h);
-  bg.addColorStop(0, theme.bgA);
-  bg.addColorStop(0.45, theme.bgB);
-  bg.addColorStop(1, theme.bgC);
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, w, h);
+  const customBg = await loadBossBackground(def, "result");
+  if (customBg) {
+    ctx.drawImage(customBg, 0, 0, w, h);
+    ctx.save();
+    ctx.fillStyle = "rgba(0,0,0,0.38)";
+    ctx.fillRect(0, 0, w, h);
+    ctx.restore();
+  } else {
+    const bg = ctx.createLinearGradient(0, 0, w, h);
+    bg.addColorStop(0, theme.bgA);
+    bg.addColorStop(0.45, theme.bgB);
+    bg.addColorStop(1, theme.bgC);
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, w, h);
+  }
   particles(ctx, w, h, theme.particles, 360);
   drawEnergyStreaks(ctx, w, h, theme, 16);
   drawScanlines(ctx, w, h, 0.03);
