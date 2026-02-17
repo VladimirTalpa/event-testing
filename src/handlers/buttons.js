@@ -5,13 +5,11 @@ const { safeName } = require("../core/utils");
 const { mobEmbed, shopEmbed, wardrobeEmbed } = require("../ui/embeds");
 const { CID, bossButtons, mobButtons, shopButtons, pvpButtons } = require("../ui/components");
 const {
-  MessageFlags,
-  ContainerBuilder,
-  TextDisplayBuilder,
-  SeparatorBuilder,
+  AttachmentBuilder,
 } = require("discord.js");
 const { MOBS } = require("../data/mobs");
 const { BLEACH_SHOP_ITEMS, JJK_SHOP_ITEMS } = require("../data/shop");
+const { buildBossLiveImage } = require("../ui/boss-card");
 
 async function tryGiveRole(guild, userId, roleId) {
   try {
@@ -35,37 +33,30 @@ function ensureOwnedRole(player, roleId) {
   if (!player.ownedRoles.includes(id)) player.ownedRoles.push(id);
 }
 
-function buildBossSpawnV2Payload(boss, channelId) {
-  const fighters = [...boss.participants.values()];
-  const joined = fighters.length;
-  const joinedNames = joined ? fighters.map((p) => safeName(p.displayName)).slice(0, 8).join(", ") : "No fighters yet";
-  const reward =
-    boss.def.winRewardRange
-      ? `${boss.def.winRewardRange.min}-${boss.def.winRewardRange.max}`
-      : `${boss.def.winReward}`;
-  const maxHits = boss.def.maxHits ?? 2;
+function getTopDamageRows(boss, limit = 8) {
+  const rows = [...(boss.damageByUser?.entries() || [])]
+    .map(([uid, dmg]) => ({
+      uid,
+      dmg: Math.max(0, Math.floor(dmg || 0)),
+      name: safeName(boss.participants.get(uid)?.displayName || uid),
+    }))
+    .sort((a, b) => b.dmg - a.dmg);
+  return rows.slice(0, limit);
+}
 
-  const container = new ContainerBuilder()
-    .addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(`## ${boss.def.icon} ${boss.def.name} RAID`)
-    )
-    .addSeparatorComponents(new SeparatorBuilder())
-    .addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(
-        `- Difficulty: **${boss.def.difficulty}**\n` +
-        `- Join Window: **${Math.round(boss.def.joinMs / 1000)}s**\n` +
-        `- Reward: **${reward}** | +**${boss.def.hitReward}** banked\n` +
-        `- Eliminated at: **${maxHits}/${maxHits} hits**\n` +
-        `- Channel: <#${channelId}>`
-      )
-    )
-    .addSeparatorComponents(new SeparatorBuilder())
-    .addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(`**Joined (${joined}):** ${joinedNames}`)
-    )
-    .addActionRowComponents(...bossButtons(!boss.joining));
-
-  return { flags: MessageFlags.IsComponentsV2, components: [container] };
+async function buildBossSpawnPngPayload(boss) {
+  const png = await buildBossLiveImage(boss.def, {
+    phase: "JOIN WINDOW",
+    hpLeft: Math.max(1, Math.floor(boss.currentHp || 1)),
+    hpTotal: Math.max(1, Math.floor(boss.totalHp || boss.currentHp || 1)),
+    topDamage: getTopDamageRows(boss, 7),
+    noteA: `Join time ${Math.round((boss.def?.joinMs || 0) / 1000)}s`,
+    noteB: `Joined ${boss.participants.size}`,
+    noteC: "Press Join Battle to enter",
+  }).catch(() => null);
+  if (!png) return null;
+  const file = new AttachmentBuilder(png, { name: `raid-join-${boss.def.id}.png` });
+  return { files: [file], components: bossButtons(!boss.joining) };
 }
 
 module.exports = async function handleButtons(interaction) {
@@ -95,7 +86,8 @@ module.exports = async function handleButtons(interaction) {
     // update spawn message
     const msg = await channel.messages.fetch(boss.messageId).catch(() => null);
     if (msg) {
-      await msg.edit(buildBossSpawnV2Payload(boss, channel.id)).catch(() => {});
+      const payload = await buildBossSpawnPngPayload(boss);
+      if (payload) await msg.edit(payload).catch(() => {});
     }
 
     await interaction.followUp({ content: "✅ Joined the fight.", ephemeral: true }).catch(() => {});

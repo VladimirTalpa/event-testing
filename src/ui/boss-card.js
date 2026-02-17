@@ -206,7 +206,90 @@ function drawDeadOverlay(ctx, w, h) {
   });
 }
 
-function getTheme(eventKey) {
+function getTheme(defOrEvent) {
+  const eventKey = typeof defOrEvent === "string" ? defOrEvent : String(defOrEvent?.event || "");
+  const bossId = typeof defOrEvent === "string" ? "" : String(defOrEvent?.id || "").toLowerCase();
+
+  if (bossId === "vasto") {
+    return {
+      bgA: "#060302",
+      bgB: "#180902",
+      bgC: "#351003",
+      line: "rgba(255,148,62,0.88)",
+      panelA: "rgba(24,10,4,0.86)",
+      panelB: "rgba(46,18,7,0.62)",
+      textA: "#ff9a2f",
+      textB: "#ffd18b",
+      glow: "rgba(255,137,41,0.75)",
+      particles: ["255,152,64", "255,112,35", "255,220,170"],
+      ok: "#ffb255",
+      bad: "#b85a2c",
+    };
+  }
+  if (bossId === "ulquiorra") {
+    return {
+      bgA: "#020909",
+      bgB: "#062118",
+      bgC: "#0b3b2d",
+      line: "rgba(74,222,128,0.88)",
+      panelA: "rgba(5,20,14,0.86)",
+      panelB: "rgba(8,42,28,0.62)",
+      textA: "#5eead4",
+      textB: "#86efac",
+      glow: "rgba(74,222,128,0.75)",
+      particles: ["94,234,212", "74,222,128", "187,247,208"],
+      ok: "#86efac",
+      bad: "#2f7d57",
+    };
+  }
+  if (bossId === "grimmjow") {
+    return {
+      bgA: "#020614",
+      bgB: "#081f4b",
+      bgC: "#0b3181",
+      line: "rgba(96,165,250,0.88)",
+      panelA: "rgba(8,20,44,0.86)",
+      panelB: "rgba(12,42,88,0.62)",
+      textA: "#60a5fa",
+      textB: "#93c5fd",
+      glow: "rgba(96,165,250,0.75)",
+      particles: ["96,165,250", "59,130,246", "147,197,253"],
+      ok: "#93c5fd",
+      bad: "#274f88",
+    };
+  }
+  if (bossId === "mahoraga") {
+    return {
+      bgA: "#08030f",
+      bgB: "#1a0830",
+      bgC: "#2e0f52",
+      line: "rgba(167,139,250,0.88)",
+      panelA: "rgba(20,10,35,0.86)",
+      panelB: "rgba(36,16,62,0.62)",
+      textA: "#c4b5fd",
+      textB: "#e9d5ff",
+      glow: "rgba(167,139,250,0.75)",
+      particles: ["167,139,250", "196,181,253", "233,213,255"],
+      ok: "#ddd6fe",
+      bad: "#6b46a8",
+    };
+  }
+  if (bossId === "specialgrade") {
+    return {
+      bgA: "#0f0205",
+      bgB: "#30080f",
+      bgC: "#52101c",
+      line: "rgba(244,63,94,0.88)",
+      panelA: "rgba(34,8,14,0.86)",
+      panelB: "rgba(62,14,24,0.62)",
+      textA: "#fb7185",
+      textB: "#fecdd3",
+      glow: "rgba(244,63,94,0.75)",
+      particles: ["251,113,133", "244,63,94", "254,205,211"],
+      ok: "#fda4af",
+      bad: "#8b2940",
+    };
+  }
   if (eventKey === "bleach") {
     return {
       bgA: "#060302",
@@ -303,7 +386,7 @@ async function buildBossIntroImage(def, opts = {}) {
   const h = BOSS_H;
   const canvas = createCanvas(w, h);
   const ctx = canvas.getContext("2d");
-  const theme = getTheme(def?.event);
+  const theme = getTheme(def);
 
   const customBg = await loadBossBackground(def, "intro");
   if (customBg) {
@@ -419,7 +502,7 @@ async function buildBossResultImage(def, opts = {}) {
   const h = BOSS_H;
   const canvas = createCanvas(w, h);
   const ctx = canvas.getContext("2d");
-  const theme = getTheme(def?.event);
+  const theme = getTheme(def);
 
   const customBg = await loadBossBackground(def, "result");
   if (customBg) {
@@ -538,7 +621,7 @@ async function buildBossLiveImage(def, opts = {}) {
   const h = BOSS_H;
   const canvas = createCanvas(w, h);
   const ctx = canvas.getContext("2d");
-  const theme = getTheme(def?.event);
+  const theme = getTheme(def);
 
   const customBg = await loadBossBackground(def, "live");
   if (customBg) {
@@ -646,7 +729,7 @@ async function buildBossRewardImage(def, opts = {}) {
   const h = BOSS_H;
   const canvas = createCanvas(w, h);
   const ctx = canvas.getContext("2d");
-  const theme = getTheme(def?.event);
+  const theme = getTheme(def);
 
   const customBg = await loadBossBackground(def, "reward");
   if (customBg) {
