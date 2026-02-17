@@ -31,6 +31,7 @@ const { buildExchangeImage } = require("../ui/exchange-card");
 const { spawnBoss } = require("../events/boss");
 const { spawnMob } = require("../events/mob");
 const { pvpById } = require("../core/state");
+const EXCHANGE_CE_EMOJI_ID = "1473448154220335339";
 
 function isAllowedSpawnChannel(eventKey, channelId) {
   if (eventKey === "bleach") return channelId === BLEACH_CHANNEL_ID;
@@ -160,7 +161,7 @@ module.exports = async function handleSlash(interaction) {
 
     const rate = eventKey === "bleach" ? DRAKO_RATE_BLEACH : DRAKO_RATE_JJK;
     const cost = drakoWanted * rate;
-    const currencyEmoji = eventKey === "bleach" ? E_REIATSU : E_CE;
+    const currencyEmoji = eventKey === "bleach" ? E_REIATSU : `<:ce:${EXCHANGE_CE_EMOJI_ID}>`;
 
     const p = await getPlayer(interaction.user.id);
 
