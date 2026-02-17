@@ -164,7 +164,7 @@ function sanitizeDisplayText(input) {
     .replace(/\*\*/g, "")
     .replace(/__/g, "")
     .replace(/`/g, "")
-    .replace(/[|Â¦]+/g, " ")
+    .replace(/[|¦Â]+/g, " ")
     .replace(/[\r\n\t]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -588,7 +588,7 @@ async function buildBossIntroImage(def, opts = {}) {
 
   ctx.fillStyle = "rgba(245,245,255,0.95)";
   ctx.font = '600 36px "Inter", "Segoe UI", sans-serif';
-  lines.forEach((line, i) => ctx.fillText(`â€¢ ${line}`, 116, 512 + i * 44));
+  lines.forEach((line, i) => ctx.fillText(`- ${line}`, 116, 512 + i * 44));
 
   glowText(ctx, "BATTLE STARTING", 1110, 838, {
     size: 42,
@@ -673,7 +673,7 @@ async function buildBossResultImage(def, opts = {}) {
   ctx.lineWidth = 1.2;
   ctx.stroke();
 
-  const top = Array.isArray(opts.topDamage) ? opts.topDamage.slice(0, 7) : [];
+  const top = Array.isArray(opts.topDamage) ? opts.topDamage.slice(0, 5) : [];
   ctx.fillStyle = "rgba(245,245,255,0.98)";
   ctx.font = '700 40px "Orbitron", "Inter", "Segoe UI", sans-serif';
   ctx.fillText("Top Damage", 118, 428);
@@ -793,7 +793,7 @@ async function buildBossLiveImage(def, opts = {}) {
   ctx.lineWidth = 1.2;
   ctx.stroke();
 
-  const top = Array.isArray(opts.topDamage) ? opts.topDamage.slice(0, 7) : [];
+  const top = Array.isArray(opts.topDamage) ? opts.topDamage.slice(0, 5) : [];
   ctx.fillStyle = "rgba(245,245,255,0.98)";
   ctx.font = '700 38px "Orbitron", "Inter", "Segoe UI", sans-serif';
   ctx.fillText("Top Damage", 118, 404);
@@ -933,3 +933,4 @@ module.exports = {
   buildBossLiveImage,
   buildBossRewardImage,
 };
+
