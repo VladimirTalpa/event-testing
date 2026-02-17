@@ -114,11 +114,11 @@ function rr(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
-function neonGradient(ctx, x, y, text) {
+function neonGradient(ctx, x, y, text, c1 = "#22d3ee", c2 = "#e879f9") {
   const w = Math.max(120, ctx.measureText(String(text)).width);
   const g = ctx.createLinearGradient(x, y, x + w, y);
-  g.addColorStop(0, "#22d3ee");
-  g.addColorStop(1, "#e879f9");
+  g.addColorStop(0, c1);
+  g.addColorStop(1, c2);
   return g;
 }
 
@@ -140,10 +140,12 @@ function drawGradientText(ctx, text, x, y, opts = {}) {
     stroke = "rgba(16, 24, 40, 0.95)",
     strokeWidth = 3,
     glow = "rgba(34,211,238,0.5)",
+    gradA = "#22d3ee",
+    gradB = "#e879f9",
   } = opts;
 
   ctx.font = `${weight} ${size}px ${family}`;
-  const grad = neonGradient(ctx, x, y, text);
+  const grad = neonGradient(ctx, x, y, text, gradA, gradB);
 
   ctx.save();
   ctx.lineJoin = "round";
@@ -160,16 +162,21 @@ function drawGradientText(ctx, text, x, y, opts = {}) {
   ctx.restore();
 }
 
-function drawParticles(ctx, width, height) {
-  for (let i = 0; i < 340; i++) {
+function drawParticles(ctx, width, height, palette = ["255,255,255"], count = 340) {
+  for (let i = 0; i < count; i++) {
     const x = Math.random() * width;
     const y = Math.random() * height;
     const r = 0.5 + Math.random() * 2.3;
     const a = 0.05 + Math.random() * 0.25;
-    ctx.fillStyle = `rgba(255,255,255,${a.toFixed(3)})`;
+    const rgb = palette[i % palette.length] || "255,255,255";
+    ctx.save();
+    ctx.shadowColor = `rgba(${rgb}, ${Math.min(a + 0.25, 0.88).toFixed(3)})`;
+    ctx.shadowBlur = 8 + Math.random() * 14;
+    ctx.fillStyle = `rgba(${rgb},${a.toFixed(3)})`;
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fill();
+    ctx.restore();
   }
 }
 
@@ -304,24 +311,30 @@ async function buildInventoryImage(eventKey, player, user, bonusMaxBleach = 30, 
 
   const colors = isBleach
     ? {
-        bg1: "#050524",
-        bg2: "#1a0b4f",
-        bg3: "#2a0b5f",
-        panelA: "rgba(15,23,42,0.7)",
-        panelB: "rgba(30,41,59,0.52)",
-        stroke: "rgba(167,139,250,0.7)",
-        accentBlue: "rgba(34,211,238,0.95)",
-        accentPink: "rgba(232,121,249,0.95)",
+        bg1: "#060302",
+        bg2: "#1a0902",
+        bg3: "#321203",
+        panelA: "rgba(22,10,4,0.76)",
+        panelB: "rgba(46,18,7,0.58)",
+        stroke: "rgba(251,146,60,0.78)",
+        accentBlue: "rgba(251,146,60,0.97)",
+        accentPink: "rgba(255,212,133,0.97)",
+        gradA: "#ff8a00",
+        gradB: "#ffd06b",
+        particlePalette: ["255,180,95", "255,120,50", "255,220,170"],
       }
     : {
-        bg1: "#021524",
-        bg2: "#063544",
-        bg3: "#0a4e61",
-        panelA: "rgba(15,23,42,0.7)",
-        panelB: "rgba(30,41,59,0.52)",
-        stroke: "rgba(94,234,212,0.7)",
-        accentBlue: "rgba(34,211,238,0.95)",
-        accentPink: "rgba(232,121,249,0.95)",
+        bg1: "#030303",
+        bg2: "#160406",
+        bg3: "#2d070b",
+        panelA: "rgba(22,8,10,0.76)",
+        panelB: "rgba(45,10,14,0.58)",
+        stroke: "rgba(248,113,113,0.78)",
+        accentBlue: "rgba(248,113,113,0.97)",
+        accentPink: "rgba(239,68,68,0.97)",
+        gradA: "#ff7070",
+        gradB: "#ff1f4d",
+        particlePalette: ["255,120,120", "255,70,90", "255,180,180"],
       };
 
   const topShift = 26;
@@ -331,8 +344,8 @@ async function buildInventoryImage(eventKey, player, user, bonusMaxBleach = 30, 
   if (template) {
     ctx.drawImage(template, 0, 0, width, height);
     ctx.save();
-    ctx.globalAlpha = 0.2;
-    drawParticles(ctx, width, height);
+    ctx.globalAlpha = 0.35;
+    drawParticles(ctx, width, height, colors.particlePalette, 380);
     ctx.restore();
   } else {
     const bg = ctx.createLinearGradient(0, 0, width, height);
@@ -342,7 +355,7 @@ async function buildInventoryImage(eventKey, player, user, bonusMaxBleach = 30, 
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, width, height);
 
-    drawParticles(ctx, width, height);
+    drawParticles(ctx, width, height, colors.particlePalette, 420);
 
     rr(ctx, 32, 32, width - 64, height - 64, 30);
     ctx.strokeStyle = "rgba(255,255,255,0.22)";
@@ -380,6 +393,8 @@ async function buildInventoryImage(eventKey, player, user, bonusMaxBleach = 30, 
     size: 86,
     strokeWidth: 4,
     glow: colors.accentPink,
+    gradA: colors.gradA,
+    gradB: colors.gradB,
   });
 
   drawGradientText(ctx, user?.username || "unknown", 410, 244 + topShift, {
@@ -388,6 +403,8 @@ async function buildInventoryImage(eventKey, player, user, bonusMaxBleach = 30, 
     family: '"Inter", "Segoe UI", sans-serif',
     strokeWidth: 3,
     glow: colors.accentBlue,
+    gradA: colors.gradA,
+    gradB: colors.gradB,
   });
 
   const powerText = n(power);
@@ -397,6 +414,8 @@ async function buildInventoryImage(eventKey, player, user, bonusMaxBleach = 30, 
     size: powerSize,
     strokeWidth: 3,
     glow: colors.accentPink,
+    gradA: colors.gradA,
+    gradB: colors.gradB,
   });
 
   ctx.save();
@@ -427,6 +446,8 @@ async function buildInventoryImage(eventKey, player, user, bonusMaxBleach = 30, 
     size: 74,
     strokeWidth: 4,
     glow: colors.accentBlue,
+    gradA: colors.gradA,
+    gradB: colors.gradB,
   });
 
   const slots = isBleach
