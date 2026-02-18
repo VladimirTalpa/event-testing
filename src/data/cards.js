@@ -41,10 +41,11 @@ const CARD_POOL = {
 };
 
 const RARITY_WEIGHTS = [
-  { rarity: "Common", weight: 60 },
+  { rarity: "Common", weight: 58 },
   { rarity: "Rare", weight: 27 },
   { rarity: "Epic", weight: 10 },
-  { rarity: "Legendary", weight: 3 },
+  { rarity: "Legendary", weight: 4 },
+  { rarity: "Mythic", weight: 1 },
 ];
 
 const RARITY_COLORS = {
@@ -53,15 +54,29 @@ const RARITY_COLORS = {
   Epic: "#be6cff",
   Legendary: "#ffb347",
   Mythic: "#ffd86b",
+  common: "#c8d0e0",
+  rare: "#53ccff",
+  epic: "#be6cff",
+  legendary: "#ffb347",
+  mythic: "#ffd86b",
 };
 
 const CARD_MAX_LEVEL = 20;
 
-function pickRarity() {
-  const total = RARITY_WEIGHTS.reduce((sum, x) => sum + Number(x.weight || 0), 0);
+function normalizeRarityName(value) {
+  const v = String(value || "").trim().toLowerCase();
+  if (v === "mythic") return "Mythic";
+  if (v === "legendary") return "Legendary";
+  if (v === "epic") return "Epic";
+  if (v === "rare") return "Rare";
+  return "Common";
+}
+
+function pickRarity(weights = RARITY_WEIGHTS) {
+  const total = weights.reduce((sum, x) => sum + Number(x.weight || 0), 0);
   const roll = Math.random() * (total || 1);
   let acc = 0;
-  for (const r of RARITY_WEIGHTS) {
+  for (const r of weights) {
     acc += Number(r.weight || 0);
     if (roll <= acc) return r.rarity;
   }
@@ -117,8 +132,10 @@ function rollCard(eventKey) {
   const ek = eventKey === "jjk" ? "jjk" : "bleach";
   const pool = CARD_POOL[ek] || [];
   if (!pool.length) return null;
-  const rarity = pickRarity();
-  const byRarity = pool.filter((c) => c.rarity === rarity);
+  const available = new Set(pool.map((c) => normalizeRarityName(c?.rarity)));
+  const activeWeights = RARITY_WEIGHTS.filter((x) => available.has(x.rarity));
+  const rarity = pickRarity(activeWeights.length ? activeWeights : RARITY_WEIGHTS);
+  const byRarity = pool.filter((c) => normalizeRarityName(c?.rarity) === rarity);
   return randomFrom(byRarity.length ? byRarity : pool);
 }
 
