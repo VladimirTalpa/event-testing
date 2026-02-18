@@ -28,6 +28,7 @@ const { buildInventoryImage } = require("../ui/inventory-card");
 const { buildBossResultImage, buildBossRewardImage, buildBossLiveImage } = require("../ui/boss-card");
 const { buildExchangeImage } = require("../ui/exchange-card");
 const { buildShopV2Payload } = require("../ui/shop-v2");
+const { buildPackOpeningImage, buildCardRevealImage } = require("../ui/card-pack");
 const { findCard, getCardById, cardStatsAtLevel, cardPower, CARD_MAX_LEVEL, CARD_POOL } = require("../data/cards");
 
 const { spawnBoss } = require("../events/boss");
@@ -110,6 +111,47 @@ module.exports = async function handleSlash(interaction) {
       selectedKey: null,
       withFlags: true,
     }));
+  }
+
+  if (interaction.commandName === "testcardpull") {
+    if (!hasEventRole(interaction.member)) {
+      return interaction.reply({ content: "No permission.", ephemeral: true });
+    }
+
+    const eventKey = "bleach";
+    const card = getCardById(eventKey, "bl_ichigo");
+    if (!card) return interaction.reply({ content: "bl_ichigo not found in card pool.", ephemeral: true });
+
+    const p = await getPlayer(interaction.user.id);
+    if (!p.cards || typeof p.cards !== "object") p.cards = { bleach: {}, jjk: {} };
+    if (!p.cards.bleach) p.cards.bleach = {};
+    if (!p.cards.jjk) p.cards.jjk = {};
+    if (!p.cardLevels || typeof p.cardLevels !== "object") p.cardLevels = { bleach: {}, jjk: {} };
+    if (!p.cardLevels.bleach) p.cardLevels.bleach = {};
+    if (!p.cardLevels.jjk) p.cardLevels.jjk = {};
+
+    const afterCount = Math.max(0, Number(p.cards.bleach[card.id] || 0)) + 1;
+    p.cards.bleach[card.id] = afterCount;
+    if (!p.cardLevels.bleach[card.id]) p.cardLevels.bleach[card.id] = 1;
+    await setPlayer(interaction.user.id, p);
+
+    const openingPng = await buildPackOpeningImage({
+      eventKey,
+      username: interaction.user.username,
+      packName: "Bleach Test Pack",
+    });
+    const openingFile = new AttachmentBuilder(openingPng, { name: "test-opening-bleach.png" });
+    await interaction.reply({ files: [openingFile], ephemeral: true });
+
+    const revealPng = await buildCardRevealImage({
+      eventKey,
+      username: interaction.user.username,
+      card,
+      countOwned: afterCount,
+      level: p.cardLevels.bleach[card.id] || 1,
+    });
+    const revealFile = new AttachmentBuilder(revealPng, { name: "test-card-ichigo.png" });
+    return interaction.followUp({ files: [revealFile], ephemeral: true });
   }
 
   if (interaction.commandName === "cards") {

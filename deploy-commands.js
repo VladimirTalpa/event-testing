@@ -126,6 +126,10 @@ const commands = [
     .addUserOption((opt) => opt.setName("user").setDescription("Opponent").setRequired(true))
     .addStringOption((opt) => opt.setName("enemy_card").setDescription("Enemy card id/name (optional, else strongest)").setRequired(false)),
 
+  new SlashCommandBuilder()
+    .setName("testcardpull")
+    .setDescription("Test pull: always gives bl_ichigo (staff only)"),
+
   //  pvpclash
   new SlashCommandBuilder()
     .setName("pvpclash")
