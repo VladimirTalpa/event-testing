@@ -23,9 +23,29 @@ function safeName(v) {
 function resolveCardArtPath(eventKey, cardId) {
   const ek = eventKey === "jjk" ? "jjk" : "bleach";
   const base = path.join(CARD_LIBRARY_ROOT, ek);
+  const wanted = String(cardId || "").toLowerCase();
+  if (!wanted || !fs.existsSync(base)) return null;
+
+  // Fast path: exact filename by known extensions
   for (const ext of IMG_EXTS) {
-    const p = path.join(base, `${cardId}${ext}`);
+    const p = path.join(base, `${wanted}${ext}`);
     if (fs.existsSync(p)) return p;
+  }
+
+  // Robust path: case-insensitive scan by basename
+  let files = [];
+  try {
+    files = fs.readdirSync(base, { withFileTypes: true })
+      .filter((d) => d.isFile())
+      .map((d) => d.name);
+  } catch {
+    return null;
+  }
+  for (const name of files) {
+    const ext = path.extname(name).toLowerCase();
+    if (!IMG_EXTS.includes(ext)) continue;
+    const bn = path.basename(name, ext).toLowerCase();
+    if (bn === wanted) return path.join(base, name);
   }
   return null;
 }
@@ -86,7 +106,12 @@ function buildCardsBookPayload({ eventKey, targetId, targetName, ownerId, rows, 
       if (!artPath) continue;
       const ext = path.extname(artPath) || ".png";
       const fileName = `card-${ek}-${row.card.id}-${p}-${idx}${ext}`;
-      files.push({ attachment: artPath, name: fileName });
+      try {
+        const buf = fs.readFileSync(artPath);
+        files.push({ attachment: buf, name: fileName });
+      } catch {
+        continue;
+      }
       try {
         gallery.addItems(
           new MediaGalleryItemBuilder().setURL(`attachment://${fileName}`)
@@ -134,4 +159,3 @@ module.exports = {
   collectRowsForPlayer,
   buildCardsBookPayload,
 };
-
