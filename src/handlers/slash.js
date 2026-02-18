@@ -201,7 +201,7 @@ module.exports = async function handleSlash(interaction) {
     const times = Math.max(1, Number(interaction.options.getInteger("times") || 1));
     const p = await getPlayer(interaction.user.id);
     const card = findCard(eventKey, query);
-    if (!card) return interaction.reply({ content: "Card not found. Use exact id or close name.", ephemeral: true });
+    if (!card) return interaction.reply({ content: "Card not found. Use id or close name.", ephemeral: true });
 
     if (!p.cards || typeof p.cards !== "object") p.cards = { bleach: {}, jjk: {} };
     if (!p.cardLevels || typeof p.cardLevels !== "object") p.cardLevels = { bleach: {}, jjk: {} };
@@ -214,9 +214,9 @@ module.exports = async function handleSlash(interaction) {
     const levels = eventKey === "bleach" ? p.cardLevels.bleach : p.cardLevels.jjk;
     let amount = Math.max(0, Number(cardsMap[card.id] || 0));
     let level = Math.max(1, Number(levels[card.id] || 1));
+    if (amount <= 0) return interaction.reply({ content: "You do not own this card yet.", ephemeral: true });
 
-    if (amount <= 0) return interaction.reply({ content: "You don't own this card yet.", ephemeral: true });
-
+    const levelBefore = level;
     let upgraded = 0;
     let spentDup = 0;
     let spentDrako = 0;
@@ -224,17 +224,18 @@ module.exports = async function handleSlash(interaction) {
 
     for (let i = 0; i < times; i++) {
       if (level >= CARD_MAX_LEVEL) {
-        stopReason = `Card is already max level (${CARD_MAX_LEVEL}).`;
+        stopReason = "Card is already max level (" + CARD_MAX_LEVEL + ").";
         break;
       }
       const dupNeed = Math.max(1, Math.floor(level / 3) + 1);
       const drakoNeed = 25 * level;
-      if (amount <= dupNeed) {
-        stopReason = `Need ${dupNeed} duplicates (and keep 1 copy).`;
+      const usableDup = Math.max(0, amount - 1);
+      if (usableDup < dupNeed) {
+        stopReason = "Need " + dupNeed + " duplicates for next level (usable now: " + usableDup + ").";
         break;
       }
       if (p.drako < drakoNeed) {
-        stopReason = `Need ${drakoNeed} Drako for next upgrade.`;
+        stopReason = "Need " + drakoNeed + " Drako for next upgrade.";
         break;
       }
 
@@ -250,22 +251,56 @@ module.exports = async function handleSlash(interaction) {
     levels[card.id] = level;
     await setPlayer(interaction.user.id, p);
 
-    const stats = cardStatsAtLevel(card, level);
+    const statsNow = cardStatsAtLevel(card, level);
+    const nextDupNeed = level >= CARD_MAX_LEVEL ? 0 : Math.max(1, Math.floor(level / 3) + 1);
+    const nextDrakoNeed = level >= CARD_MAX_LEVEL ? 0 : 25 * level;
+
+    const container = new ContainerBuilder()
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          "## CARD LEVEL UP | " + eventKey.toUpperCase() + "\n" +
+          "Card: **" + card.name + "**\n" +
+          "Level: **" + levelBefore + " -> " + level + "**"
+        )
+      )
+      .addSeparatorComponents(new SeparatorBuilder());
+
     if (upgraded <= 0) {
+      container.addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          "Status: **No upgrade applied**\n" +
+          "Reason: " + (stopReason || "Requirements not met.") + "\n" +
+          "Owned: **x" + amount + "** | Drako: **" + p.drako + "**"
+        )
+      );
       return interaction.reply({
-        content:
-          `Cannot upgrade **${card.name}** (Lv.${level}). ${stopReason}\n` +
-          `Current: x${amount} cards • Drako ${p.drako}`,
-        ephemeral: true,
+        components: [container],
+        flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
       });
     }
 
+    container
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          "Upgraded: **+" + upgraded + " level(s)**\n" +
+          "Spent: **" + spentDup + " duplicates** + **" + spentDrako + " Drako**\n" +
+          "Current Stats: DMG **" + statsNow.dmg + "** | DEF **" + statsNow.def + "** | HP **" + statsNow.hp + "** | PWR **" + cardPower(statsNow) + "**"
+        )
+      )
+      .addSeparatorComponents(new SeparatorBuilder())
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          level >= CARD_MAX_LEVEL
+            ? "Max level reached."
+            : ("Next cost: **" + nextDupNeed + " duplicates** + **" + nextDrakoNeed + " Drako**\n" +
+              "Remaining: **x" + amount + "** cards | **" + p.drako + "** Drako" +
+              (stopReason ? "\nNote: " + stopReason : ""))
+        )
+      );
+
     return interaction.reply({
-      content:
-        `Upgraded **${card.name}** to **Lv.${level}** (+${upgraded}).\n` +
-        `Spent: ${spentDup} duplicates + ${spentDrako} Drako\n` +
-        `Now: DMG ${stats.dmg} • DEF ${stats.def} • HP ${stats.hp} • Power ${cardPower(stats)}\n` +
-        (stopReason ? `Note: ${stopReason}` : ""),
+      components: [container],
+      flags: MessageFlags.IsComponentsV2,
       ephemeral: false,
     });
   }
@@ -347,23 +382,46 @@ module.exports = async function handleSlash(interaction) {
     await setPlayer(interaction.user.id, me);
     await setPlayer(enemy.id, op);
 
+    const eventCurrency = eventKey === "bleach" ? "Reiatsu" : "Cursed Energy";
+    const container = new ContainerBuilder()
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          "## CARD SLASH | " + eventKey.toUpperCase() + "\n" +
+          "<@" + interaction.user.id + "> vs <@" + enemy.id + ">"
+        )
+      )
+      .addSeparatorComponents(new SeparatorBuilder())
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          "### Matchup\n" +
+          "- <@" + interaction.user.id + ">: **" + myCard.name + "** (Lv." + myLevel + ", PWR " + myPower + ")\n" +
+          "- <@" + enemy.id + ">: **" + enemyPick.card.name + "** (Lv." + enemyPick.level + ", PWR " + enemyPick.power + ")"
+        )
+      )
+      .addSeparatorComponents(new SeparatorBuilder())
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          "### Result\n" +
+          "- Winner: <@" + winnerId + ">\n" +
+          "- Loser: <@" + loserId + ">\n" +
+          "- Impact: **" + diff + "**"
+        )
+      )
+      .addSeparatorComponents(new SeparatorBuilder())
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          "### Rewards\n" +
+          "- Winner: **+" + winnerEventReward + " " + eventCurrency + "** + **" + winnerDrakoReward + " Drako**\n" +
+          "- Loser: **+" + loserEventReward + " " + eventCurrency + "** + **" + loserDrakoReward + " Drako**"
+        )
+      );
+
     return interaction.reply({
-      content:
-        `## CARD SLASH // ${eventKey.toUpperCase()}\n` +
-        `### Matchup\n` +
-        `- <@${interaction.user.id}> -> **${myCard.name}** (Lv.${myLevel}, Power ${myPower})\n` +
-        `- <@${enemy.id}> -> **${enemyPick.card.name}** (Lv.${enemyPick.level}, Power ${enemyPick.power})\n` +
-        `\n### Result\n` +
-        `- Winner: <@${winnerId}>\n` +
-        `- Loser: <@${loserId}>\n` +
-        `- Impact: **${diff}**\n` +
-        `\n### Rewards\n` +
-        `- Winner <@${winnerId}>: **+${winnerEventReward} ${eventKey === "bleach" ? "Reiatsu" : "Cursed Energy"}** + **${winnerDrakoReward} Drako**\n` +
-        `- Loser <@${loserId}>: **+${loserEventReward} ${eventKey === "bleach" ? "Reiatsu" : "Cursed Energy"}** + **${loserDrakoReward} Drako**`,
+      components: [container],
+      flags: MessageFlags.IsComponentsV2,
       ephemeral: false,
     });
   }
-
   if (interaction.commandName === "leaderboard") {
     const eventKey = interaction.options.getString("event", true);
     const rows = await getTopPlayers(eventKey, 10);
