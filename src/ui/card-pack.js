@@ -224,8 +224,16 @@ async function loadCardArt(eventKey, cardId) {
 
   const ek = eventKey === "jjk" ? "jjk" : "bleach";
   const eventLibraryBase = path.join(CARD_LIBRARY_ROOT, ek);
+  const repoRoot = path.join(__dirname, "..", "..");
   const exts = ["png", "jpg", "jpeg", "webp"];
-  const bases = [eventLibraryBase];
+  const bases = Array.from(new Set([
+    eventLibraryBase,
+    path.join(repoRoot, "assets", "cards", ek),
+    path.join(repoRoot, "assets", "cards"),
+    path.join(repoRoot, "assets", "templates", ek),
+    path.join(repoRoot, "assets", "templates", "cards", ek),
+    path.join(repoRoot, "assets", "templates"),
+  ]));
   const aliases = Array.from(new Set([
     String(cardId || "").toLowerCase(),
     String(cardId || "").toLowerCase().replace(/^bl_/, ""),

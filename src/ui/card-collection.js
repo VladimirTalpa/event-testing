@@ -43,14 +43,25 @@ function fitContain(srcW, srcH, boxW, boxH) {
 }
 
 async function loadCardArt(eventKey, cardId) {
-  const base = path.join(CARD_LIBRARY_ROOT, eventKey === "jjk" ? "jjk" : "bleach");
+  const ek = eventKey === "jjk" ? "jjk" : "bleach";
+  const repoRoot = path.join(__dirname, "..", "..");
+  const bases = Array.from(new Set([
+    path.join(CARD_LIBRARY_ROOT, ek),
+    path.join(repoRoot, "assets", "cards", ek),
+    path.join(repoRoot, "assets", "cards"),
+    path.join(repoRoot, "assets", "templates", ek),
+    path.join(repoRoot, "assets", "templates", "cards", ek),
+    path.join(repoRoot, "assets", "templates"),
+  ]));
   const exts = ["png", "jpg", "jpeg", "webp"];
-  for (const ext of exts) {
-    const p = path.join(base, `${cardId}.${ext}`);
-    if (!fs.existsSync(p)) continue;
-    try {
-      return await loadImage(p);
-    } catch {}
+  for (const base of bases) {
+    for (const ext of exts) {
+      const p = path.join(base, `${cardId}.${ext}`);
+      if (!fs.existsSync(p)) continue;
+      try {
+        return await loadImage(p);
+      } catch {}
+    }
   }
   return null;
 }
