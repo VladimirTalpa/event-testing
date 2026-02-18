@@ -6,6 +6,7 @@ const { registerCanvasFonts } = require("./fonts");
 
 const CARDS_ROOT = path.join(__dirname, "..", "..", "assets", "cards");
 const TEMPLATES_ROOT = path.join(__dirname, "..", "..", "assets", "templates");
+const artPathCache = new Map();
 
 function rr(ctx, x, y, w, h, r) {
   const radius = Math.max(0, Math.min(r, Math.floor(Math.min(w, h) / 2)));
@@ -134,20 +135,69 @@ function drawCardBack(ctx, x, y, w, h, theme) {
 }
 
 async function loadCardArt(eventKey, cardId) {
+  const cacheKey = `${eventKey}:${cardId}`;
+  if (artPathCache.has(cacheKey)) {
+    const cached = artPathCache.get(cacheKey);
+    if (!cached) return null;
+    try { return await loadImage(cached); } catch {}
+  }
+
   const ek = eventKey === "jjk" ? "jjk" : "bleach";
   const eventBase = path.join(CARDS_ROOT, ek);
   const genericBase = CARDS_ROOT;
   const exts = ["png", "jpg", "jpeg", "webp"];
   const bases = [eventBase, genericBase, TEMPLATES_ROOT];
+  const aliases = Array.from(new Set([
+    String(cardId || "").toLowerCase(),
+    String(cardId || "").toLowerCase().replace(/^bl_/, ""),
+    String(cardId || "").toLowerCase().replace(/^jjk_/, ""),
+    String(cardId || "").toLowerCase().replace(/^nl_/, ""),
+  ])).filter(Boolean);
+
+  function allFilesRecursive(dir) {
+    const out = [];
+    if (!fs.existsSync(dir)) return out;
+    const stack = [dir];
+    while (stack.length) {
+      const cur = stack.pop();
+      let ents = [];
+      try { ents = fs.readdirSync(cur, { withFileTypes: true }); } catch { continue; }
+      for (const ent of ents) {
+        const p = path.join(cur, ent.name);
+        if (ent.isDirectory()) stack.push(p);
+        else out.push(p);
+      }
+    }
+    return out;
+  }
+
   for (const ext of exts) {
     for (const base of bases) {
       const p = path.join(base, `${cardId}.${ext}`);
       if (!fs.existsSync(p)) continue;
       try {
+        artPathCache.set(cacheKey, p);
         return await loadImage(p);
       } catch {}
     }
   }
+
+  // Fallback: recursive + alias-based filename match
+  const all = bases.flatMap((b) => allFilesRecursive(b));
+  for (const p of all) {
+    const ext = path.extname(p).toLowerCase().replace(".", "");
+    if (!exts.includes(ext)) continue;
+    const name = path.basename(p, path.extname(p)).toLowerCase();
+    if (aliases.includes(name) || aliases.some((a) => name.includes(a))) {
+      try {
+        artPathCache.set(cacheKey, p);
+        return await loadImage(p);
+      } catch {}
+    }
+  }
+
+  artPathCache.set(cacheKey, null);
+  console.warn(`[cards] art not found for ${cardId} in assets/cards or assets/templates`);
   return null;
 }
 
