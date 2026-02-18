@@ -29,6 +29,19 @@ function fitText(ctx, text, maxWidth) {
   return `${out}...`;
 }
 
+function fitContain(srcW, srcH, boxW, boxH) {
+  const sw = Math.max(1, Number(srcW || 1));
+  const sh = Math.max(1, Number(srcH || 1));
+  const bw = Math.max(1, Number(boxW || 1));
+  const bh = Math.max(1, Number(boxH || 1));
+  const scale = Math.min(bw / sw, bh / sh);
+  const w = Math.floor(sw * scale);
+  const h = Math.floor(sh * scale);
+  const x = Math.floor((bw - w) / 2);
+  const y = Math.floor((bh - h) / 2);
+  return { x, y, w, h };
+}
+
 async function loadCardArt(eventKey, cardId) {
   const base = path.join(CARD_LIBRARY_ROOT, eventKey === "jjk" ? "jjk" : "bleach");
   const exts = ["png", "jpg", "jpeg", "webp"];
@@ -46,8 +59,8 @@ async function buildCardCollectionImage({ eventKey = "bleach", username = "Playe
   registerCanvasFonts();
 
   const cols = 4;
-  const cardW = 270;
-  const cardH = 390;
+  const cardW = 250;
+  const cardH = 370;
   const gap = 18;
   const pad = 28;
   const rows = Math.max(1, Math.ceil(Math.max(1, ownedRows.length) / cols));
@@ -96,26 +109,27 @@ async function buildCardCollectionImage({ eventKey = "bleach", username = "Playe
     const row = ownedRows[i];
     const rarityColor = RARITY_COLORS[row.card.rarity] || "#c8d0e0";
 
-    rr(ctx, x - 5, y - 5, cardW + 10, cardH + 10, 18);
+    rr(ctx, x - 4, y - 4, cardW + 8, cardH + 8, 14);
     ctx.fillStyle = "rgba(0,0,0,0.26)";
     ctx.fill();
-    rr(ctx, x, y, cardW, cardH, 16);
-    ctx.fillStyle = "rgba(10,10,16,0.92)";
+    rr(ctx, x, y, cardW, cardH, 12);
+    ctx.fillStyle = "rgba(8,8,12,0.95)";
     ctx.fill();
     ctx.strokeStyle = rarityColor;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 1.6;
     ctx.stroke();
 
     const art = await loadCardArt(eventKey, row.card.id);
-    const artX = x + 12;
-    const artY = y + 12;
-    const artW = cardW - 24;
-    const artH = cardH - 114;
-    rr(ctx, artX, artY, artW, artH, 12);
+    const artX = x + 8;
+    const artY = y + 8;
+    const artW = cardW - 16;
+    const artH = cardH - 74;
+    rr(ctx, artX, artY, artW, artH, 10);
     ctx.save();
     ctx.clip();
     if (art) {
-      ctx.drawImage(art, artX, artY, artW, artH);
+      const fit = fitContain(art.width, art.height, artW, artH);
+      ctx.drawImage(art, artX + fit.x, artY + fit.y, fit.w, fit.h);
     } else {
       const p = ctx.createLinearGradient(artX, artY, artX + artW, artY + artH);
       p.addColorStop(0, "rgba(255,255,255,0.12)");
@@ -128,19 +142,25 @@ async function buildCardCollectionImage({ eventKey = "bleach", username = "Playe
     }
     ctx.restore();
 
-    ctx.font = '800 24px "Orbitron", "Inter", "Segoe UI", sans-serif';
-    ctx.fillStyle = rarityColor;
-    const nm = fitText(ctx, row.card.name, cardW - 22);
-    ctx.fillText(nm, x + 11, y + cardH - 74);
+    rr(ctx, x + 8, y + cardH - 58, cardW - 16, 50, 10);
+    ctx.fillStyle = "rgba(0,0,0,0.62)";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.12)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
 
-    ctx.font = '700 20px "Inter", "Segoe UI", sans-serif';
+    ctx.font = '800 20px "Orbitron", "Inter", "Segoe UI", sans-serif';
+    ctx.fillStyle = rarityColor;
+    const nm = fitText(ctx, row.card.name, cardW - 20);
+    ctx.fillText(nm, x + 12, y + cardH - 35);
+
+    ctx.font = '700 16px "Inter", "Segoe UI", sans-serif';
     ctx.fillStyle = "rgba(235,235,245,0.95)";
-    ctx.fillText(`Lv ${row.level}  x${row.amount}`, x + 11, y + cardH - 44);
-    ctx.fillText(`PWR ${row.power}`, x + cardW - 112, y + cardH - 44);
+    ctx.fillText(`Lv ${row.level} • x${row.amount}`, x + 12, y + cardH - 13);
+    ctx.fillText(`PWR ${row.power}`, x + cardW - 98, y + cardH - 13);
   }
 
   return canvas.toBuffer("image/png");
 }
 
 module.exports = { buildCardCollectionImage };
-
