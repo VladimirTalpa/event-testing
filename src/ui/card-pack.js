@@ -97,6 +97,36 @@ function drawCenteredTitle(ctx, w, theme, title, subtitle) {
   }
 }
 
+function drawOpeningAtmosphere(ctx, w, h, theme) {
+  const v = ctx.createRadialGradient(w * 0.5, h * 0.56, 40, w * 0.5, h * 0.56, Math.max(w, h) * 0.72);
+  v.addColorStop(0, "rgba(255,255,255,0.04)");
+  v.addColorStop(0.5, "rgba(0,0,0,0.14)");
+  v.addColorStop(1, "rgba(0,0,0,0.38)");
+  ctx.fillStyle = v;
+  ctx.fillRect(0, 0, w, h);
+
+  for (let i = 0; i < 12; i++) {
+    const x1 = Math.random() * w;
+    const y1 = 120 + Math.random() * (h - 200);
+    const x2 = x1 + 180 + Math.random() * 440;
+    const y2 = y1 + (-70 + Math.random() * 140);
+    const lg = ctx.createLinearGradient(x1, y1, x2, y2);
+    lg.addColorStop(0, "rgba(255,180,95,0)");
+    lg.addColorStop(0.5, "rgba(255,220,165,0.32)");
+    lg.addColorStop(1, "rgba(255,180,95,0)");
+    ctx.save();
+    ctx.strokeStyle = lg;
+    ctx.lineWidth = 1 + Math.random() * 1.5;
+    ctx.shadowColor = theme.glow;
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.quadraticCurveTo((x1 + x2) / 2, y1 - 22 + Math.random() * 44, x2, y2);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
 function drawCardBack(ctx, x, y, w, h, theme) {
   rr(ctx, x - 6, y - 6, w + 12, h + 12, 30);
   ctx.fillStyle = "rgba(0,0,0,0.28)";
@@ -134,6 +164,54 @@ function drawCardBack(ctx, x, y, w, h, theme) {
   const open = "OPENING";
   const ow = ctx.measureText(open).width;
   ctx.fillText(open, x + (w - ow) / 2, y + h - 54);
+}
+
+function drawOpeningPortal(ctx, x, y, w, h, theme) {
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+
+  const aura = ctx.createRadialGradient(cx, cy, 10, cx, cy, Math.max(w, h) * 0.9);
+  aura.addColorStop(0, "rgba(255,245,210,0.16)");
+  aura.addColorStop(0.35, "rgba(255,180,90,0.14)");
+  aura.addColorStop(1, "rgba(255,160,70,0)");
+  ctx.fillStyle = aura;
+  ctx.fillRect(x - 220, y - 210, w + 440, h + 420);
+
+  for (let i = 0; i < 3; i++) {
+    const r = Math.max(w, h) * (0.43 + i * 0.05);
+    ctx.save();
+    ctx.strokeStyle = i === 1 ? "rgba(255,220,170,0.92)" : "rgba(255,170,84,0.82)";
+    ctx.lineWidth = i === 1 ? 2.4 : 1.5;
+    ctx.shadowColor = theme.glow;
+    ctx.shadowBlur = 18 + i * 6;
+    ctx.setLineDash(i === 2 ? [16, 9] : []);
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, Math.PI * (0.1 + i * 0.02), Math.PI * (1.9 - i * 0.03));
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  for (let i = 0; i < 42; i++) {
+    const px = x - 30 + Math.random() * (w + 60);
+    const py = y - 40 + Math.random() * (h + 80);
+    const pr = 0.8 + Math.random() * 2;
+    const alpha = 0.18 + Math.random() * 0.46;
+    ctx.save();
+    ctx.fillStyle = `rgba(255,220,140,${alpha.toFixed(3)})`;
+    ctx.shadowColor = "rgba(255,220,140,0.9)";
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.arc(px, py, pr, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  const shine = ctx.createLinearGradient(0, y + 42, 0, y + 140);
+  shine.addColorStop(0, "rgba(255,255,255,0.24)");
+  shine.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = shine;
+  rr(ctx, x + 20, y + 18, w - 40, 122, 16);
+  ctx.fill();
 }
 
 async function loadCardArt(eventKey, cardId) {
@@ -308,19 +386,34 @@ async function buildPackOpeningImage({ eventKey = "bleach", username = "Player",
   const theme = eventTheme(eventKey);
 
   drawBackground(ctx, W, H, theme);
+  drawOpeningAtmosphere(ctx, W, H, theme);
   drawCenteredTitle(ctx, W, theme, "CARD OPENING", `Player: ${username}`);
 
-  const cardH = 470;
-  const cardW = 320;
+  const cardH = 492;
+  const cardW = 338;
   const cardX = Math.floor((W - cardW) / 2);
-  const cardY = 186;
+  const cardY = 170;
+  drawOpeningPortal(ctx, cardX, cardY, cardW, cardH, theme);
   drawCardBack(ctx, cardX, cardY, cardW, cardH, theme);
 
-  ctx.font = '700 26px "Inter", "Segoe UI", sans-serif';
-  ctx.fillStyle = "rgba(245,245,255,0.96)";
+  rr(ctx, Math.floor(W / 2) - 252, cardY + cardH + 14, 504, 44, 12);
+  ctx.fillStyle = "rgba(10,10,14,0.58)";
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,0.26)";
+  ctx.lineWidth = 1.1;
+  ctx.stroke();
+
+  const info = String(eventKey || "").toLowerCase() === "jjk" ? "JJK" : "BLEACH";
+  ctx.font = '900 18px "Orbitron", "Inter", "Segoe UI", sans-serif';
+  ctx.fillStyle = theme.accentB;
+  const infoTxt = `${info} PACK`;
+  ctx.fillText(infoTxt, Math.floor(W / 2) - 236, cardY + cardH + 43);
+
+  ctx.font = '700 30px "Inter", "Segoe UI", sans-serif';
+  ctx.fillStyle = "rgba(245,245,255,0.97)";
   const status = fitText(ctx, `Preparing ${packName}...`, W - 120);
   const sw = ctx.measureText(status).width;
-  ctx.fillText(status, (W - sw) / 2, H - 44);
+  ctx.fillText(status, (W - sw) / 2, H - 36);
 
   return canvas.toBuffer("image/png");
 }
