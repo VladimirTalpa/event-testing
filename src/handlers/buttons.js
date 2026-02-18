@@ -15,11 +15,11 @@ const {
 } = require("discord.js");
 const { MOBS } = require("../data/mobs");
 const { BLEACH_SHOP_ITEMS, JJK_SHOP_ITEMS } = require("../data/shop");
-const { CARD_PACKS, CARD_POOL, cardStatsAtLevel, cardPower, rollCard } = require("../data/cards");
+const { CARD_PACKS, rollCard } = require("../data/cards");
 const { buildBossLiveImage } = require("../ui/boss-card");
 const { buildShopV2Payload } = require("../ui/shop-v2");
 const { buildPackOpeningImage, buildCardRevealImage } = require("../ui/card-pack");
-const { buildCardCollectionImage } = require("../ui/card-collection");
+const { collectRowsForPlayer, buildCardsBookPayload } = require("../ui/cards-book-v2");
 const JOIN_HUD_REFRESH_DELAY_MS = 900;
 const joinHudRefreshState = new Map();
 const OPENING_SHOWCASE_DELAY_MS = 1500;

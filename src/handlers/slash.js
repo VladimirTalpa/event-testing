@@ -38,7 +38,7 @@ const { buildBossResultImage, buildBossRewardImage, buildBossLiveImage } = requi
 const { buildExchangeImage } = require("../ui/exchange-card");
 const { buildShopV2Payload } = require("../ui/shop-v2");
 const { buildPackOpeningImage, buildCardRevealImage } = require("../ui/card-pack");
-const { buildCardCollectionImage } = require("../ui/card-collection");
+const { collectRowsForPlayer, buildCardsBookPayload } = require("../ui/cards-book-v2");
 const { findCard, getCardById, cardStatsAtLevel, cardPower, CARD_MAX_LEVEL, CARD_POOL } = require("../data/cards");
 
 const { spawnBoss } = require("../events/boss");
@@ -169,78 +169,22 @@ module.exports = async function handleSlash(interaction) {
     const target = interaction.options.getUser("user") || interaction.user;
     const isPrivate = target.id !== interaction.user.id;
     const p = await getPlayer(target.id);
-    const cardsMap = getEventCardsMap(p, eventKey);
-    const levels = getEventLevelsMap(p, eventKey);
-    const rows = [];
-
-    for (const c of CARD_POOL[eventKey] || []) {
-      const amount = Math.max(0, Number(cardsMap[c.id] || 0));
-      if (amount <= 0) continue;
-      const lv = Math.max(1, Number(levels[c.id] || 1));
-      const stats = cardStatsAtLevel(c, lv);
-      const power = cardPower(stats);
-      rows.push({ c, amount, lv, stats, power });
-    }
-
-    rows.sort((a, b) => b.power - a.power);
+    const rows = collectRowsForPlayer(p, eventKey);
     if (!rows.length) {
       return interaction.reply({ content: `No ${eventKey.toUpperCase()} cards found. Open packs in /shop first.`, ephemeral: true });
     }
-
-    const sorted = rows.slice().sort((a, b) => b.power - a.power);
-    const pageSize = 8;
-    const page = 0;
-    const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
-    const pageRows = sorted.slice(page * pageSize, page * pageSize + pageSize);
-    const imageRows = pageRows.map((x) => ({
-      card: x.c,
-      level: x.lv,
-      amount: x.amount,
-      power: x.power,
-    }));
-
-    const totalCards = rows.reduce((sum, x) => sum + x.amount, 0);
-    const container = new ContainerBuilder()
-      .addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-          `## ${eventKey.toUpperCase()} Collection\n` +
-          `Player: **${safeName(target.username)}**\n` +
-          `Unique: **${rows.length}** • Total Cards: **${totalCards}**`
-        )
-      )
-      .addSeparatorComponents(new SeparatorBuilder())
-      .addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-          `Top Card: **${sorted[0].c.name}** (Lv.${sorted[0].lv}, PWR ${sorted[0].power})\n` +
-          `Book Page: **${page + 1}/${totalPages}** • Cards on page: **${imageRows.length}**`
-        )
-      )
-      .addActionRowComponents(
-        new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId(`cardsbook_nav:${eventKey}:${target.id}:${interaction.user.id}:${page}:prev`)
-            .setLabel("Prev")
-            .setStyle(ButtonStyle.Secondary)
-            .setDisabled(page <= 0),
-          new ButtonBuilder()
-            .setCustomId(`cardsbook_nav:${eventKey}:${target.id}:${interaction.user.id}:${page}:next`)
-            .setLabel("Next")
-            .setStyle(ButtonStyle.Secondary)
-            .setDisabled(page >= totalPages - 1)
-        )
-      );
-
-    const png = await buildCardCollectionImage({
+    const book = buildCardsBookPayload({
       eventKey,
-      username: safeName(target.username),
-      ownedRows: imageRows,
+      targetId: target.id,
+      targetName: safeName(target.username),
+      ownerId: interaction.user.id,
+      rows,
+      page: 0,
     });
-    const file = new AttachmentBuilder(png, { name: `cards-${eventKey}-${target.id}-p${page + 1}.png` });
-
     return interaction.reply({
       flags: MessageFlags.IsComponentsV2 | (isPrivate ? MessageFlags.Ephemeral : 0),
-      components: [container],
-      files: [file],
+      components: book.components,
+      files: book.files,
     });
   }
 
