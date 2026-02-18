@@ -249,6 +249,11 @@ module.exports = async function handleButtons(interaction) {
     }
 
     if (item.type === "pack" || key === CARD_PACKS[eventKey]?.key) {
+      const packEventKey =
+        key === CARD_PACKS.jjk?.key ? "jjk" :
+        key === CARD_PACKS.bleach?.key ? "bleach" :
+        eventKey;
+
       if (eventKey === "bleach") p.bleach.reiatsu -= item.price;
       else p.jjk.cursedEnergy -= item.price;
 
@@ -259,14 +264,14 @@ module.exports = async function handleButtons(interaction) {
       if (!p.cardLevels.bleach || typeof p.cardLevels.bleach !== "object") p.cardLevels.bleach = {};
       if (!p.cardLevels.jjk || typeof p.cardLevels.jjk !== "object") p.cardLevels.jjk = {};
 
-      const rolled = rollCard(eventKey);
+      const rolled = rollCard(packEventKey);
       if (!rolled) {
-        await interaction.followUp({ content: "Pack failed to open. Try again.", ephemeral: true }).catch(() => {});
+        await interaction.followUp({ content: `Pack failed to open for ${packEventKey.toUpperCase()}.`, ephemeral: true }).catch(() => {});
         return;
       }
 
-      const cardStore = eventKey === "bleach" ? p.cards.bleach : p.cards.jjk;
-      const levelStore = eventKey === "bleach" ? p.cardLevels.bleach : p.cardLevels.jjk;
+      const cardStore = packEventKey === "bleach" ? p.cards.bleach : p.cards.jjk;
+      const levelStore = packEventKey === "bleach" ? p.cardLevels.bleach : p.cardLevels.jjk;
       const afterCount = Math.max(0, Number(cardStore[rolled.id] || 0)) + 1;
       cardStore[rolled.id] = afterCount;
       if (!levelStore[rolled.id]) levelStore[rolled.id] = 1;
@@ -275,19 +280,19 @@ module.exports = async function handleButtons(interaction) {
       await editShopMessage(interaction, buildShopV2Payload({ eventKey, player: p, page, selectedKey: key }));
 
       const openingPng = await buildPackOpeningImage({
-        eventKey,
+        eventKey: packEventKey,
         username: interaction.user.username,
         packName: item.name,
       }).catch(() => null);
       if (openingPng) {
-        const openingFile = new AttachmentBuilder(openingPng, { name: `opening-${eventKey}.png` });
+        const openingFile = new AttachmentBuilder(openingPng, { name: `opening-${packEventKey}.png` });
         await interaction.followUp({ files: [openingFile], ephemeral: true }).catch(() => {});
       }
 
       await delay(OPENING_SHOWCASE_DELAY_MS);
 
       const revealPng = await buildCardRevealImage({
-        eventKey,
+        eventKey: packEventKey,
         username: interaction.user.username,
         card: rolled,
         countOwned: afterCount,
@@ -301,7 +306,7 @@ module.exports = async function handleButtons(interaction) {
 
       await interaction
         .followUp({
-          content: `Pulled **${rolled.name}** (${rolled.rarity}) • Owned: **${afterCount}**`,
+          content: `Pulled **${rolled.name}** (${rolled.rarity}) from **${packEventKey.toUpperCase()}** | Owned: **${afterCount}**`,
           ephemeral: true,
         })
         .catch(() => {});
