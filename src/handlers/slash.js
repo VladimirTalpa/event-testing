@@ -1,5 +1,11 @@
 // src/handlers/slash.js
-const { AttachmentBuilder } = require("discord.js");
+const {
+  AttachmentBuilder,
+  MessageFlags,
+  ContainerBuilder,
+  TextDisplayBuilder,
+  SeparatorBuilder,
+} = require("discord.js");
 const { BOSSES } = require("../data/bosses");
 const { MOBS } = require("../data/mobs");
 
@@ -29,6 +35,7 @@ const { buildBossResultImage, buildBossRewardImage, buildBossLiveImage } = requi
 const { buildExchangeImage } = require("../ui/exchange-card");
 const { buildShopV2Payload } = require("../ui/shop-v2");
 const { buildPackOpeningImage, buildCardRevealImage } = require("../ui/card-pack");
+const { buildCardCollectionImage } = require("../ui/card-collection");
 const { findCard, getCardById, cardStatsAtLevel, cardPower, CARD_MAX_LEVEL, CARD_POOL } = require("../data/cards");
 
 const { spawnBoss } = require("../events/boss");
@@ -176,13 +183,41 @@ module.exports = async function handleSlash(interaction) {
       return interaction.reply({ content: `No ${eventKey.toUpperCase()} cards found. Open packs in /shop first.`, ephemeral: true });
     }
 
-    const top = rows.slice(0, 12);
-    const lines = top.map((r, i) =>
-      `${i + 1}. **${r.c.name}** [${r.c.rarity}]  Lv.${r.lv}  x${r.amount}  | DMG ${r.stats.dmg} DEF ${r.stats.def} HP ${r.stats.hp} | Power ${r.power}`
-    );
+    const sorted = rows.sort((a, b) => b.power - a.power).slice(0, 12);
+    const imageRows = sorted.map((x) => ({
+      card: x.c,
+      level: x.lv,
+      amount: x.amount,
+      power: x.power,
+    }));
+    const png = await buildCardCollectionImage({
+      eventKey,
+      username: safeName(target.username),
+      ownedRows: imageRows,
+    });
+    const file = new AttachmentBuilder(png, { name: `cards-${eventKey}-${target.id}.png` });
+
+    const totalCards = rows.reduce((sum, x) => sum + x.amount, 0);
+    const container = new ContainerBuilder()
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          `## ${eventKey.toUpperCase()} Collection\n` +
+          `Player: **${safeName(target.username)}**\n` +
+          `Unique: **${rows.length}** • Total Cards: **${totalCards}**`
+        )
+      )
+      .addSeparatorComponents(new SeparatorBuilder())
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          `Top Card: **${sorted[0].c.name}** (Lv.${sorted[0].lv}, PWR ${sorted[0].power})\n` +
+          `Showing first **${imageRows.length}** cards in PNG grid.`
+        )
+      );
+
     return interaction.reply({
-      content: `**${safeName(target.username)} — ${eventKey.toUpperCase()} Cards**\n${lines.join("\n")}`,
-      ephemeral: target.id !== interaction.user.id,
+      flags: MessageFlags.IsComponentsV2 | (target.id !== interaction.user.id ? MessageFlags.Ephemeral : 0),
+      components: [container],
+      files: [file],
     });
   }
 
