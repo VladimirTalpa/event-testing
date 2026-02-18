@@ -39,7 +39,6 @@ const { buildExchangeImage } = require("../ui/exchange-card");
 const { buildShopV2Payload } = require("../ui/shop-v2");
 const { buildPackOpeningImage, buildCardRevealImage } = require("../ui/card-pack");
 const { collectRowsForPlayer, buildCardsBookPayload } = require("../ui/cards-book-v2");
-const { buildCurrencyLeaderboardImage } = require("../ui/leaderboard-card");
 const { findCard, getCardById, cardStatsAtLevel, cardPower, CARD_MAX_LEVEL, CARD_POOL } = require("../data/cards");
 
 const { spawnBoss } = require("../events/boss");
@@ -379,9 +378,31 @@ module.exports = async function handleSlash(interaction) {
       entries.push({ name, score: r.score });
     }
 
-    const png = buildCurrencyLeaderboardImage(eventKey, entries, interaction.guild?.name || "SERVER");
-    const file = new AttachmentBuilder(png, { name: `${eventKey}-leaderboard.png` });
-    return interaction.reply({ files: [file], ephemeral: false });
+    const eventLabel = eventKey === "bleach" ? "BLEACH" : "JJK";
+    const eventEmoji = eventKey === "bleach" ? E_REIATSU : E_CE;
+    const top = entries
+      .map((e, i) => `**#${i + 1}** • ${safeName(e.name)} — ${eventEmoji} **${Math.max(0, Math.floor(Number(e.score || 0))).toLocaleString("en-US")}**`)
+      .join("\n");
+
+    const container = new ContainerBuilder()
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          `## ${eventEmoji} ${eventLabel} Leaderboard\n` +
+          `Server: **${safeName(interaction.guild?.name || "Unknown")}**`
+        )
+      )
+      .addSeparatorComponents(new SeparatorBuilder())
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          top || "_No data yet._"
+        )
+      );
+
+    return interaction.reply({
+      components: [container],
+      flags: MessageFlags.IsComponentsV2,
+      ephemeral: false,
+    });
   }
   if (interaction.commandName === "dailyclaim") {
     const p = await getPlayer(interaction.user.id);
