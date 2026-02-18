@@ -4,9 +4,7 @@ const { createCanvas, loadImage } = require("@napi-rs/canvas");
 const { RARITY_COLORS, cardStatsAtLevel, cardPower } = require("../data/cards");
 const { registerCanvasFonts } = require("./fonts");
 
-const CARDS_ROOT = path.join(__dirname, "..", "..", "assets", "cards");
 const CARD_LIBRARY_ROOT = path.join(__dirname, "..", "..", "assets", "cards", "library");
-const TEMPLATES_ROOT = path.join(__dirname, "..", "..", "assets", "templates");
 const artPathCache = new Map();
 
 function rr(ctx, x, y, w, h, r) {
@@ -148,11 +146,8 @@ async function loadCardArt(eventKey, cardId) {
 
   const ek = eventKey === "jjk" ? "jjk" : "bleach";
   const eventLibraryBase = path.join(CARD_LIBRARY_ROOT, ek);
-  const genericLibraryBase = CARD_LIBRARY_ROOT;
-  const eventBase = path.join(CARDS_ROOT, ek);
-  const genericBase = CARDS_ROOT;
   const exts = ["png", "jpg", "jpeg", "webp"];
-  const bases = [eventLibraryBase, genericLibraryBase, eventBase, genericBase, TEMPLATES_ROOT];
+  const bases = [eventLibraryBase];
   const aliases = Array.from(new Set([
     String(cardId || "").toLowerCase(),
     String(cardId || "").toLowerCase().replace(/^bl_/, ""),
@@ -203,7 +198,7 @@ async function loadCardArt(eventKey, cardId) {
   }
 
   artPathCache.set(cacheKey, null);
-  console.warn(`[cards] art not found for ${cardId} in assets/cards or assets/templates`);
+  console.warn(`[cards] art not found for ${cardId} in assets/cards/library/${ek}`);
   return null;
 }
 
