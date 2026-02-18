@@ -170,34 +170,11 @@ module.exports = async function handleButtons(interaction) {
     const nextPage = Math.max(0, page + (dir === "next" ? 1 : -1));
 
     const p = await getPlayer(targetUserId);
-    const cardsMap = eventKey === "bleach" ? (p?.cards?.bleach || {}) : (p?.cards?.jjk || {});
-    const levels = eventKey === "bleach" ? (p?.cardLevels?.bleach || {}) : (p?.cardLevels?.jjk || {});
-    const rows = [];
-
-    for (const c of CARD_POOL[eventKey] || []) {
-      const amount = Math.max(0, Number(cardsMap[c.id] || 0));
-      if (amount <= 0) continue;
-      const lv = Math.max(1, Number(levels[c.id] || 1));
-      const stats = cardStatsAtLevel(c, lv);
-      const power = cardPower(stats);
-      rows.push({ c, amount, lv, power });
-    }
-    rows.sort((a, b) => b.power - a.power);
+    const rows = collectRowsForPlayer(p, eventKey);
     if (!rows.length) {
       await interaction.followUp({ content: "No cards found.", ephemeral: true }).catch(() => {});
       return;
     }
-
-    const pageSize = 8;
-    const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
-    const pageClamped = Math.max(0, Math.min(totalPages - 1, nextPage));
-    const pageRows = rows.slice(pageClamped * pageSize, pageClamped * pageSize + pageSize);
-    const imageRows = pageRows.map((x) => ({
-      card: x.c,
-      level: x.lv,
-      amount: x.amount,
-      power: x.power,
-    }));
 
     let targetName = `User ${targetUserId}`;
     try {
@@ -205,47 +182,18 @@ module.exports = async function handleButtons(interaction) {
       if (member?.user?.username) targetName = safeName(member.user.username);
     } catch {}
 
-    const png = await buildCardCollectionImage({
+    const book = await buildCardsBookPayload({
       eventKey,
-      username: targetName,
-      ownedRows: imageRows,
+      targetId: targetUserId,
+      targetName,
+      ownerId,
+      rows,
+      page: nextPage,
     });
-    const file = new AttachmentBuilder(png, { name: `cards-${eventKey}-${targetUserId}-p${pageClamped + 1}.png` });
-
-    const totalCards = rows.reduce((sum, x) => sum + x.amount, 0);
-    const container = new ContainerBuilder()
-      .addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-          `## ${eventKey.toUpperCase()} Collection\n` +
-          `Player: **${targetName}**\n` +
-          `Unique: **${rows.length}** • Total Cards: **${totalCards}**`
-        )
-      )
-      .addSeparatorComponents(new SeparatorBuilder())
-      .addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-          `Top Card: **${rows[0].c.name}** (Lv.${rows[0].lv}, PWR ${rows[0].power})\n` +
-          `Book Page: **${pageClamped + 1}/${totalPages}** • Cards on page: **${imageRows.length}**`
-        )
-      )
-      .addActionRowComponents(
-        new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId(`cardsbook_nav:${eventKey}:${targetUserId}:${ownerId}:${pageClamped}:prev`)
-            .setLabel("Prev")
-            .setStyle(ButtonStyle.Secondary)
-            .setDisabled(pageClamped <= 0),
-          new ButtonBuilder()
-            .setCustomId(`cardsbook_nav:${eventKey}:${targetUserId}:${ownerId}:${pageClamped}:next`)
-            .setLabel("Next")
-            .setStyle(ButtonStyle.Secondary)
-            .setDisabled(pageClamped >= totalPages - 1)
-        )
-      );
 
     await editCardsBookMessage(interaction, {
-      components: [container],
-      files: [file],
+      components: book.components,
+      files: book.files,
     });
     return;
   }

@@ -20,6 +20,7 @@ const { bossByChannel } = require("../core/state");
 const { clamp, safeName, sleep } = require("../core/utils");
 const { getPlayer, setPlayer } = require("../core/players");
 const { BOSSES } = require("../data/bosses");
+const { CARD_POOL, cardStatsAtLevel, cardPower } = require("../data/cards");
 const { bossButtons, singleActionRow, comboDefenseRows, dualChoiceRow, triChoiceRow } = require("../ui/components");
 const { buildBossIntroImage, buildBossResultImage, buildBossLiveImage, buildBossRewardImage } = require("../ui/boss-card");
 const {
@@ -85,6 +86,34 @@ function getEventMultiplier(eventKey, player) {
 function getEventDropMult(eventKey, player) {
   if (eventKey === "bleach") return calcBleachDropLuckMultiplier(player.bleach.items);
   return calcJjkDropLuckMultiplier(player.jjk.items);
+}
+
+function getStrongestCardPowerForEvent(player, eventKey) {
+  const ek = eventKey === "jjk" ? "jjk" : "bleach";
+  const cardsMap = ek === "bleach" ? (player?.cards?.bleach || {}) : (player?.cards?.jjk || {});
+  const levels = ek === "bleach" ? (player?.cardLevels?.bleach || {}) : (player?.cardLevels?.jjk || {});
+  let best = 0;
+
+  for (const c of CARD_POOL[ek] || []) {
+    const amount = Math.max(0, Number(cardsMap[c.id] || 0));
+    if (amount <= 0) continue;
+    const lv = Math.max(1, Number(levels[c.id] || 1));
+    const stats = cardStatsAtLevel(c, lv);
+    const p = Math.max(0, cardPower(stats));
+    if (p > best) best = p;
+  }
+  return best;
+}
+
+function computeRaidDamageGain(def, player) {
+  const mult = getEventMultiplier(def.event, player);
+  const base = Math.max(1, Math.floor(def.hitReward * mult));
+  const cardPwr = getStrongestCardPowerForEvent(player, def.event);
+
+  // Card bonus scales with strongest equipped collection power but is capped.
+  const pctBonus = Math.min(0.55, cardPwr / 9000);
+  const flatBonus = Math.min(160, Math.floor(cardPwr / 220));
+  return Math.max(1, Math.floor(base * (1 + pctBonus) + flatBonus));
 }
 
 function aliveIds(boss) {
@@ -446,8 +475,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
             failCount += 1;
             if (hit?.eliminated) eliminated.push(hit.name);
           } else {
-            const mult = getEventMultiplier(boss.def.event, player);
-            const add = Math.floor(boss.def.hitReward * mult);
+            const add = computeRaidDamageGain(boss.def, player);
             bankSuccess(uid, boss, add);
             successCount += 1;
             bankedTotal += add;
@@ -522,8 +550,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
           for (const uid of nowAlive) {
             if (pressed.has(uid)) {
               const player = await getPlayer(uid);
-              const mult = getEventMultiplier(boss.def.event, player);
-              const add = Math.floor(boss.def.hitReward * mult);
+              const add = computeRaidDamageGain(boss.def, player);
               bankSuccess(uid, boss, add);
               successCount += 1;
               bankedTotal += add;
@@ -590,8 +617,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
           const hasReverse = isJjk && player.jjk.items.reverse_talisman;
 
           if (pressed.has(uid)) {
-            const mult = getEventMultiplier(boss.def.event, player);
-            const add = Math.floor(boss.def.hitReward * mult);
+            const add = computeRaidDamageGain(boss.def, player);
             bankSuccess(uid, boss, add);
             successCount += 1;
             bankedTotal += add;
@@ -682,8 +708,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
           const completed = !failed && prog >= 4;
 
           if (completed) {
-            const mult = getEventMultiplier(boss.def.event, player);
-            const add = Math.floor(boss.def.hitReward * mult);
+            const add = computeRaidDamageGain(boss.def, player);
             bankSuccess(uid, boss, add);
             successCount += 1;
             bankedTotal += add;
@@ -749,8 +774,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
           for (const uid of nowAlive) {
             if (winners.has(uid)) {
               const player = await getPlayer(uid);
-              const mult = getEventMultiplier(boss.def.event, player);
-              const add = Math.floor(boss.def.hitReward * mult);
+              const add = computeRaidDamageGain(boss.def, player);
               bankSuccess(uid, boss, add);
               bankedTotal += add;
             }
@@ -816,8 +840,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
           const cnt = action?.counts?.get(uid) || 0;
           if (cnt >= (action?.requiredPresses || 3)) {
             const player = await getPlayer(uid);
-            const mult = getEventMultiplier(boss.def.event, player);
-            const add = Math.floor(boss.def.hitReward * mult);
+            const add = computeRaidDamageGain(boss.def, player);
             bankSuccess(uid, boss, add);
             successCount += 1;
             bankedTotal += add;
@@ -885,8 +908,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
           const picked = action?.choice?.get(uid);
           if (picked === r.correct) {
             const player = await getPlayer(uid);
-            const mult = getEventMultiplier(boss.def.event, player);
-            const add = Math.floor(boss.def.hitReward * mult);
+            const add = computeRaidDamageGain(boss.def, player);
             bankSuccess(uid, boss, add);
           } else {
             await applyHit(uid, boss, channel, `chose wrong!`);
@@ -985,8 +1007,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
 
           if (ok) {
             const player = await getPlayer(uid);
-            const mult = getEventMultiplier(boss.def.event, player);
-            const add = Math.floor(boss.def.hitReward * mult);
+            const add = computeRaidDamageGain(boss.def, player);
             bankSuccess(uid, boss, add);
           } else {
             await applyHit(uid, boss, channel, `couldn't regain focus in time!`);
@@ -1046,8 +1067,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
             eliminate(uid, boss);
           } else {
             const player = await getPlayer(uid);
-            const mult = getEventMultiplier(boss.def.event, player);
-            const add = Math.floor(boss.def.hitReward * mult);
+            const add = computeRaidDamageGain(boss.def, player);
             bankSuccess(uid, boss, add);
           }
           await sleep(120);

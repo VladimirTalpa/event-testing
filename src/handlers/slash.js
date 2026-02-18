@@ -180,7 +180,7 @@ module.exports = async function handleSlash(interaction) {
     if (!rows.length) {
       return interaction.reply({ content: `No ${eventKey.toUpperCase()} cards found. Open packs in /shop first.`, ephemeral: true });
     }
-    const book = buildCardsBookPayload({
+    const book = await buildCardsBookPayload({
       eventKey,
       targetId: target.id,
       targetName: safeName(target.username),

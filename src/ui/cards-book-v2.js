@@ -1,5 +1,3 @@
-const fs = require("fs");
-const path = require("path");
 const {
   ContainerBuilder,
   TextDisplayBuilder,
@@ -11,43 +9,12 @@ const {
   MediaGalleryItemBuilder,
 } = require("discord.js");
 const { CARD_POOL, cardStatsAtLevel, cardPower } = require("../data/cards");
+const { buildCardCollectionImage } = require("./card-collection");
 
-const CARD_LIBRARY_ROOT = path.join(__dirname, "..", "..", "assets", "cards", "library");
-const IMG_EXTS = [".png", ".jpg", ".jpeg", ".webp"];
 const PAGE_SIZE = 6;
 
 function safeName(v) {
   return String(v || "unknown").replace(/[*_`~|]/g, "").slice(0, 60);
-}
-
-function resolveCardArtPath(eventKey, cardId) {
-  const ek = eventKey === "jjk" ? "jjk" : "bleach";
-  const base = path.join(CARD_LIBRARY_ROOT, ek);
-  const wanted = String(cardId || "").toLowerCase();
-  if (!wanted || !fs.existsSync(base)) return null;
-
-  // Fast path: exact filename by known extensions
-  for (const ext of IMG_EXTS) {
-    const p = path.join(base, `${wanted}${ext}`);
-    if (fs.existsSync(p)) return p;
-  }
-
-  // Robust path: case-insensitive scan by basename
-  let files = [];
-  try {
-    files = fs.readdirSync(base, { withFileTypes: true })
-      .filter((d) => d.isFile())
-      .map((d) => d.name);
-  } catch {
-    return null;
-  }
-  for (const name of files) {
-    const ext = path.extname(name).toLowerCase();
-    if (!IMG_EXTS.includes(ext)) continue;
-    const bn = path.basename(name, ext).toLowerCase();
-    if (bn === wanted) return path.join(base, name);
-  }
-  return null;
 }
 
 function collectRowsForPlayer(player, eventKey) {
@@ -74,7 +41,7 @@ function toPage(rows, page) {
   return { page: p, totalPages, slice };
 }
 
-function buildCardsBookPayload({ eventKey, targetId, targetName, ownerId, rows, page }) {
+async function buildCardsBookPayload({ eventKey, targetId, targetName, ownerId, rows, page }) {
   const ek = eventKey === "jjk" ? "jjk" : "bleach";
   const { page: p, totalPages, slice } = toPage(rows, page);
   const totalCards = rows.reduce((sum, x) => sum + x.amount, 0);
@@ -85,52 +52,49 @@ function buildCardsBookPayload({ eventKey, targetId, targetName, ownerId, rows, 
       new TextDisplayBuilder().setContent(
         `## ${ek.toUpperCase()} Collection\n` +
         `Player: **${safeName(targetName)}**\n` +
-        `Unique: **${rows.length}** â€¢ Total Cards: **${totalCards}**`
+        `Unique: **${rows.length}** • Total Cards: **${totalCards}**`
       )
     )
     .addSeparatorComponents(new SeparatorBuilder())
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         `Top Card: **${top.card.name}** (Lv.${top.level}, PWR ${top.power})\n` +
-        `Book Page: **${p + 1}/${totalPages}** â€¢ Cards on page: **${slice.length}**`
+        `Book Page: **${p + 1}/${totalPages}** • Cards on page: **${slice.length}**\n` +
+        `Stats are rendered on the card images.`
       )
     );
 
   const files = [];
+  const imageRows = slice.map((x) => ({
+    card: x.card,
+    amount: x.amount,
+    level: x.level,
+    power: x.power,
+  }));
 
-  if (typeof MediaGalleryBuilder === "function" && typeof MediaGalleryItemBuilder === "function") {
-    const gallery = new MediaGalleryBuilder();
-    let idx = 0;
-    for (const row of slice) {
-      const artPath = resolveCardArtPath(ek, row.card.id);
-      if (!artPath) continue;
-      const ext = path.extname(artPath) || ".png";
-      const fileName = `card-${ek}-${row.card.id}-${p}-${idx}${ext}`;
+  const png = await buildCardCollectionImage({
+    eventKey: ek,
+    username: safeName(targetName),
+    ownedRows: imageRows,
+  }).catch(() => null);
+
+  if (png) {
+    const fileName = `cards-${ek}-${targetId}-p${p + 1}.png`;
+    files.push({ attachment: png, name: fileName });
+
+    if (typeof MediaGalleryBuilder === "function" && typeof MediaGalleryItemBuilder === "function") {
       try {
-        const buf = fs.readFileSync(artPath);
-        files.push({ attachment: buf, name: fileName });
-      } catch {
-        continue;
-      }
-      try {
-        gallery.addItems(
+        const gallery = new MediaGalleryBuilder().addItems(
           new MediaGalleryItemBuilder().setURL(`attachment://${fileName}`)
         );
-      } catch {}
-      idx += 1;
-    }
-    if (files.length > 0) {
-      try {
         container.addMediaGalleryComponents(gallery);
       } catch {}
     }
-  }
-
-  if (files.length === 0) {
-    const lines = slice.map((x, i) => `${i + 1}. **${x.card.name}** â€¢ Lv.${x.level} â€¢ x${x.amount} â€¢ PWR ${x.power}`);
+  } else {
+    const lines = slice.map((x, i) => `${i + 1}. **${x.card.name}** • Lv.${x.level} • x${x.amount} • PWR ${x.power}`);
     container
       .addSeparatorComponents(new SeparatorBuilder())
-      .addTextDisplayComponents(new TextDisplayBuilder().setContent(lines.join("\n") || "No card images found."));
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent(lines.join("\n") || "No card images/stats found."));
   }
 
   container.addActionRowComponents(
