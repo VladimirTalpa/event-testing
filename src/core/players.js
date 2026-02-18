@@ -15,6 +15,7 @@ function normalizePlayer(raw = {}) {
   const jjkItems = jjk.items && typeof jjk.items === "object" ? jjk.items : {};
 
   const jjkMaterials = jjk.materials && typeof jjk.materials === "object" ? jjk.materials : {};
+  const cardClashDailyRaw = raw.cardClashDaily && typeof raw.cardClashDaily === "object" ? raw.cardClashDaily : {};
   const cardsRaw = raw.cards && typeof raw.cards === "object" ? raw.cards : {};
   const bleachCardsRaw = cardsRaw.bleach && typeof cardsRaw.bleach === "object" ? cardsRaw.bleach : {};
   const jjkCardsRaw = cardsRaw.jjk && typeof cardsRaw.jjk === "object" ? cardsRaw.jjk : {};
@@ -32,6 +33,10 @@ function normalizePlayer(raw = {}) {
   return {
     drako: Number.isFinite(raw.drako) ? raw.drako : 0,
     ownedRoles: [...new Set(ownedRoles)],
+    cardClashDaily: {
+      day: typeof cardClashDailyRaw.day === "string" ? cardClashDailyRaw.day : "",
+      used: Math.max(0, Math.floor(Number(cardClashDailyRaw.used || 0))),
+    },
 
     bleach: {
       reiatsu: Number.isFinite(bleach.reiatsu)

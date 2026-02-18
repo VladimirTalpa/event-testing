@@ -87,6 +87,14 @@ function randomInt(min, max) {
   return Math.floor(Math.random() * (b - a + 1)) + a;
 }
 
+function utcDayKey(ts = Date.now()) {
+  const d = new Date(ts);
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 module.exports = async function handleSlash(interaction) {
   const channel = interaction.channel;
   if (!channel || !channel.isTextBased()) {
@@ -316,6 +324,32 @@ module.exports = async function handleSlash(interaction) {
 
     const me = await getPlayer(interaction.user.id);
     const op = await getPlayer(enemy.id);
+    const today = utcDayKey();
+    if (!me.cardClashDaily || typeof me.cardClashDaily !== "object") {
+      me.cardClashDaily = { day: today, used: 0 };
+    }
+    if (String(me.cardClashDaily.day || "") !== today) {
+      me.cardClashDaily.day = today;
+      me.cardClashDaily.used = 0;
+    }
+    const usedToday = Math.max(0, Number(me.cardClashDaily.used || 0));
+    if (usedToday >= 3) {
+      const err = new ContainerBuilder()
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent("## CARD CLASH LIMIT")
+        )
+        .addSeparatorComponents(new SeparatorBuilder())
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(
+            "You already used `/cardslash` **3/3** times today.\n" +
+            "Try again after daily reset (UTC)."
+          )
+        );
+      return interaction.reply({
+        components: [err],
+        flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+      });
+    }
     const myCard = findCard(eventKey, myCardQuery);
     if (!myCard) return interaction.reply({ content: "Your card was not found.", ephemeral: true });
 
@@ -339,6 +373,8 @@ module.exports = async function handleSlash(interaction) {
       enemyPick = strongestOwnedCard(op, eventKey);
       if (!enemyPick) return interaction.reply({ content: "Enemy has no card in this event.", ephemeral: true });
     }
+
+    me.cardClashDaily.used = usedToday + 1;
 
     const myRoll = myPower * (0.85 + Math.random() * 0.3);
     const enemyRoll = enemyPick.power * (0.85 + Math.random() * 0.3);
@@ -383,6 +419,7 @@ module.exports = async function handleSlash(interaction) {
     await setPlayer(enemy.id, op);
 
     const eventCurrency = eventKey === "bleach" ? "Reiatsu" : "Cursed Energy";
+    const remaining = Math.max(0, 3 - Number(me.cardClashDaily.used || 0));
     const container = new ContainerBuilder()
       .addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
@@ -412,7 +449,8 @@ module.exports = async function handleSlash(interaction) {
         new TextDisplayBuilder().setContent(
           "### Rewards\n" +
           "- Winner: **+" + winnerEventReward + " " + eventCurrency + "** + **" + winnerDrakoReward + " Drako**\n" +
-          "- Loser: **+" + loserEventReward + " " + eventCurrency + "** + **" + loserDrakoReward + " Drako**"
+          "- Loser: **+" + loserEventReward + " " + eventCurrency + "** + **" + loserDrakoReward + " Drako**\n" +
+          "\nUses left today: **" + remaining + "/3**"
         )
       );
 
