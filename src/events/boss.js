@@ -129,6 +129,9 @@ async function applyHit(uid, boss, channel, reasonText) {
   if (!st) return { hit: false, eliminated: false, name: "unknown", reasonText };
   st.hits++;
   const eliminated = st.hits >= maxHits;
+  if (eliminated) {
+    await sendImmediateDefeatedCard(uid, boss, channel, reasonText);
+  }
   return {
     hit: true,
     eliminated,
@@ -141,8 +144,11 @@ async function applyHit(uid, boss, channel, reasonText) {
 
 function eliminate(uid, boss) {
   const st = boss.participants.get(uid);
-  if (!st) return;
+  if (!st) return false;
+  const maxHits = getMaxHits(boss.def);
+  const wasAlive = st.hits < maxHits;
   st.hits = getMaxHits(boss.def);
+  return wasAlive;
 }
 
 function bankSuccess(uid, boss, amount) {
@@ -327,6 +333,36 @@ async function sendBossResultCard(channel, boss, victory, survivorsCount = 0) {
     if (!Array.isArray(boss.raidMessageIds)) boss.raidMessageIds = [];
     boss.raidMessageIds.push(msg.id);
   }
+}
+
+async function sendImmediateDefeatedCard(uid, boss, channel, reasonText = "") {
+  try {
+    if (!boss?.personalDefeatedSent) boss.personalDefeatedSent = new Set();
+    if (boss.personalDefeatedSent.has(uid)) return;
+    boss.personalDefeatedSent.add(uid);
+
+    const user = await channel.client.users.fetch(uid).catch(() => null);
+    if (!user) return;
+
+    const topDamage = getTopDamageRows(boss, 8);
+    const png = await buildBossResultImage(boss.def, {
+      victory: false,
+      topDamage,
+      hpLeft: Math.max(0, Math.floor(boss.currentHp || 0)),
+      hpTotal: Math.max(1, Math.floor(boss.totalHp || 1)),
+      survivors: aliveIds(boss).length,
+      joined: boss.participants.size,
+      deadOverlay: true,
+    }).catch(() => null);
+    if (!png) return;
+
+    const file = new AttachmentBuilder(png, { name: `boss-defeated-${boss.def.id}.png` });
+    const reason = String(reasonText || "").trim();
+    await user.send({
+      content: reason ? `You were eliminated: ${reason}` : "You were eliminated in the raid.",
+      files: [file],
+    }).catch(() => {});
+  } catch {}
 }
 
 async function sendBossIntroSequence(channel, def, boss) {
@@ -761,7 +797,9 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
           for (const uid of nowAlive) {
             const hit = await applyHit(uid, boss, channel, `was overwhelmed in the final push!`);
             if (hit?.name) eliminated.push(hit.name);
-            eliminate(uid, boss);
+            if (eliminate(uid, boss)) {
+              await sendImmediateDefeatedCard(uid, boss, channel, "was overwhelmed in the final push!");
+            }
             await sleep(100);
           }
           await sendRoundSummaryV2(channel, boss, `${r.title || ("Round " + (i + 1))} - Result`, [
@@ -1064,7 +1102,9 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         for (const uid of nowAlive) {
           const picked = action?.choice?.get(uid);
           if (picked !== r.correct) {
-            eliminate(uid, boss);
+            if (eliminate(uid, boss)) {
+              await sendImmediateDefeatedCard(uid, boss, channel, "picked the wrong final answer.");
+            }
           } else {
             const player = await getPlayer(uid);
             const add = computeRaidDamageGain(boss.def, player);
@@ -1206,6 +1246,7 @@ async function spawnBoss(channel, bossId, withPing = true) {
     hudMessageId: null,
     raidMessageIds: [],
     reverseUsed: new Set(),
+    personalDefeatedSent: new Set(),
     started: false,
     starting: false,
     joinEndsAt: Date.now() + Number(def.joinMs || 0),
