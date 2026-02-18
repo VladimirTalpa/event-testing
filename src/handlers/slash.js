@@ -32,13 +32,14 @@ const {
 const { getPlayer, setPlayer, getTopPlayers } = require("../core/players");
 const { safeName } = require("../core/utils");
 const { hasEventRole, hasBoosterRole, wardrobeComponents, pvpButtons } = require("../ui/components");
-const { leaderboardEmbed, wardrobeEmbed } = require("../ui/embeds");
+const { wardrobeEmbed } = require("../ui/embeds");
 const { buildInventoryImage } = require("../ui/inventory-card");
 const { buildBossResultImage, buildBossRewardImage, buildBossLiveImage } = require("../ui/boss-card");
 const { buildExchangeImage } = require("../ui/exchange-card");
 const { buildShopV2Payload } = require("../ui/shop-v2");
 const { buildPackOpeningImage, buildCardRevealImage } = require("../ui/card-pack");
 const { collectRowsForPlayer, buildCardsBookPayload } = require("../ui/cards-book-v2");
+const { buildCurrencyLeaderboardImage } = require("../ui/leaderboard-card");
 const { findCard, getCardById, cardStatsAtLevel, cardPower, CARD_MAX_LEVEL, CARD_POOL } = require("../data/cards");
 
 const { spawnBoss } = require("../events/boss");
@@ -81,6 +82,12 @@ function isAllowedSpawnChannel(eventKey, channelId) {
   return false;
 }
 
+function randomInt(min, max) {
+  const a = Math.floor(Number(min || 0));
+  const b = Math.floor(Number(max || 0));
+  return Math.floor(Math.random() * (b - a + 1)) + a;
+}
+
 module.exports = async function handleSlash(interaction) {
   const channel = interaction.channel;
   if (!channel || !channel.isTextBased()) {
@@ -120,6 +127,7 @@ module.exports = async function handleSlash(interaction) {
       page: 0,
       selectedKey: null,
       withFlags: true,
+      ephemeral: false,
     }));
   }
 
@@ -306,12 +314,53 @@ module.exports = async function handleSlash(interaction) {
     const loserId = meWon ? enemy.id : interaction.user.id;
     const diff = Math.abs(Math.floor(myRoll - enemyRoll));
 
+    const winnerEventReward = randomInt(120, 220);
+    const loserEventReward = randomInt(40, 85);
+    const winnerDrakoReward = randomInt(8, 20);
+    const loserDrakoReward = randomInt(2, 6);
+
+    if (eventKey === "bleach") {
+      if (meWon) {
+        me.bleach.reiatsu += winnerEventReward;
+        op.bleach.reiatsu += loserEventReward;
+      } else {
+        op.bleach.reiatsu += winnerEventReward;
+        me.bleach.reiatsu += loserEventReward;
+      }
+    } else {
+      if (meWon) {
+        me.jjk.cursedEnergy += winnerEventReward;
+        op.jjk.cursedEnergy += loserEventReward;
+      } else {
+        op.jjk.cursedEnergy += winnerEventReward;
+        me.jjk.cursedEnergy += loserEventReward;
+      }
+    }
+
+    if (meWon) {
+      me.drako += winnerDrakoReward;
+      op.drako += loserDrakoReward;
+    } else {
+      op.drako += winnerDrakoReward;
+      me.drako += loserDrakoReward;
+    }
+
+    await setPlayer(interaction.user.id, me);
+    await setPlayer(enemy.id, op);
+
     return interaction.reply({
       content:
-        `**CARD SLASH — ${eventKey.toUpperCase()}**\n` +
-        `<@${interaction.user.id}> used **${myCard.name}** Lv.${myLevel} (Power ${myPower})\n` +
-        `<@${enemy.id}> used **${enemyPick.card.name}** Lv.${enemyPick.level} (Power ${enemyPick.power})\n` +
-        `Winner: <@${winnerId}> | Loser: <@${loserId}> | Impact ${diff}`,
+        `## CARD SLASH // ${eventKey.toUpperCase()}\n` +
+        `### Matchup\n` +
+        `- <@${interaction.user.id}> -> **${myCard.name}** (Lv.${myLevel}, Power ${myPower})\n` +
+        `- <@${enemy.id}> -> **${enemyPick.card.name}** (Lv.${enemyPick.level}, Power ${enemyPick.power})\n` +
+        `\n### Result\n` +
+        `- Winner: <@${winnerId}>\n` +
+        `- Loser: <@${loserId}>\n` +
+        `- Impact: **${diff}**\n` +
+        `\n### Rewards\n` +
+        `- Winner <@${winnerId}>: **+${winnerEventReward} ${eventKey === "bleach" ? "Reiatsu" : "Cursed Energy"}** + **${winnerDrakoReward} Drako**\n` +
+        `- Loser <@${loserId}>: **+${loserEventReward} ${eventKey === "bleach" ? "Reiatsu" : "Cursed Energy"}** + **${loserDrakoReward} Drako**`,
       ephemeral: false,
     });
   }
@@ -330,9 +379,10 @@ module.exports = async function handleSlash(interaction) {
       entries.push({ name, score: r.score });
     }
 
-    return interaction.reply({ embeds: [leaderboardEmbed(eventKey, entries)], ephemeral: false });
+    const png = buildCurrencyLeaderboardImage(eventKey, entries, interaction.guild?.name || "SERVER");
+    const file = new AttachmentBuilder(png, { name: `${eventKey}-leaderboard.png` });
+    return interaction.reply({ files: [file], ephemeral: false });
   }
-
   if (interaction.commandName === "dailyclaim") {
     const p = await getPlayer(interaction.user.id);
     const now = Date.now();

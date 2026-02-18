@@ -57,7 +57,7 @@ function buyDisabled(item, inv, balance) {
   return !!inv[item.key] || balance < item.price;
 }
 
-function buildShopV2Payload({ eventKey, player, page = 0, selectedKey = null, withFlags = false }) {
+function buildShopV2Payload({ eventKey, player, page = 0, selectedKey = null, withFlags = false, ephemeral = false }) {
   const ek = eventKey === "jjk" ? "jjk" : "bleach";
   const eventItems = itemsByEvent(ek);
   const inv = getInventory(player, ek);
@@ -138,7 +138,7 @@ function buildShopV2Payload({ eventKey, player, page = 0, selectedKey = null, wi
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(details));
 
   const payload = { components: [container] };
-  if (withFlags) payload.flags = MessageFlags.Ephemeral | MessageFlags.IsComponentsV2;
+  if (withFlags) payload.flags = MessageFlags.IsComponentsV2 | (ephemeral ? MessageFlags.Ephemeral : 0);
   return payload;
 }
 
