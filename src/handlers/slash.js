@@ -164,6 +164,7 @@ module.exports = async function handleSlash(interaction) {
   if (interaction.commandName === "cards") {
     const eventKey = normalizeEventKey(interaction.options.getString("event", true));
     const target = interaction.options.getUser("user") || interaction.user;
+    const isPrivate = target.id !== interaction.user.id;
     const p = await getPlayer(target.id);
     const cardsMap = getEventCardsMap(p, eventKey);
     const levels = getEventLevelsMap(p, eventKey);
@@ -183,19 +184,13 @@ module.exports = async function handleSlash(interaction) {
       return interaction.reply({ content: `No ${eventKey.toUpperCase()} cards found. Open packs in /shop first.`, ephemeral: true });
     }
 
-    const sorted = rows.sort((a, b) => b.power - a.power).slice(0, 12);
+    const sorted = rows.slice().sort((a, b) => b.power - a.power).slice(0, 12);
     const imageRows = sorted.map((x) => ({
       card: x.c,
       level: x.lv,
       amount: x.amount,
       power: x.power,
     }));
-    const png = await buildCardCollectionImage({
-      eventKey,
-      username: safeName(target.username),
-      ownedRows: imageRows,
-    });
-    const file = new AttachmentBuilder(png, { name: `cards-${eventKey}-${target.id}.png` });
 
     const totalCards = rows.reduce((sum, x) => sum + x.amount, 0);
     const container = new ContainerBuilder()
@@ -214,11 +209,28 @@ module.exports = async function handleSlash(interaction) {
         )
       );
 
-    return interaction.reply({
-      flags: MessageFlags.IsComponentsV2 | (target.id !== interaction.user.id ? MessageFlags.Ephemeral : 0),
+    await interaction.reply({
+      flags: MessageFlags.IsComponentsV2 | (isPrivate ? MessageFlags.Ephemeral : 0),
       components: [container],
-      files: [file],
     });
+
+    try {
+      const png = await buildCardCollectionImage({
+        eventKey,
+        username: safeName(target.username),
+        ownedRows: imageRows,
+      });
+      const file = new AttachmentBuilder(png, { name: `cards-${eventKey}-${target.id}.png` });
+      return interaction.followUp({
+        files: [file],
+        ephemeral: isPrivate,
+      });
+    } catch {
+      return interaction.followUp({
+        content: "Collection PNG failed to render. Check card image files in assets/cards/library.",
+        ephemeral: true,
+      });
+    }
   }
 
   if (interaction.commandName === "cardlevel") {
