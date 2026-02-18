@@ -91,9 +91,12 @@ function drawCenteredTitle(ctx, w, theme, title, subtitle) {
 
   ctx.font = '700 30px "Inter", "Segoe UI", sans-serif';
   ctx.fillStyle = "rgba(240,240,250,0.95)";
-  const st = fitText(ctx, subtitle, w - 140);
-  const stw = ctx.measureText(st).width;
-  ctx.fillText(st, (w - stw) / 2, 162);
+  const st = String(subtitle || "").trim();
+  if (st) {
+    const t = fitText(ctx, st, w - 140);
+    const stw = ctx.measureText(t).width;
+    ctx.fillText(t, (w - stw) / 2, 162);
+  }
 }
 
 function drawCardBack(ctx, x, y, w, h, theme) {
@@ -221,6 +224,24 @@ function drawStatBadge(ctx, x, y, w, h, label, value, color) {
   ctx.fillText(String(Math.max(0, Number(value || 0))), x + 12, y + 51);
 }
 
+function drawInfoTile(ctx, x, y, w, h, title, value, valueColor = "rgba(245,245,255,0.96)") {
+  rr(ctx, x, y, w, h, 12);
+  ctx.fillStyle = "rgba(8,10,16,0.64)";
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,0.2)";
+  ctx.lineWidth = 1.1;
+  ctx.stroke();
+
+  ctx.font = '700 17px "Orbitron", "Inter", "Segoe UI", sans-serif';
+  ctx.fillStyle = "rgba(220,225,238,0.9)";
+  ctx.fillText(title, x + 14, y + 24);
+
+  ctx.font = '900 28px "Orbitron", "Inter", "Segoe UI", sans-serif';
+  ctx.fillStyle = valueColor;
+  const v = fitText(ctx, String(value || "-"), w - 26);
+  ctx.fillText(v, x + 14, y + 58);
+}
+
 async function buildPackOpeningImage({ eventKey = "bleach", username = "Player", packName = "Card Pack" } = {}) {
   registerCanvasFonts();
   const W = 1280;
@@ -261,7 +282,7 @@ async function buildCardRevealImage({ eventKey = "bleach", username = "Player", 
   const power = cardPower(stats);
 
   drawBackground(ctx, W, H, theme);
-  drawCenteredTitle(ctx, W, theme, "CARD REVEAL", `Player: ${username}`);
+  drawCenteredTitle(ctx, W, theme, "CARD REVEAL", "");
 
   const art = await loadCardArt(eventKey, card?.id);
 
@@ -277,7 +298,14 @@ async function buildCardRevealImage({ eventKey = "bleach", username = "Player", 
   }
 
   const cardX = Math.floor((W - cardW) / 2);
-  const cardY = 142;
+  const cardY = 144;
+
+  // Side glow for stronger premium reveal atmosphere
+  const glow = ctx.createRadialGradient(W / 2, cardY + cardH * 0.5, 40, W / 2, cardY + cardH * 0.5, 360);
+  glow.addColorStop(0, "rgba(255,255,255,0.16)");
+  glow.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = glow;
+  ctx.fillRect(W / 2 - 380, cardY - 40, 760, cardH + 120);
 
   rr(ctx, cardX - 8, cardY - 8, cardW + 16, cardH + 16, 26);
   ctx.fillStyle = "rgba(0,0,0,0.33)";
@@ -350,12 +378,21 @@ async function buildCardRevealImage({ eventKey = "bleach", username = "Player", 
   drawStatBadge(ctx, panelX + (bw + gap) * 2, panelY, bw, 66, "HP", stats.hp, "#8fff9b");
   drawStatBadge(ctx, panelX + (bw + gap) * 3, panelY, bw, 66, "PWR", power, rarityColor);
 
-  ctx.font = '700 22px "Inter", "Segoe UI", sans-serif';
-  ctx.fillStyle = "rgba(245,245,255,0.96)";
-  const meta = `Rarity: ${rarity}  |  Owned: ${Math.max(1, Number(countOwned || 1))}`;
-  const metaText = fitText(ctx, meta, W - 120);
-  const mw = ctx.measureText(metaText).width;
-  ctx.fillText(metaText, (W - mw) / 2, H - 24);
+  // Clean side info tiles (keeps all data readable, no overlap)
+  const leftX = 66;
+  const rightX = W - 356;
+  const tileW = 290;
+  const topY = 164;
+  const gapY = 16;
+  drawInfoTile(ctx, leftX, topY, tileW, 74, "PLAYER", username, theme.accentB);
+  drawInfoTile(ctx, leftX, topY + 74 + gapY, tileW, 74, "RARITY", rarity.toUpperCase(), rarityColor);
+  drawInfoTile(ctx, leftX, topY + (74 + gapY) * 2, tileW, 74, "LEVEL", `Lv ${lv}`, "#bce6ff");
+  drawInfoTile(ctx, leftX, topY + (74 + gapY) * 3, tileW, 74, "OWNED", Math.max(1, Number(countOwned || 1)), "#ffe3a1");
+
+  drawInfoTile(ctx, rightX, topY, tileW, 74, "POWER", power, rarityColor);
+  drawInfoTile(ctx, rightX, topY + 74 + gapY, tileW, 74, "DMG", stats.dmg, "#ff9360");
+  drawInfoTile(ctx, rightX, topY + (74 + gapY) * 2, tileW, 74, "DEF", stats.def, "#6bd1ff");
+  drawInfoTile(ctx, rightX, topY + (74 + gapY) * 3, tileW, 74, "HP", stats.hp, "#8fff9b");
 
   return canvas.toBuffer("image/png");
 }
