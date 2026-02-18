@@ -242,6 +242,68 @@ function drawInfoTile(ctx, x, y, w, h, title, value, valueColor = "rgba(245,245,
   ctx.fillText(v, x + 14, y + 58);
 }
 
+function isLegendaryOrMythic(rarity) {
+  const r = String(rarity || "").toLowerCase();
+  return r === "legendary" || r === "mythic";
+}
+
+function drawLegendaryMythicFX(ctx, W, H, cardX, cardY, cardW, cardH) {
+  const cx = cardX + cardW / 2;
+  const cy = cardY + cardH / 2;
+
+  // Central golden aura
+  const aura = ctx.createRadialGradient(cx, cy, 30, cx, cy, Math.max(cardW, cardH) * 0.95);
+  aura.addColorStop(0, "rgba(255, 220, 110, 0.26)");
+  aura.addColorStop(0.45, "rgba(255, 180, 70, 0.17)");
+  aura.addColorStop(1, "rgba(255, 180, 70, 0)");
+  ctx.fillStyle = aura;
+  ctx.fillRect(cardX - 220, cardY - 180, cardW + 440, cardH + 360);
+
+  // Energy arcs
+  for (let i = 0; i < 8; i++) {
+    const sx = cardX - 40 + Math.random() * (cardW + 80);
+    const sy = cardY - 50 + Math.random() * (cardH + 100);
+    const ex = cardX - 40 + Math.random() * (cardW + 80);
+    const ey = cardY - 50 + Math.random() * (cardH + 100);
+    const midX = (sx + ex) / 2 + (Math.random() - 0.5) * 120;
+    const midY = (sy + ey) / 2 + (Math.random() - 0.5) * 100;
+    const lg = ctx.createLinearGradient(sx, sy, ex, ey);
+    lg.addColorStop(0, "rgba(255, 195, 88, 0)");
+    lg.addColorStop(0.5, "rgba(255, 214, 130, 0.7)");
+    lg.addColorStop(1, "rgba(255, 195, 88, 0)");
+    ctx.save();
+    ctx.strokeStyle = lg;
+    ctx.lineWidth = 1.2 + Math.random() * 1.8;
+    ctx.shadowColor = "rgba(255, 212, 124, 0.85)";
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.quadraticCurveTo(midX, midY, ex, ey);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Spark particles
+  for (let i = 0; i < 180; i++) {
+    const x = Math.random() * W;
+    const y = Math.random() * H;
+    const inside =
+      x >= cardX - 180 && x <= cardX + cardW + 180 &&
+      y >= cardY - 140 && y <= cardY + cardH + 140;
+    if (!inside && Math.random() < 0.75) continue;
+    const r = 0.7 + Math.random() * 2.1;
+    const a = 0.12 + Math.random() * 0.5;
+    ctx.save();
+    ctx.fillStyle = `rgba(255, 216, 125, ${a.toFixed(3)})`;
+    ctx.shadowColor = "rgba(255, 220, 140, 0.92)";
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
 async function buildPackOpeningImage({ eventKey = "bleach", username = "Player", packName = "Card Pack" } = {}) {
   registerCanvasFonts();
   const W = 1280;
@@ -277,6 +339,7 @@ async function buildCardRevealImage({ eventKey = "bleach", username = "Player", 
   const theme = eventTheme(eventKey);
   const rarity = String(card?.rarity || "Common");
   const rarityColor = RARITY_COLORS[rarity] || "#c8d0e0";
+  const premiumTier = isLegendaryOrMythic(rarity);
   const lv = Math.max(1, Math.floor(Number(level || 1)));
   const stats = cardStatsAtLevel(card, lv);
   const power = cardPower(stats);
@@ -299,6 +362,10 @@ async function buildCardRevealImage({ eventKey = "bleach", username = "Player", 
 
   const cardX = Math.floor((W - cardW) / 2);
   const cardY = 144;
+
+  if (premiumTier) {
+    drawLegendaryMythicFX(ctx, W, H, cardX, cardY, cardW, cardH);
+  }
 
   // Side glow for stronger premium reveal atmosphere
   const glow = ctx.createRadialGradient(W / 2, cardY + cardH * 0.5, 40, W / 2, cardY + cardH * 0.5, 360);
@@ -330,10 +397,10 @@ async function buildCardRevealImage({ eventKey = "bleach", username = "Player", 
   }
   ctx.restore();
 
-  ctx.strokeStyle = rarityColor;
-  ctx.shadowColor = rarityColor;
-  ctx.shadowBlur = 24;
-  ctx.lineWidth = 2.8;
+  ctx.strokeStyle = premiumTier ? "#ffd982" : rarityColor;
+  ctx.shadowColor = premiumTier ? "rgba(255, 214, 120, 0.95)" : rarityColor;
+  ctx.shadowBlur = premiumTier ? 34 : 24;
+  ctx.lineWidth = premiumTier ? 3.2 : 2.8;
   rr(ctx, cardX, cardY, cardW, cardH, 22);
   ctx.stroke();
   ctx.shadowBlur = 0;
@@ -347,14 +414,14 @@ async function buildCardRevealImage({ eventKey = "bleach", username = "Player", 
   ctx.stroke();
 
   ctx.font = '900 30px "Orbitron", "Inter", "Segoe UI", sans-serif';
-  ctx.fillStyle = rarityColor;
+  ctx.fillStyle = premiumTier ? "#ffe6ab" : rarityColor;
   const name = fitText(ctx, String(card?.name || "Unknown Card"), cardW - 44 - 120);
   ctx.fillText(name, cardX + 28, cardY + 52);
 
   rr(ctx, cardX + cardW - 104, cardY + 24, 72, 36, 10);
   ctx.fillStyle = "rgba(10,10,16,0.72)";
   ctx.fill();
-  ctx.strokeStyle = rarityColor;
+  ctx.strokeStyle = premiumTier ? "#ffd982" : rarityColor;
   ctx.lineWidth = 1.2;
   ctx.stroke();
   ctx.font = '900 21px "Orbitron", "Inter", "Segoe UI", sans-serif';
@@ -376,7 +443,7 @@ async function buildCardRevealImage({ eventKey = "bleach", username = "Player", 
   drawStatBadge(ctx, panelX, panelY, bw, 66, "DMG", stats.dmg, "#ff9360");
   drawStatBadge(ctx, panelX + bw + gap, panelY, bw, 66, "DEF", stats.def, "#6bd1ff");
   drawStatBadge(ctx, panelX + (bw + gap) * 2, panelY, bw, 66, "HP", stats.hp, "#8fff9b");
-  drawStatBadge(ctx, panelX + (bw + gap) * 3, panelY, bw, 66, "PWR", power, rarityColor);
+  drawStatBadge(ctx, panelX + (bw + gap) * 3, panelY, bw, 66, "PWR", power, premiumTier ? "#ffd982" : rarityColor);
 
   // Clean side info tiles (keeps all data readable, no overlap)
   const leftX = 66;
@@ -385,11 +452,26 @@ async function buildCardRevealImage({ eventKey = "bleach", username = "Player", 
   const topY = 164;
   const gapY = 16;
   drawInfoTile(ctx, leftX, topY, tileW, 74, "PLAYER", username, theme.accentB);
-  drawInfoTile(ctx, leftX, topY + 74 + gapY, tileW, 74, "RARITY", rarity.toUpperCase(), rarityColor);
+  drawInfoTile(ctx, leftX, topY + 74 + gapY, tileW, 74, "RARITY", rarity.toUpperCase(), premiumTier ? "#ffd982" : rarityColor);
   drawInfoTile(ctx, leftX, topY + (74 + gapY) * 2, tileW, 74, "LEVEL", `Lv ${lv}`, "#bce6ff");
   drawInfoTile(ctx, leftX, topY + (74 + gapY) * 3, tileW, 74, "OWNED", Math.max(1, Number(countOwned || 1)), "#ffe3a1");
 
-  drawInfoTile(ctx, rightX, topY, tileW, 74, "POWER", power, rarityColor);
+  drawInfoTile(ctx, rightX, topY, tileW, 74, "POWER", power, premiumTier ? "#ffd982" : rarityColor);
+
+  if (premiumTier) {
+    // Premium badge
+    rr(ctx, Math.floor(W / 2) - 116, 108, 232, 34, 10);
+    ctx.fillStyle = "rgba(10,10,14,0.62)";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255, 216, 125, 0.92)";
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+    ctx.font = '800 20px "Orbitron", "Inter", "Segoe UI", sans-serif';
+    ctx.fillStyle = "#ffe8b1";
+    const ptxt = "PREMIUM PULL";
+    const pw = ctx.measureText(ptxt).width;
+    ctx.fillText(ptxt, Math.floor(W / 2) - pw / 2, 132);
+  }
   drawInfoTile(ctx, rightX, topY + 74 + gapY, tileW, 74, "DMG", stats.dmg, "#ff9360");
   drawInfoTile(ctx, rightX, topY + (74 + gapY) * 2, tileW, 74, "DEF", stats.def, "#6bd1ff");
   drawInfoTile(ctx, rightX, topY + (74 + gapY) * 3, tileW, 74, "HP", stats.hp, "#8fff9b");
