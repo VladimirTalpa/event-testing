@@ -62,6 +62,13 @@ const RARITY_COLORS = {
 };
 
 const CARD_MAX_LEVEL = 20;
+const RARITY_BALANCE = {
+  Common: { baseScale: 1.06, dmgGrowth: 0.128, defGrowth: 0.118, hpGrowth: 0.162 },
+  Rare: { baseScale: 1.03, dmgGrowth: 0.121, defGrowth: 0.111, hpGrowth: 0.153 },
+  Epic: { baseScale: 1.0, dmgGrowth: 0.114, defGrowth: 0.104, hpGrowth: 0.145 },
+  Legendary: { baseScale: 0.97, dmgGrowth: 0.107, defGrowth: 0.098, hpGrowth: 0.136 },
+  Mythic: { baseScale: 0.95, dmgGrowth: 0.102, defGrowth: 0.094, hpGrowth: 0.131 },
+};
 
 function normalizeRarityName(value) {
   const v = String(value || "").trim().toLowerCase();
@@ -113,11 +120,17 @@ function statAtLevel(base, level, growthPerLevel) {
   return Math.max(1, Math.floor(Number(base || 0) * factor));
 }
 
+function rarityBalance(card) {
+  const rarity = normalizeRarityName(card?.rarity);
+  return RARITY_BALANCE[rarity] || RARITY_BALANCE.Common;
+}
+
 function cardStatsAtLevel(card, level) {
+  const bal = rarityBalance(card);
   return {
-    dmg: statAtLevel(card?.dmg || 0, level, 0.12),
-    def: statAtLevel(card?.def || 0, level, 0.1),
-    hp: statAtLevel(card?.hp || 0, level, 0.15),
+    dmg: statAtLevel((card?.dmg || 0) * bal.baseScale, level, bal.dmgGrowth),
+    def: statAtLevel((card?.def || 0) * bal.baseScale, level, bal.defGrowth),
+    hp: statAtLevel((card?.hp || 0) * bal.baseScale, level, bal.hpGrowth),
   };
 }
 
