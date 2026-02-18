@@ -6,13 +6,20 @@ const { mobEmbed, shopEmbed, wardrobeEmbed } = require("../ui/embeds");
 const { CID, bossButtons, mobButtons, shopButtons, pvpButtons } = require("../ui/components");
 const {
   AttachmentBuilder,
+  ContainerBuilder,
+  TextDisplayBuilder,
+  SeparatorBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
 } = require("discord.js");
 const { MOBS } = require("../data/mobs");
 const { BLEACH_SHOP_ITEMS, JJK_SHOP_ITEMS } = require("../data/shop");
-const { CARD_PACKS, rollCard } = require("../data/cards");
+const { CARD_PACKS, CARD_POOL, cardStatsAtLevel, cardPower, rollCard } = require("../data/cards");
 const { buildBossLiveImage } = require("../ui/boss-card");
 const { buildShopV2Payload } = require("../ui/shop-v2");
 const { buildPackOpeningImage, buildCardRevealImage } = require("../ui/card-pack");
+const { buildCardCollectionImage } = require("../ui/card-collection");
 const JOIN_HUD_REFRESH_DELAY_MS = 900;
 const joinHudRefreshState = new Map();
 const OPENING_SHOWCASE_DELAY_MS = 1500;
@@ -44,6 +51,19 @@ function delay(ms) {
 }
 
 async function editShopMessage(interaction, payload) {
+  const msgPayload = { ...payload, flags: undefined };
+  try {
+    await interaction.editReply(msgPayload);
+    return true;
+  } catch {}
+  try {
+    await interaction.message?.edit(msgPayload);
+    return true;
+  } catch {}
+  return false;
+}
+
+async function editCardsBookMessage(interaction, payload) {
   const msgPayload = { ...payload, flags: undefined };
   try {
     await interaction.editReply(msgPayload);
@@ -136,6 +156,99 @@ module.exports = async function handleButtons(interaction) {
   if (!channel || !channel.isTextBased()) return;
 
   const cid = interaction.customId;
+
+  if (cid.startsWith("cardsbook_nav:")) {
+    const [, eventKeyRaw, targetId, ownerId, pageRaw, dir] = cid.split(":");
+    if (String(interaction.user.id) !== String(ownerId)) {
+      await interaction.followUp({ content: "Only the command user can turn pages.", ephemeral: true }).catch(() => {});
+      return;
+    }
+
+    const eventKey = eventKeyRaw === "jjk" ? "jjk" : "bleach";
+    const targetUserId = String(targetId || interaction.user.id);
+    const page = Math.max(0, Number(pageRaw || 0));
+    const nextPage = Math.max(0, page + (dir === "next" ? 1 : -1));
+
+    const p = await getPlayer(targetUserId);
+    const cardsMap = eventKey === "bleach" ? (p?.cards?.bleach || {}) : (p?.cards?.jjk || {});
+    const levels = eventKey === "bleach" ? (p?.cardLevels?.bleach || {}) : (p?.cardLevels?.jjk || {});
+    const rows = [];
+
+    for (const c of CARD_POOL[eventKey] || []) {
+      const amount = Math.max(0, Number(cardsMap[c.id] || 0));
+      if (amount <= 0) continue;
+      const lv = Math.max(1, Number(levels[c.id] || 1));
+      const stats = cardStatsAtLevel(c, lv);
+      const power = cardPower(stats);
+      rows.push({ c, amount, lv, power });
+    }
+    rows.sort((a, b) => b.power - a.power);
+    if (!rows.length) {
+      await interaction.followUp({ content: "No cards found.", ephemeral: true }).catch(() => {});
+      return;
+    }
+
+    const pageSize = 8;
+    const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+    const pageClamped = Math.max(0, Math.min(totalPages - 1, nextPage));
+    const pageRows = rows.slice(pageClamped * pageSize, pageClamped * pageSize + pageSize);
+    const imageRows = pageRows.map((x) => ({
+      card: x.c,
+      level: x.lv,
+      amount: x.amount,
+      power: x.power,
+    }));
+
+    let targetName = `User ${targetUserId}`;
+    try {
+      const member = await interaction.guild?.members?.fetch(targetUserId).catch(() => null);
+      if (member?.user?.username) targetName = safeName(member.user.username);
+    } catch {}
+
+    const png = await buildCardCollectionImage({
+      eventKey,
+      username: targetName,
+      ownedRows: imageRows,
+    });
+    const file = new AttachmentBuilder(png, { name: `cards-${eventKey}-${targetUserId}-p${pageClamped + 1}.png` });
+
+    const totalCards = rows.reduce((sum, x) => sum + x.amount, 0);
+    const container = new ContainerBuilder()
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          `## ${eventKey.toUpperCase()} Collection\n` +
+          `Player: **${targetName}**\n` +
+          `Unique: **${rows.length}** • Total Cards: **${totalCards}**`
+        )
+      )
+      .addSeparatorComponents(new SeparatorBuilder())
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          `Top Card: **${rows[0].c.name}** (Lv.${rows[0].lv}, PWR ${rows[0].power})\n` +
+          `Book Page: **${pageClamped + 1}/${totalPages}** • Cards on page: **${imageRows.length}**`
+        )
+      )
+      .addActionRowComponents(
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId(`cardsbook_nav:${eventKey}:${targetUserId}:${ownerId}:${pageClamped}:prev`)
+            .setLabel("Prev")
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(pageClamped <= 0),
+          new ButtonBuilder()
+            .setCustomId(`cardsbook_nav:${eventKey}:${targetUserId}:${ownerId}:${pageClamped}:next`)
+            .setLabel("Next")
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(pageClamped >= totalPages - 1)
+        )
+      );
+
+    await editCardsBookMessage(interaction, {
+      components: [container],
+      files: [file],
+    });
+    return;
+  }
 
   if (cid.startsWith("shopv2_nav:")) {
     const [, eventKeyRaw, pageRaw, selectedRaw, dir] = cid.split(":");

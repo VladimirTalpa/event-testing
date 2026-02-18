@@ -5,6 +5,9 @@ const {
   ContainerBuilder,
   TextDisplayBuilder,
   SeparatorBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
 } = require("discord.js");
 const { BOSSES } = require("../data/bosses");
 const { MOBS } = require("../data/mobs");
@@ -184,8 +187,12 @@ module.exports = async function handleSlash(interaction) {
       return interaction.reply({ content: `No ${eventKey.toUpperCase()} cards found. Open packs in /shop first.`, ephemeral: true });
     }
 
-    const sorted = rows.slice().sort((a, b) => b.power - a.power).slice(0, 12);
-    const imageRows = sorted.map((x) => ({
+    const sorted = rows.slice().sort((a, b) => b.power - a.power);
+    const pageSize = 8;
+    const page = 0;
+    const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
+    const pageRows = sorted.slice(page * pageSize, page * pageSize + pageSize);
+    const imageRows = pageRows.map((x) => ({
       card: x.c,
       level: x.lv,
       amount: x.amount,
@@ -205,32 +212,36 @@ module.exports = async function handleSlash(interaction) {
       .addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
           `Top Card: **${sorted[0].c.name}** (Lv.${sorted[0].lv}, PWR ${sorted[0].power})\n` +
-          `Showing first **${imageRows.length}** cards in PNG grid.`
+          `Book Page: **${page + 1}/${totalPages}** • Cards on page: **${imageRows.length}**`
+        )
+      )
+      .addActionRowComponents(
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId(`cardsbook_nav:${eventKey}:${target.id}:${interaction.user.id}:${page}:prev`)
+            .setLabel("Prev")
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(page <= 0),
+          new ButtonBuilder()
+            .setCustomId(`cardsbook_nav:${eventKey}:${target.id}:${interaction.user.id}:${page}:next`)
+            .setLabel("Next")
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(page >= totalPages - 1)
         )
       );
 
-    await interaction.reply({
+    const png = await buildCardCollectionImage({
+      eventKey,
+      username: safeName(target.username),
+      ownedRows: imageRows,
+    });
+    const file = new AttachmentBuilder(png, { name: `cards-${eventKey}-${target.id}-p${page + 1}.png` });
+
+    return interaction.reply({
       flags: MessageFlags.IsComponentsV2 | (isPrivate ? MessageFlags.Ephemeral : 0),
       components: [container],
+      files: [file],
     });
-
-    try {
-      const png = await buildCardCollectionImage({
-        eventKey,
-        username: safeName(target.username),
-        ownedRows: imageRows,
-      });
-      const file = new AttachmentBuilder(png, { name: `cards-${eventKey}-${target.id}.png` });
-      return interaction.followUp({
-        files: [file],
-        ephemeral: isPrivate,
-      });
-    } catch {
-      return interaction.followUp({
-        content: "Collection PNG failed to render. Check card image files in assets/cards/library.",
-        ephemeral: true,
-      });
-    }
   }
 
   if (interaction.commandName === "cardlevel") {
