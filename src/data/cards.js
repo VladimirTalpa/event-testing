@@ -70,7 +70,7 @@ const RARITY_COLORS = {
   mythic: "#ff004c",
 };
 
-const CARD_MAX_LEVEL = 20;
+const CARD_MAX_LEVEL = 50;
 const RARITY_BALANCE = {
   Common: { baseScale: 1.06, dmgGrowth: 0.128, defGrowth: 0.118, hpGrowth: 0.162 },
   Rare: { baseScale: 1.03, dmgGrowth: 0.121, defGrowth: 0.111, hpGrowth: 0.153 },
