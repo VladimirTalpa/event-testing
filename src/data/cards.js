@@ -67,7 +67,7 @@ const RARITY_COLORS = {
   rare: "#53ccff",
   epic: "#be6cff",
   legendary: "#ffb347",
-  mythic: "#ffd86b",
+  mythic: "#ff004c",
 };
 
 const CARD_MAX_LEVEL = 20;
