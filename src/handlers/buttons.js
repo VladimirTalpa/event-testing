@@ -23,6 +23,7 @@ const { buildBossLiveImage } = require("../ui/boss-card");
 const { buildShopV2Payload } = require("../ui/shop-v2");
 const { buildPackOpeningImage, buildCardRevealImage } = require("../ui/card-pack");
 const { collectRowsForPlayer, buildCardsBookPayload } = require("../ui/cards-book-v2");
+const { buildPvpResultImage } = require("../ui/pvpclash-card");
 const { buildClanSetupPayload, buildClanHelpText, hasClanCreateAccess, CLAN_SPECIAL_CREATE_ROLE_ID, CLAN_SPECIAL_ROLE_COST } = require("../ui/clan-setup-v2");
 const {
   getClan,
@@ -958,9 +959,22 @@ module.exports = async function handleButtons(interaction) {
     await setPlayer(challengerId, p1);
     await setPlayer(targetId, p2);
 
+    const winnerUser = await interaction.client.users.fetch(winnerId).catch(() => null);
+    const loserUser = await interaction.client.users.fetch(loserId).catch(() => null);
+    const resultPng = await buildPvpResultImage({
+      winnerName: safeName(winnerUser?.username || `User ${winnerId}`),
+      loserName: safeName(loserUser?.username || `User ${loserId}`),
+      amount,
+      currency,
+      winnerAfter: getBal(winner, currency),
+      loserAfter: getBal(loser, currency),
+    });
+    const resultFile = new AttachmentBuilder(resultPng, { name: `pvp-result-${challengerId}-${targetId}.png` });
+
     await interaction.message?.edit({ components: pvpButtons(currency, amount, challengerId, targetId, true) }).catch(() => {});
     await interaction.followUp({
-      content: `⚔️ **PvP Clash!** Winner: <@${winnerId}> • Loser: <@${loserId}> • Stake: **${amount} ${currency}**`,
+      content: `PVP CLASH RESOLVED. Winner: <@${winnerId}> | Loser: <@${loserId}>`,
+      files: [resultFile],
       ephemeral: false,
     }).catch(() => {});
     return;
@@ -1056,3 +1070,4 @@ module.exports = async function handleButtons(interaction) {
     return;
   }
 };
+

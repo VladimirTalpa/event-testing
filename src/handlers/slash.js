@@ -40,6 +40,7 @@ const { buildShopV2Payload } = require("../ui/shop-v2");
 const { buildPackOpeningImage, buildCardRevealImage } = require("../ui/card-pack");
 const { collectRowsForPlayer, buildCardsBookPayload } = require("../ui/cards-book-v2");
 const { buildCardSlashImage } = require("../ui/cardslash-card");
+const { buildPvpChallengeImage } = require("../ui/pvpclash-card");
 const { buildErrorV2 } = require("../ui/feedback-v2");
 const { buildClanBossHudImage, buildClanLeaderboardImage, buildClanInfoImage } = require("../ui/clan-card");
 const { buildClanSetupPayload, buildClanHelpText, hasClanCreateAccess, CLAN_SPECIAL_CREATE_ROLE_ID, CLAN_SPECIAL_ROLE_COST } = require("../ui/clan-setup-v2");
@@ -1428,26 +1429,59 @@ module.exports = async function handleSlash(interaction) {
 
   /* ===================== /pvpclash ===================== */
   if (interaction.commandName === "pvpclash") {
+    const replyPvpError = (text, title = "PvP Clash Error") =>
+      interaction.reply(buildErrorV2(text, title));
+
     const currency = interaction.options.getString("currency", true);
     const amount = interaction.options.getInteger("amount", true);
     const target = interaction.options.getUser("user", true);
 
-    if (target.bot) return interaction.reply({ content: "❌ You can't duel a bot.", ephemeral: true });
-    if (target.id === interaction.user.id) return interaction.reply({ content: "❌ You can't duel yourself.", ephemeral: true });
-    if (amount < 1) return interaction.reply({ content: "❌ Amount must be >= 1.", ephemeral: true });
+    if (target.bot) return replyPvpError("You cannot duel a bot.");
+    if (target.id === interaction.user.id) return replyPvpError("You cannot duel yourself.");
+    if (amount < 1) return replyPvpError("Amount must be greater than 0.");
+
+    const me = await getPlayer(interaction.user.id);
+    const today = utcDayKey();
+    if (!me.pvpClashDaily || typeof me.pvpClashDaily !== "object") {
+      me.pvpClashDaily = { day: today, used: 0 };
+    }
+    if (String(me.pvpClashDaily.day || "") !== today) {
+      me.pvpClashDaily.day = today;
+      me.pvpClashDaily.used = 0;
+    }
+    const bypassLimit = await canBypassCardslashLimit(interaction);
+    const usedToday = Math.max(0, Number(me.pvpClashDaily.used || 0));
+    if (!bypassLimit && usedToday >= 3) {
+      return replyPvpError(
+        "You already used /pvpclash 3/3 times today. Try again after daily reset (UTC).",
+        "PvP Clash Limit"
+      );
+    }
+    if (!bypassLimit) me.pvpClashDaily.used = usedToday + 1;
+    await setPlayer(interaction.user.id, me);
 
     const key = `${channel.id}:${interaction.user.id}:${target.id}`;
     pvpById.set(key, { createdAt: Date.now(), done: false });
 
+    const remaining = bypassLimit ? "INF" : String(Math.max(0, 3 - Number(me.pvpClashDaily.used || 0)));
+    const challengePng = await buildPvpChallengeImage({
+      challengerName: safeName(interaction.user.username),
+      targetName: safeName(target.username),
+      amount,
+      currency,
+      usesLeft: remaining,
+    });
+    const challengeFile = new AttachmentBuilder(challengePng, { name: `pvp-challenge-${interaction.user.id}-${target.id}.png` });
+
     return interaction.reply({
       content:
-        `⚔️ <@${target.id}> you were challenged by <@${interaction.user.id}>!\n` +
+        `PVP CHALLENGE: <@${target.id}> you were challenged by <@${interaction.user.id}>!\n` +
         `Stake: **${amount} ${currency}**`,
+      files: [challengeFile],
       components: pvpButtons(currency, amount, interaction.user.id, target.id, false),
       ephemeral: false,
     });
   }
-
   if (interaction.commandName === "adminadd") {
     const allowed = hasEventRole(interaction.member);
     if (!allowed) return interaction.reply({ content: "⛔ No permission.", ephemeral: true });
@@ -1472,5 +1506,6 @@ module.exports = async function handleSlash(interaction) {
     });
   }
 };
+
 
 
