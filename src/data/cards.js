@@ -62,7 +62,7 @@ const RARITY_COLORS = {
   Rare: "#53ccff",
   Epic: "#be6cff",
   Legendary: "#ffb347",
-  Mythic: "#ffd86b",
+  Mythic: "#ff004c",
   common: "#c8d0e0",
   rare: "#53ccff",
   epic: "#be6cff",
