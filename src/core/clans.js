@@ -7,6 +7,7 @@ const MAX_CLAN_MEMBERS = 30;
 const CLAN_CREATE_COST_DRAKO = 1500;
 const CLAN_BOSS_DURATION_MS = 30 * 60 * 1000;
 const CLAN_BOSS_HIT_CD_MS = 8 * 1000;
+const REQUEST_EXPIRE_MS = 24 * 60 * 60 * 1000;
 
 function now() {
   return Date.now();
@@ -19,6 +20,24 @@ function normalizeWeekly(weekly = {}) {
     bossClears: Math.max(0, Math.floor(Number(weekly.bossClears || 0))),
     activity: Math.max(0, Math.floor(Number(weekly.activity || 0))),
   };
+}
+
+function normalizeTicketArray(v) {
+  const arr = Array.isArray(v) ? v : [];
+  return arr
+    .map((x) => ({
+      userId: String(x?.userId || ""),
+      at: Math.max(0, Math.floor(Number(x?.at || 0))),
+      by: String(x?.by || ""),
+    }))
+    .filter((x) => !!x.userId);
+}
+
+function cleanupTickets(clan) {
+  const cutoff = now() - REQUEST_EXPIRE_MS;
+  clan.joinRequests = (clan.joinRequests || []).filter((x) => x.at >= cutoff);
+  clan.invites = (clan.invites || []).filter((x) => x.at >= cutoff);
+  return clan;
 }
 
 function normalizeClan(raw = {}) {
@@ -46,17 +65,19 @@ function normalizeClan(raw = {}) {
       }
     : null;
 
-  return {
+  return cleanupTickets({
     id: String(raw.id || ""),
     name: String(raw.name || "Unnamed Clan").trim().slice(0, 32),
     icon: String(raw.icon || "").trim().slice(0, 64),
     ownerId: String(raw.ownerId || ""),
     officers: Array.isArray(raw.officers) ? raw.officers.map(String).filter(Boolean) : [],
     members: [...new Set(members)],
+    joinRequests: normalizeTicketArray(raw.joinRequests),
+    invites: normalizeTicketArray(raw.invites),
     createdAt: Math.max(0, Math.floor(Number(raw.createdAt || 0))),
     weekly: normalizeWeekly(raw.weekly),
     activeBoss,
-  };
+  });
 }
 
 function currentWeekKey(ts = now()) {
@@ -73,7 +94,7 @@ function ensureWeekly(clan) {
   if (!clan.weekly || clan.weekly.weekKey !== wk) {
     clan.weekly = { weekKey: wk, totalDamage: 0, bossClears: 0, activity: 0 };
   }
-  return clan;
+  return cleanupTickets(clan);
 }
 
 async function listClans() {
@@ -142,6 +163,8 @@ async function createClan({ ownerId, name, icon = "" }) {
     ownerId: String(ownerId),
     officers: [],
     members: [String(ownerId)],
+    joinRequests: [],
+    invites: [],
     createdAt: now(),
     weekly: { weekKey: currentWeekKey(), totalDamage: 0, bossClears: 0, activity: 0 },
     activeBoss: null,
@@ -155,18 +178,175 @@ async function createClan({ ownerId, name, icon = "" }) {
   return { ok: true, clan };
 }
 
-async function joinClan({ userId, clanName }) {
+function canManageClan(clan, userId) {
+  return clan.ownerId === String(userId) || clan.officers.includes(String(userId));
+}
+
+function pushUniqueTicket(list, item) {
+  const next = Array.isArray(list) ? list.filter((x) => String(x.userId) !== String(item.userId)) : [];
+  next.push(item);
+  return next;
+}
+
+async function requestJoinClan({ userId, clanName }) {
   const player = await getPlayer(userId);
   if (player.clanId) return { ok: false, error: "You are already in a clan." };
   const clan = await findClanByName(clanName);
   if (!clan) return { ok: false, error: "Clan not found." };
   if (clan.members.length >= MAX_CLAN_MEMBERS) return { ok: false, error: "Clan is full." };
+  if (clan.invites.some((x) => x.userId === String(userId))) {
+    return { ok: false, error: "You already have an invite. Use /clan accept." };
+  }
+  clan.joinRequests = pushUniqueTicket(clan.joinRequests, { userId: String(userId), at: now(), by: String(userId) });
+  clan.weekly.activity += 1;
+  await setClan(clan);
+  return { ok: true, clan };
+}
+
+async function inviteToClan({ managerId, targetUserId }) {
+  const manager = await getPlayer(managerId);
+  if (!manager.clanId) return { ok: false, error: "You are not in a clan." };
+  const target = await getPlayer(targetUserId);
+  if (target.clanId) return { ok: false, error: "Target user is already in a clan." };
+  const clan = await getClan(manager.clanId);
+  if (!clan) return { ok: false, error: "Clan not found." };
+  if (!canManageClan(clan, managerId)) return { ok: false, error: "Only owner/officers can invite." };
+  if (clan.members.length >= MAX_CLAN_MEMBERS) return { ok: false, error: "Clan is full." };
+
+  clan.invites = pushUniqueTicket(clan.invites, { userId: String(targetUserId), at: now(), by: String(managerId) });
+  clan.weekly.activity += 1;
+  await setClan(clan);
+  return { ok: true, clan };
+}
+
+async function acceptInvite({ userId, clanName }) {
+  const player = await getPlayer(userId);
+  if (player.clanId) return { ok: false, error: "You are already in a clan." };
+  const clan = await findClanByName(clanName);
+  if (!clan) return { ok: false, error: "Clan not found." };
+  if (clan.members.length >= MAX_CLAN_MEMBERS) return { ok: false, error: "Clan is full." };
+  if (!clan.invites.some((x) => x.userId === String(userId))) return { ok: false, error: "No invite found for you." };
+
+  clan.invites = clan.invites.filter((x) => x.userId !== String(userId));
+  clan.joinRequests = clan.joinRequests.filter((x) => x.userId !== String(userId));
   if (!clan.members.includes(String(userId))) clan.members.push(String(userId));
   clan.weekly.activity += 1;
   await setClan(clan);
+
   player.clanId = clan.id;
   player.clanJoinedAt = now();
   await setPlayer(userId, player);
+  return { ok: true, clan };
+}
+
+async function approveJoinRequest({ managerId, userId }) {
+  const manager = await getPlayer(managerId);
+  if (!manager.clanId) return { ok: false, error: "You are not in a clan." };
+  const clan = await getClan(manager.clanId);
+  if (!clan) return { ok: false, error: "Clan not found." };
+  if (!canManageClan(clan, managerId)) return { ok: false, error: "Only owner/officers can approve requests." };
+  if (clan.members.length >= MAX_CLAN_MEMBERS) return { ok: false, error: "Clan is full." };
+  if (!clan.joinRequests.some((x) => x.userId === String(userId))) return { ok: false, error: "No join request from that user." };
+
+  const target = await getPlayer(userId);
+  if (target.clanId) {
+    clan.joinRequests = clan.joinRequests.filter((x) => x.userId !== String(userId));
+    await setClan(clan);
+    return { ok: false, error: "User is already in another clan. Request removed." };
+  }
+
+  clan.joinRequests = clan.joinRequests.filter((x) => x.userId !== String(userId));
+  clan.invites = clan.invites.filter((x) => x.userId !== String(userId));
+  if (!clan.members.includes(String(userId))) clan.members.push(String(userId));
+  clan.weekly.activity += 1;
+  await setClan(clan);
+
+  target.clanId = clan.id;
+  target.clanJoinedAt = now();
+  await setPlayer(userId, target);
+  return { ok: true, clan };
+}
+
+async function denyJoinRequest({ managerId, userId }) {
+  const manager = await getPlayer(managerId);
+  if (!manager.clanId) return { ok: false, error: "You are not in a clan." };
+  const clan = await getClan(manager.clanId);
+  if (!clan) return { ok: false, error: "Clan not found." };
+  if (!canManageClan(clan, managerId)) return { ok: false, error: "Only owner/officers can deny requests." };
+  const before = clan.joinRequests.length;
+  clan.joinRequests = clan.joinRequests.filter((x) => x.userId !== String(userId));
+  if (clan.joinRequests.length === before) return { ok: false, error: "No request from that user." };
+  clan.weekly.activity += 1;
+  await setClan(clan);
+  return { ok: true, clan };
+}
+
+async function promoteOfficer({ ownerId, targetUserId }) {
+  const owner = await getPlayer(ownerId);
+  if (!owner.clanId) return { ok: false, error: "You are not in a clan." };
+  const clan = await getClan(owner.clanId);
+  if (!clan) return { ok: false, error: "Clan not found." };
+  if (clan.ownerId !== String(ownerId)) return { ok: false, error: "Only owner can promote officers." };
+  if (!clan.members.includes(String(targetUserId))) return { ok: false, error: "Target is not in your clan." };
+  if (clan.ownerId === String(targetUserId)) return { ok: false, error: "Owner is already highest role." };
+  if (!clan.officers.includes(String(targetUserId))) clan.officers.push(String(targetUserId));
+  clan.weekly.activity += 1;
+  await setClan(clan);
+  return { ok: true, clan };
+}
+
+async function demoteOfficer({ ownerId, targetUserId }) {
+  const owner = await getPlayer(ownerId);
+  if (!owner.clanId) return { ok: false, error: "You are not in a clan." };
+  const clan = await getClan(owner.clanId);
+  if (!clan) return { ok: false, error: "Clan not found." };
+  if (clan.ownerId !== String(ownerId)) return { ok: false, error: "Only owner can demote officers." };
+  const before = clan.officers.length;
+  clan.officers = clan.officers.filter((x) => x !== String(targetUserId));
+  if (clan.officers.length === before) return { ok: false, error: "Target is not an officer." };
+  clan.weekly.activity += 1;
+  await setClan(clan);
+  return { ok: true, clan };
+}
+
+async function transferOwnership({ ownerId, targetUserId }) {
+  const owner = await getPlayer(ownerId);
+  if (!owner.clanId) return { ok: false, error: "You are not in a clan." };
+  const clan = await getClan(owner.clanId);
+  if (!clan) return { ok: false, error: "Clan not found." };
+  if (clan.ownerId !== String(ownerId)) return { ok: false, error: "Only owner can transfer ownership." };
+  if (!clan.members.includes(String(targetUserId))) return { ok: false, error: "Target must be in clan." };
+  if (String(targetUserId) === String(ownerId)) return { ok: false, error: "Target is already owner." };
+  clan.ownerId = String(targetUserId);
+  clan.officers = clan.officers.filter((x) => x !== String(targetUserId));
+  if (!clan.officers.includes(String(ownerId))) clan.officers.push(String(ownerId));
+  clan.weekly.activity += 1;
+  await setClan(clan);
+  return { ok: true, clan };
+}
+
+async function kickMember({ managerId, targetUserId }) {
+  const manager = await getPlayer(managerId);
+  if (!manager.clanId) return { ok: false, error: "You are not in a clan." };
+  const clan = await getClan(manager.clanId);
+  if (!clan) return { ok: false, error: "Clan not found." };
+  if (!canManageClan(clan, managerId)) return { ok: false, error: "Only owner/officers can kick members." };
+  if (clan.ownerId === String(targetUserId)) return { ok: false, error: "You cannot kick the owner." };
+  if (!clan.members.includes(String(targetUserId))) return { ok: false, error: "Target is not in clan." };
+
+  clan.members = clan.members.filter((x) => x !== String(targetUserId));
+  clan.officers = clan.officers.filter((x) => x !== String(targetUserId));
+  clan.joinRequests = clan.joinRequests.filter((x) => x.userId !== String(targetUserId));
+  clan.invites = clan.invites.filter((x) => x.userId !== String(targetUserId));
+  clan.weekly.activity += 1;
+  await setClan(clan);
+
+  const target = await getPlayer(targetUserId);
+  if (target.clanId === clan.id) {
+    target.clanId = "";
+    target.clanJoinedAt = 0;
+    await setPlayer(targetUserId, target);
+  }
   return { ok: true, clan };
 }
 
@@ -185,6 +365,8 @@ async function leaveClan({ userId }) {
   }
   clan.members = clan.members.filter((x) => String(x) !== String(userId));
   clan.officers = clan.officers.filter((x) => String(x) !== String(userId));
+  clan.joinRequests = clan.joinRequests.filter((x) => x.userId !== String(userId));
+  clan.invites = clan.invites.filter((x) => x.userId !== String(userId));
   if (!clan.members.length) {
     await initRedis();
     const redis = getRedis();
@@ -229,9 +411,7 @@ async function startClanBoss({ userId, eventKey }) {
   if (!p.clanId) return { ok: false, error: "Join a clan first." };
   const clan = await getClan(p.clanId);
   if (!clan) return { ok: false, error: "Clan not found." };
-  const isLeader = clan.ownerId === String(userId);
-  const isOfficer = clan.officers.includes(String(userId));
-  if (!isLeader && !isOfficer) return { ok: false, error: "Only owner/officers can start clan boss." };
+  if (!canManageClan(clan, userId)) return { ok: false, error: "Only owner/officers can start clan boss." };
   if (clan.activeBoss && clan.activeBoss.hpCurrent > 0 && clan.activeBoss.endsAt > now()) {
     return { ok: false, error: "A clan boss is already active." };
   }
@@ -332,8 +512,17 @@ module.exports = {
   getClan,
   listClans,
   findClanByName,
+  canManageClan,
   createClan,
-  joinClan,
+  requestJoinClan,
+  inviteToClan,
+  acceptInvite,
+  approveJoinRequest,
+  denyJoinRequest,
+  promoteOfficer,
+  demoteOfficer,
+  transferOwnership,
+  kickMember,
   leaveClan,
   startClanBoss,
   hitClanBoss,

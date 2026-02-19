@@ -39,14 +39,24 @@ const { buildExchangeImage } = require("../ui/exchange-card");
 const { buildShopV2Payload } = require("../ui/shop-v2");
 const { buildPackOpeningImage, buildCardRevealImage } = require("../ui/card-pack");
 const { collectRowsForPlayer, buildCardsBookPayload } = require("../ui/cards-book-v2");
+const { buildClanBossHudImage, buildClanLeaderboardImage } = require("../ui/clan-card");
 const { findCard, getCardById, cardStatsAtLevel, cardPower, CARD_MAX_LEVEL, CARD_POOL } = require("../data/cards");
 const {
   MAX_CLAN_MEMBERS,
   CLAN_CREATE_COST_DRAKO,
   getClan,
   findClanByName,
+  canManageClan,
   createClan,
-  joinClan,
+  requestJoinClan,
+  inviteToClan,
+  acceptInvite,
+  approveJoinRequest,
+  denyJoinRequest,
+  promoteOfficer,
+  demoteOfficer,
+  transferOwnership,
+  kickMember,
   leaveClan,
   startClanBoss,
   hitClanBoss,
@@ -645,14 +655,110 @@ module.exports = async function handleSlash(interaction) {
       return interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
     }
 
-    if (sub === "join") {
+    if (sub === "request") {
       const name = interaction.options.getString("name", true);
-      const res = await joinClan({ userId: interaction.user.id, clanName: name });
+      const res = await requestJoinClan({ userId: interaction.user.id, clanName: name });
       if (!res.ok) return interaction.reply({ content: res.error, ephemeral: true });
       return interaction.reply({
-        components: [new ContainerBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`## CLAN JOINED\nYou joined **${res.clan.name}**.`))],
+        components: [new ContainerBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`## JOIN REQUEST SENT\nClan: **${res.clan.name}**\nWait for owner/officer approval.`))],
         flags: MessageFlags.IsComponentsV2,
       });
+    }
+
+    if (sub === "accept") {
+      const name = interaction.options.getString("name", true);
+      const res = await acceptInvite({ userId: interaction.user.id, clanName: name });
+      if (!res.ok) return interaction.reply({ content: res.error, ephemeral: true });
+      return interaction.reply({
+        components: [new ContainerBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`## INVITE ACCEPTED\nYou joined **${res.clan.name}**.`))],
+        flags: MessageFlags.IsComponentsV2,
+      });
+    }
+
+    if (sub === "invite") {
+      const user = interaction.options.getUser("user", true);
+      if (user.bot) return interaction.reply({ content: "Cannot invite bots.", ephemeral: true });
+      const res = await inviteToClan({ managerId: interaction.user.id, targetUserId: user.id });
+      if (!res.ok) return interaction.reply({ content: res.error, ephemeral: true });
+      return interaction.reply({
+        components: [new ContainerBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`## INVITE SENT\nInvited <@${user.id}> to **${res.clan.name}**.`))],
+        flags: MessageFlags.IsComponentsV2,
+      });
+    }
+
+    if (sub === "approve") {
+      const user = interaction.options.getUser("user", true);
+      const res = await approveJoinRequest({ managerId: interaction.user.id, userId: user.id });
+      if (!res.ok) return interaction.reply({ content: res.error, ephemeral: true });
+      return interaction.reply({
+        components: [new ContainerBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`## REQUEST APPROVED\n<@${user.id}> joined **${res.clan.name}**.`))],
+        flags: MessageFlags.IsComponentsV2,
+      });
+    }
+
+    if (sub === "deny") {
+      const user = interaction.options.getUser("user", true);
+      const res = await denyJoinRequest({ managerId: interaction.user.id, userId: user.id });
+      if (!res.ok) return interaction.reply({ content: res.error, ephemeral: true });
+      return interaction.reply({
+        components: [new ContainerBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`## REQUEST DENIED\nRemoved request from <@${user.id}>.`))],
+        flags: MessageFlags.IsComponentsV2,
+      });
+    }
+
+    if (sub === "promote") {
+      const user = interaction.options.getUser("user", true);
+      const res = await promoteOfficer({ ownerId: interaction.user.id, targetUserId: user.id });
+      if (!res.ok) return interaction.reply({ content: res.error, ephemeral: true });
+      return interaction.reply({
+        components: [new ContainerBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`## OFFICER PROMOTED\n<@${user.id}> is now an officer.`))],
+        flags: MessageFlags.IsComponentsV2,
+      });
+    }
+
+    if (sub === "demote") {
+      const user = interaction.options.getUser("user", true);
+      const res = await demoteOfficer({ ownerId: interaction.user.id, targetUserId: user.id });
+      if (!res.ok) return interaction.reply({ content: res.error, ephemeral: true });
+      return interaction.reply({
+        components: [new ContainerBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`## OFFICER DEMOTED\n<@${user.id}> is now a member.`))],
+        flags: MessageFlags.IsComponentsV2,
+      });
+    }
+
+    if (sub === "transfer") {
+      const user = interaction.options.getUser("user", true);
+      const res = await transferOwnership({ ownerId: interaction.user.id, targetUserId: user.id });
+      if (!res.ok) return interaction.reply({ content: res.error, ephemeral: true });
+      return interaction.reply({
+        components: [new ContainerBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`## OWNERSHIP TRANSFERRED\nNew owner: <@${user.id}>`))],
+        flags: MessageFlags.IsComponentsV2,
+      });
+    }
+
+    if (sub === "kick") {
+      const user = interaction.options.getUser("user", true);
+      const res = await kickMember({ managerId: interaction.user.id, targetUserId: user.id });
+      if (!res.ok) return interaction.reply({ content: res.error, ephemeral: true });
+      return interaction.reply({
+        components: [new ContainerBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`## MEMBER KICKED\nRemoved <@${user.id}> from **${res.clan.name}**.`))],
+        flags: MessageFlags.IsComponentsV2,
+      });
+    }
+
+    if (sub === "requests") {
+      const me = await getPlayer(interaction.user.id);
+      if (!me.clanId) return interaction.reply({ content: "You are not in a clan.", ephemeral: true });
+      const clan = await getClan(me.clanId);
+      if (!clan) return interaction.reply({ content: "Clan not found.", ephemeral: true });
+      if (!canManageClan(clan, interaction.user.id)) return interaction.reply({ content: "Only owner/officers can view requests.", ephemeral: true });
+      const reqLines = (clan.joinRequests || []).slice(0, 12).map((x, i) => `**#${i + 1}** <@${x.userId}>`).join("\n");
+      const invLines = (clan.invites || []).slice(0, 12).map((x, i) => `**#${i + 1}** <@${x.userId}>`).join("\n");
+      const text =
+        `## CLAN REQUESTS | ${clan.name}\n` +
+        `Join Requests:\n${reqLines || "_None_"}\n\n` +
+        `Pending Invites:\n${invLines || "_None_"}`;
+      return interaction.reply({ components: [new ContainerBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(text))], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
     }
 
     if (sub === "leave") {
@@ -674,6 +780,7 @@ module.exports = async function handleSlash(interaction) {
       }
       if (!clan) return interaction.reply({ content: "Clan not found.", ephemeral: true });
       const memberMentions = clan.members.slice(0, 15).map((x) => `<@${x}>`).join(", ");
+      const officerMentions = clan.officers.slice(0, 10).map((x) => `<@${x}>`).join(", ");
       const hasBoss = !!(clan.activeBoss && clan.activeBoss.hpCurrent > 0 && clan.activeBoss.endsAt > Date.now());
       const bossText = hasBoss
         ? `${clan.activeBoss.name} | ${clan.activeBoss.hpCurrent}/${clan.activeBoss.hpMax} HP`
@@ -684,6 +791,8 @@ module.exports = async function handleSlash(interaction) {
           `${clan.icon ? `${clan.icon} ` : ""}**${clan.name}**\n` +
           `Owner: <@${clan.ownerId}>\n` +
           `Members: **${clan.members.length}/${MAX_CLAN_MEMBERS}**\n` +
+          `Officers: ${officerMentions || "_none_"}\n` +
+          `Requests: **${(clan.joinRequests || []).length}** | Invites: **${(clan.invites || []).length}**\n` +
           `Weekly: DMG **${clan.weekly.totalDamage}** | Clears **${clan.weekly.bossClears}** | Activity **${clan.weekly.activity}**\n` +
           `Boss: ${bossText}\n` +
           `${memberMentions ? `\nMembers:\n${memberMentions}` : ""}`
@@ -700,6 +809,21 @@ module.exports = async function handleSlash(interaction) {
       const res = await startClanBoss({ userId: interaction.user.id, eventKey });
       if (!res.ok) return interaction.reply({ content: res.error, ephemeral: true });
       const boss = res.clan.activeBoss;
+      const top = Object.entries(boss.damageByUser || {}).map(([uid, dmg]) => ({ name: uid, dmg }));
+      const png = await buildClanBossHudImage({
+        clanName: res.clan.name,
+        bossName: boss.name,
+        eventKey: boss.eventKey,
+        hpMax: boss.hpMax,
+        hpCurrent: boss.hpCurrent,
+        topDamage: top,
+        joined: res.clan.members.length,
+        alive: res.clan.members.length,
+        totalDamage: 0,
+        weeklyClears: res.clan.weekly.bossClears,
+        endsAt: boss.endsAt,
+      });
+      const file = new AttachmentBuilder(png, { name: `clan-boss-${boss.eventKey}.png` });
       const container = new ContainerBuilder().addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
           `## CLAN BOSS STARTED\n` +
@@ -711,7 +835,7 @@ module.exports = async function handleSlash(interaction) {
           `Use \`/clanboss hit event:${boss.eventKey}\` to attack.`
         )
       );
-      return interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
+      return interaction.reply({ components: [container], files: [file], flags: MessageFlags.IsComponentsV2 });
     }
 
     if (sub === "hit") {
@@ -720,6 +844,25 @@ module.exports = async function handleSlash(interaction) {
       if (!res.ok) return interaction.reply({ content: res.error, ephemeral: true });
       const boss = res.clan.activeBoss;
       if (!res.cleared) {
+        const top = Object.entries(boss.damageByUser || {})
+          .sort((a, b) => Number(b[1] || 0) - Number(a[1] || 0))
+          .slice(0, 10)
+          .map(([uid, dmg]) => ({ name: uid, dmg }));
+        const totalDamage = top.reduce((a, b) => a + Number(b.dmg || 0), 0);
+        const png = await buildClanBossHudImage({
+          clanName: res.clan.name,
+          bossName: boss.name,
+          eventKey: boss.eventKey,
+          hpMax: boss.hpMax,
+          hpCurrent: boss.hpCurrent,
+          topDamage: top,
+          joined: res.clan.members.length,
+          alive: res.clan.members.length,
+          totalDamage,
+          weeklyClears: res.clan.weekly.bossClears,
+          endsAt: boss.endsAt,
+        });
+        const file = new AttachmentBuilder(png, { name: `clan-boss-${boss.eventKey}.png` });
         const c = new ContainerBuilder().addTextDisplayComponents(
           new TextDisplayBuilder().setContent(
             `## CLAN BOSS HIT\n` +
@@ -728,7 +871,7 @@ module.exports = async function handleSlash(interaction) {
             `Event: **${boss.eventKey.toUpperCase()}**`
           )
         );
-        return interaction.reply({ components: [c], flags: MessageFlags.IsComponentsV2 });
+        return interaction.reply({ components: [c], files: [file], flags: MessageFlags.IsComponentsV2 });
       }
 
       const top = [...res.rewardRows]
@@ -746,7 +889,10 @@ module.exports = async function handleSlash(interaction) {
             `Rewards distributed by contribution.\n\n${top || "_No reward rows_"}`
           )
         );
-      return interaction.reply({ components: [clear], flags: MessageFlags.IsComponentsV2 });
+      const lbRows = await getClanWeeklyLeaderboard(10);
+      const png = await buildClanLeaderboardImage(lbRows);
+      const file = new AttachmentBuilder(png, { name: "clan-leaderboard-weekly.png" });
+      return interaction.reply({ components: [clear], files: [file], flags: MessageFlags.IsComponentsV2 });
     }
 
     if (sub === "status") {
@@ -766,6 +912,25 @@ module.exports = async function handleSlash(interaction) {
         .slice(0, 6)
         .map(([uid, dmg], i) => `**#${i + 1}** <@${uid}> - **${Math.floor(Number(dmg || 0))}**`)
         .join("\n");
+      const topRows = Object.entries(b.damageByUser || {})
+        .sort((a, b2) => Number(b2[1] || 0) - Number(a[1] || 0))
+        .slice(0, 10)
+        .map(([uid, dmg]) => ({ name: uid, dmg }));
+      const totalDamage = topRows.reduce((a, r) => a + Number(r.dmg || 0), 0);
+      const png = await buildClanBossHudImage({
+        clanName: clan.name,
+        bossName: b.name,
+        eventKey: b.eventKey,
+        hpMax: b.hpMax,
+        hpCurrent: b.hpCurrent,
+        topDamage: topRows,
+        joined: clan.members.length,
+        alive: clan.members.length,
+        totalDamage,
+        weeklyClears: clan.weekly.bossClears,
+        endsAt: b.endsAt,
+      });
+      const file = new AttachmentBuilder(png, { name: `clan-boss-status-${b.eventKey}.png` });
       const c = new ContainerBuilder().addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
           `## CLAN BOSS STATUS\n` +
@@ -776,12 +941,14 @@ module.exports = async function handleSlash(interaction) {
           `${top ? `\nTop Damage:\n${top}` : ""}`
         )
       );
-      return interaction.reply({ components: [c], flags: MessageFlags.IsComponentsV2 });
+      return interaction.reply({ components: [c], files: [file], flags: MessageFlags.IsComponentsV2 });
     }
   }
 
   if (interaction.commandName === "clanleaderboard") {
     const rows = await getClanWeeklyLeaderboard(10);
+    const png = await buildClanLeaderboardImage(rows);
+    const file = new AttachmentBuilder(png, { name: "clan-leaderboard-weekly.png" });
     const lines = rows.map((r, i) =>
       `**#${i + 1}** ${r.icon ? `${r.icon} ` : ""}**${safeName(r.name)}** | Score **${r.score}** | DMG ${r.damage} | Clears ${r.clears} | Activity ${r.activity}`
     );
@@ -792,7 +959,7 @@ module.exports = async function handleSlash(interaction) {
         `${lines.join("\n") || "_No clans yet._"}`
       )
     );
-    return interaction.reply({ components: [c], flags: MessageFlags.IsComponentsV2 });
+    return interaction.reply({ components: [c], files: [file], flags: MessageFlags.IsComponentsV2 });
   }
 
   if (interaction.commandName === "leaderboard") {

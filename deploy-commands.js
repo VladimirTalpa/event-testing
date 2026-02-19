@@ -157,10 +157,59 @@ const commands = [
     )
     .addSubcommand((sc) =>
       sc
-        .setName("join")
-        .setDescription("Join a clan by name")
+        .setName("request")
+        .setDescription("Request to join a clan")
         .addStringOption((opt) => opt.setName("name").setDescription("Exact clan name").setRequired(true))
     )
+    .addSubcommand((sc) =>
+      sc
+        .setName("accept")
+        .setDescription("Accept a clan invite by clan name")
+        .addStringOption((opt) => opt.setName("name").setDescription("Exact clan name").setRequired(true))
+    )
+    .addSubcommand((sc) =>
+      sc
+        .setName("invite")
+        .setDescription("Invite a player to your clan (owner/officer)")
+        .addUserOption((opt) => opt.setName("user").setDescription("User to invite").setRequired(true))
+    )
+    .addSubcommand((sc) =>
+      sc
+        .setName("approve")
+        .setDescription("Approve a join request (owner/officer)")
+        .addUserOption((opt) => opt.setName("user").setDescription("User to approve").setRequired(true))
+    )
+    .addSubcommand((sc) =>
+      sc
+        .setName("deny")
+        .setDescription("Deny a join request (owner/officer)")
+        .addUserOption((opt) => opt.setName("user").setDescription("User to deny").setRequired(true))
+    )
+    .addSubcommand((sc) =>
+      sc
+        .setName("promote")
+        .setDescription("Promote member to officer (owner only)")
+        .addUserOption((opt) => opt.setName("user").setDescription("Member to promote").setRequired(true))
+    )
+    .addSubcommand((sc) =>
+      sc
+        .setName("demote")
+        .setDescription("Demote officer to member (owner only)")
+        .addUserOption((opt) => opt.setName("user").setDescription("Officer to demote").setRequired(true))
+    )
+    .addSubcommand((sc) =>
+      sc
+        .setName("transfer")
+        .setDescription("Transfer clan ownership (owner only)")
+        .addUserOption((opt) => opt.setName("user").setDescription("New owner").setRequired(true))
+    )
+    .addSubcommand((sc) =>
+      sc
+        .setName("kick")
+        .setDescription("Kick a member (owner/officer)")
+        .addUserOption((opt) => opt.setName("user").setDescription("Member to kick").setRequired(true))
+    )
+    .addSubcommand((sc) => sc.setName("requests").setDescription("Show pending join requests + invites"))
     .addSubcommand((sc) => sc.setName("leave").setDescription("Leave your current clan"))
     .addSubcommand((sc) =>
       sc
