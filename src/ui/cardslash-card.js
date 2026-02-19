@@ -30,6 +30,13 @@ function fitCover(sw, sh, bw, bh) {
   return { x: Math.floor((bw - w) / 2), y: Math.floor((bh - h) / 2), w, h };
 }
 
+function fitContain(sw, sh, bw, bh) {
+  const scale = Math.min(bw / Math.max(1, sw), bh / Math.max(1, sh));
+  const w = Math.floor(sw * scale);
+  const h = Math.floor(sh * scale);
+  return { x: Math.floor((bw - w) / 2), y: Math.floor((bh - h) / 2), w, h };
+}
+
 function fitText(ctx, text, maxWidth) {
   const raw = String(text || "");
   if (ctx.measureText(raw).width <= maxWidth) return raw;
@@ -64,159 +71,151 @@ async function drawBackground(ctx, w, h) {
       const bg = await loadImage(CLASH_BG_PATH);
       const fit = fitCover(bg.width, bg.height, w, h);
       ctx.drawImage(bg, fit.x, fit.y, fit.w, fit.h);
-      ctx.fillStyle = "rgba(0,0,0,0.34)";
+      ctx.fillStyle = "rgba(0,0,0,0.22)";
       ctx.fillRect(0, 0, w, h);
       return;
     } catch {}
   }
   const fallback = ctx.createLinearGradient(0, 0, w, h);
-  fallback.addColorStop(0, "#140700");
-  fallback.addColorStop(1, "#2f1202");
+  fallback.addColorStop(0, "#0d0501");
+  fallback.addColorStop(1, "#2f1002");
   ctx.fillStyle = fallback;
   ctx.fillRect(0, 0, w, h);
 }
 
-function drawSword(ctx, cx, topY, h, eventKey) {
-  const colorA = eventKey === "jjk" ? "#ff4f7d" : "#ff9c44";
-  const colorB = eventKey === "jjk" ? "#ffd2df" : "#ffe1b5";
-  const bladeW = 44;
-  const bladeH = Math.floor(h * 0.68);
-
-  ctx.save();
-  ctx.shadowColor = colorA;
-  ctx.shadowBlur = 24;
-  ctx.beginPath();
-  ctx.moveTo(cx, topY - 16);
-  ctx.lineTo(cx - bladeW / 2, topY + 30);
-  ctx.lineTo(cx - bladeW / 2 + 6, topY + bladeH);
-  ctx.lineTo(cx + bladeW / 2 - 6, topY + bladeH);
-  ctx.lineTo(cx + bladeW / 2, topY + 30);
-  ctx.closePath();
-  const g = ctx.createLinearGradient(cx - bladeW, topY, cx + bladeW, topY + bladeH);
-  g.addColorStop(0, colorB);
-  g.addColorStop(0.5, "#ffffff");
-  g.addColorStop(1, colorA);
-  ctx.fillStyle = g;
-  ctx.fill();
-  ctx.restore();
-
-  rr(ctx, cx - 86, topY + bladeH - 8, 172, 20, 8);
-  const guard = ctx.createLinearGradient(cx - 86, 0, cx + 86, 0);
-  guard.addColorStop(0, colorA);
-  guard.addColorStop(1, colorB);
-  ctx.fillStyle = guard;
-  ctx.fill();
-
-  rr(ctx, cx - 12, topY + bladeH + 14, 24, Math.floor(h * 0.15), 8);
-  ctx.fillStyle = "rgba(9,10,15,0.95)";
-  ctx.fill();
-}
-
-function drawUserPanel(ctx, panel, isLeft, eventKey) {
-  const accent = eventKey === "jjk" ? "#ff5d89" : "#ffb25f";
-  const accentSoft = eventKey === "jjk" ? "#ffbfd0" : "#ffe2bb";
-  const x = panel.x;
-  const y = panel.y;
-  const w = panel.w;
-  const h = panel.h;
-
-  rr(ctx, x, y, w, h, 18);
-  ctx.fillStyle = "rgba(8,10,16,0.44)";
-  ctx.fill();
-  ctx.strokeStyle = isLeft ? accent : accentSoft;
-  ctx.lineWidth = 2;
-  ctx.stroke();
-
-  if (panel.art) {
-    rr(ctx, x + 18, y + 18, w - 36, h - 178, 14);
-    ctx.save();
-    ctx.clip();
-    const fit = fitCover(panel.art.width, panel.art.height, w - 36, h - 178);
-    ctx.drawImage(panel.art, x + 18 + fit.x, y + 18 + fit.y, fit.w, fit.h);
-    ctx.restore();
-  } else {
-    rr(ctx, x + 18, y + 18, w - 36, h - 178, 14);
-    const miss = ctx.createLinearGradient(x, y, x + w, y + h);
-    miss.addColorStop(0, "rgba(255,255,255,0.12)");
-    miss.addColorStop(1, "rgba(255,255,255,0.03)");
-    ctx.fillStyle = miss;
-    ctx.fill();
-    ctx.font = '700 30px "Orbitron", "Inter", "Segoe UI", sans-serif';
-    ctx.fillStyle = "rgba(235,235,245,0.92)";
-    ctx.fillText("NO CARD ART", x + 70, y + h / 2 - 20);
+function theme(eventKey) {
+  if (eventKey === "jjk") {
+    return {
+      a: "#ff5d89",
+      b: "#ffd0de",
+      soft: "rgba(255,93,137,0.46)",
+      chip: "rgba(18,8,14,0.62)",
+      text: "#f8f0f3",
+    };
   }
-
-  rr(ctx, x + 18, y + h - 144, w - 36, 126, 12);
-  ctx.fillStyle = "rgba(4,6,12,0.74)";
-  ctx.fill();
-  ctx.strokeStyle = "rgba(255,255,255,0.16)";
-  ctx.lineWidth = 1;
-  ctx.stroke();
-
-  const rarityColor = RARITY_COLORS[panel.card?.rarity] || "#d7deee";
-  ctx.font = '900 30px "Orbitron", "Inter", "Segoe UI", sans-serif';
-  ctx.fillStyle = rarityColor;
-  const cardName = fitText(ctx, panel.card?.name || "Unknown Card", w - 66);
-  ctx.fillText(cardName, x + 28, y + h - 98);
-
-  ctx.font = '700 23px "Inter", "Segoe UI", sans-serif';
-  ctx.fillStyle = "rgba(236,240,248,0.96)";
-  ctx.fillText(`Lv.${panel.level} | PWR ${panel.power}`, x + 28, y + h - 66);
-
-  ctx.font = '700 19px "Inter", "Segoe UI", sans-serif';
-  ctx.fillStyle = "rgba(220,228,244,0.96)";
-  const stats = `DMG ${panel.stats.dmg}   DEF ${panel.stats.def}   HP ${panel.stats.hp}`;
-  ctx.fillText(stats, x + 28, y + h - 36);
+  return {
+    a: "#ffad58",
+    b: "#ffe2bf",
+    soft: "rgba(255,173,88,0.46)",
+    chip: "rgba(20,10,4,0.62)",
+    text: "#fff5ec",
+  };
 }
 
-function drawHeader(ctx, w, eventKey) {
-  const a = eventKey === "jjk" ? "#ff5d89" : "#ff9a43";
-  const b = eventKey === "jjk" ? "#ffc4d5" : "#ffe3bf";
+function drawHeader(ctx, w, eventTheme) {
   const g = ctx.createLinearGradient(0, 0, w, 0);
-  g.addColorStop(0, a);
-  g.addColorStop(1, b);
-  ctx.font = '900 84px "Orbitron", "Inter", "Segoe UI", sans-serif';
+  g.addColorStop(0, eventTheme.a);
+  g.addColorStop(1, eventTheme.b);
+  ctx.font = '900 82px "Orbitron", "Inter", "Segoe UI", sans-serif';
   ctx.fillStyle = g;
   const title = "CARD SLASH";
   const tw = ctx.measureText(title).width;
-  ctx.fillText(title, (w - tw) / 2, 100);
-  ctx.strokeStyle = "rgba(255,255,255,0.2)";
+  ctx.fillText(title, Math.floor((w - tw) / 2), 102);
+
+  ctx.strokeStyle = "rgba(255,255,255,0.22)";
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(110, 130);
-  ctx.lineTo(w - 110, 130);
+  ctx.moveTo(110, 132);
+  ctx.lineTo(w - 110, 132);
   ctx.stroke();
+
+  ctx.font = '800 40px "Orbitron", "Inter", "Segoe UI", sans-serif';
+  ctx.fillStyle = "rgba(255,255,255,0.95)";
+  const mid = "VS";
+  const mw = ctx.measureText(mid).width;
+  ctx.fillText(mid, Math.floor((w - mw) / 2), 468);
 }
 
-function drawFooter(ctx, w, h, data, eventKey) {
-  const a = eventKey === "jjk" ? "#ff7099" : "#ffad55";
-  const b = eventKey === "jjk" ? "#ffd0df" : "#ffe4bf";
-  const winnerName = data.winnerId === data.left.userId ? data.left.userName : data.right.userName;
+function drawCardOnly(ctx, cardData, x, y, w, h, eventTheme, isWinner) {
+  const rarity = RARITY_COLORS[cardData.card?.rarity] || "#d7deee";
 
-  rr(ctx, 104, h - 124, w - 208, 90, 16);
-  ctx.fillStyle = "rgba(4,6,12,0.78)";
+  rr(ctx, x - 6, y - 6, w + 12, h + 12, 24);
+  ctx.strokeStyle = isWinner ? eventTheme.b : eventTheme.a;
+  ctx.lineWidth = isWinner ? 4 : 2;
+  ctx.shadowColor = isWinner ? eventTheme.b : eventTheme.a;
+  ctx.shadowBlur = isWinner ? 30 : 18;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  rr(ctx, x, y, w, h, 20);
+  ctx.save();
+  ctx.clip();
+  if (cardData.art) {
+    const fit = fitContain(cardData.art.width, cardData.art.height, w, h);
+    ctx.drawImage(cardData.art, x + fit.x, y + fit.y, fit.w, fit.h);
+  } else {
+    const miss = ctx.createLinearGradient(x, y, x + w, y + h);
+    miss.addColorStop(0, "rgba(255,255,255,0.18)");
+    miss.addColorStop(1, "rgba(255,255,255,0.04)");
+    ctx.fillStyle = miss;
+    ctx.fillRect(x, y, w, h);
+    ctx.font = '700 34px "Orbitron", "Inter", "Segoe UI", sans-serif';
+    ctx.fillStyle = "rgba(240,242,248,0.92)";
+    ctx.fillText("NO CARD ART", x + 88, y + Math.floor(h / 2));
+  }
+  ctx.restore();
+
+  const plateH = 142;
+  rr(ctx, x, y + h - plateH, w, plateH, 16);
+  ctx.fillStyle = "rgba(3,5,10,0.44)";
   ctx.fill();
-  ctx.strokeStyle = "rgba(255,255,255,0.2)";
-  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = "rgba(255,255,255,0.18)";
+  ctx.lineWidth = 1.2;
   ctx.stroke();
 
-  ctx.font = '800 34px "Orbitron", "Inter", "Segoe UI", sans-serif';
-  const g = ctx.createLinearGradient(140, 0, w - 140, 0);
-  g.addColorStop(0, a);
-  g.addColorStop(1, b);
-  ctx.fillStyle = g;
-  const line = `Winner: ${winnerName}   |   Impact ${data.impact}   |   Uses Left ${data.usesLeft}/3`;
-  const text = fitText(ctx, line, w - 280);
-  const tw = ctx.measureText(text).width;
-  ctx.fillText(text, (w - tw) / 2, h - 70);
+  ctx.font = '900 34px "Orbitron", "Inter", "Segoe UI", sans-serif';
+  ctx.fillStyle = rarity;
+  ctx.fillText(fitText(ctx, cardData.card?.name || "Unknown Card", w - 30), x + 14, y + h - 92);
 
-  ctx.font = '900 38px "Orbitron", "Inter", "Segoe UI", sans-serif';
-  ctx.fillStyle = "rgba(245,246,252,0.95)";
-  const leftName = fitText(ctx, data.left.userName, 460);
-  const rightName = fitText(ctx, data.right.userName, 460);
-  ctx.fillText(leftName, 120, h - 170);
-  const rw = ctx.measureText(rightName).width;
-  ctx.fillText(rightName, w - 120 - rw, h - 170);
+  ctx.font = '700 24px "Inter", "Segoe UI", sans-serif';
+  ctx.fillStyle = eventTheme.text;
+  ctx.fillText(`Lv.${cardData.level} | PWR ${cardData.power}`, x + 14, y + h - 58);
+
+  ctx.font = '700 20px "Inter", "Segoe UI", sans-serif';
+  ctx.fillStyle = "rgba(238,243,250,0.96)";
+  ctx.fillText(`DMG ${cardData.stats.dmg}   DEF ${cardData.stats.def}   HP ${cardData.stats.hp}`, x + 14, y + h - 28);
+}
+
+function drawUserName(ctx, label, x, y, maxWidth, align, eventTheme, isWinner) {
+  ctx.font = '900 52px "Orbitron", "Inter", "Segoe UI", sans-serif';
+  const name = fitText(ctx, label, maxWidth);
+  const width = ctx.measureText(name).width;
+  const tx = align === "right" ? x - width : x;
+
+  ctx.fillStyle = isWinner ? eventTheme.b : eventTheme.a;
+  ctx.shadowColor = isWinner ? eventTheme.b : eventTheme.a;
+  ctx.shadowBlur = isWinner ? 22 : 12;
+  ctx.fillText(name, tx, y);
+  ctx.shadowBlur = 0;
+}
+
+function drawWinnerBar(ctx, w, h, data, eventTheme) {
+  const winner = data.winnerId === data.left.userId ? data.left.userName : data.right.userName;
+  rr(ctx, 98, h - 122, w - 196, 88, 15);
+  ctx.fillStyle = eventTheme.chip;
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,0.2)";
+  ctx.lineWidth = 1.4;
+  ctx.stroke();
+
+  const t = `Winner ${winner}   |   Impact ${data.impact}   |   Uses Left ${data.usesLeft}/3`;
+  ctx.font = '800 36px "Orbitron", "Inter", "Segoe UI", sans-serif';
+  ctx.fillStyle = eventTheme.text;
+  const line = fitText(ctx, t, w - 250);
+  const tw = ctx.measureText(line).width;
+  ctx.fillText(line, Math.floor((w - tw) / 2), h - 67);
+}
+
+function drawWinnerTag(ctx, x, y, eventTheme) {
+  rr(ctx, x, y, 160, 50, 10);
+  const g = ctx.createLinearGradient(x, y, x + 160, y);
+  g.addColorStop(0, eventTheme.a);
+  g.addColorStop(1, eventTheme.b);
+  ctx.fillStyle = g;
+  ctx.fill();
+  ctx.font = '900 28px "Orbitron", "Inter", "Segoe UI", sans-serif';
+  ctx.fillStyle = "rgba(10,12,16,0.92)";
+  ctx.fillText("WINNER", x + 22, y + 34);
 }
 
 async function buildCardSlashImage(data) {
@@ -226,33 +225,32 @@ async function buildCardSlashImage(data) {
   const canvas = createCanvas(W, H);
   const ctx = canvas.getContext("2d");
   const eventKey = data.eventKey === "jjk" ? "jjk" : "bleach";
+  const eventTheme = theme(eventKey);
 
   await drawBackground(ctx, W, H);
-  drawHeader(ctx, W, eventKey);
+  drawHeader(ctx, W, eventTheme);
 
-  const left = {
-    x: 84,
-    y: 158,
-    w: 700,
-    h: 660,
-    ...data.left,
-  };
-  const right = {
-    x: W - 784,
-    y: 158,
-    w: 700,
-    h: 660,
-    ...data.right,
-  };
+  const left = { ...data.left, art: await loadCardArt(eventKey, data.left.card) };
+  const right = { ...data.right, art: await loadCardArt(eventKey, data.right.card) };
+  const leftWin = data.winnerId === left.userId;
+  const rightWin = data.winnerId === right.userId;
 
-  left.art = await loadCardArt(eventKey, left.card);
-  right.art = await loadCardArt(eventKey, right.card);
+  const cardW = 700;
+  const cardH = 640;
+  const leftX = 86;
+  const rightX = W - cardW - 86;
+  const cardY = 168;
 
-  drawUserPanel(ctx, left, true, eventKey);
-  drawUserPanel(ctx, right, false, eventKey);
-  drawSword(ctx, W / 2, 246, 430, eventKey);
-  drawFooter(ctx, W, H, data, eventKey);
+  drawCardOnly(ctx, left, leftX, cardY, cardW, cardH, eventTheme, leftWin);
+  drawCardOnly(ctx, right, rightX, cardY, cardW, cardH, eventTheme, rightWin);
 
+  drawUserName(ctx, left.userName, 96, 870, 640, "left", eventTheme, leftWin);
+  drawUserName(ctx, right.userName, W - 96, 870, 640, "right", eventTheme, rightWin);
+
+  if (leftWin) drawWinnerTag(ctx, leftX + cardW - 176, cardY - 20, eventTheme);
+  if (rightWin) drawWinnerTag(ctx, rightX + cardW - 176, cardY - 20, eventTheme);
+
+  drawWinnerBar(ctx, W, H, data, eventTheme);
   return canvas.toBuffer("image/png");
 }
 
