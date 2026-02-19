@@ -39,6 +39,7 @@ const { buildExchangeImage } = require("../ui/exchange-card");
 const { buildShopV2Payload } = require("../ui/shop-v2");
 const { buildPackOpeningImage, buildCardRevealImage } = require("../ui/card-pack");
 const { collectRowsForPlayer, buildCardsBookPayload } = require("../ui/cards-book-v2");
+const { buildCardSlashImage } = require("../ui/cardslash-card");
 const { buildClanBossHudImage, buildClanLeaderboardImage, buildClanInfoImage } = require("../ui/clan-card");
 const { buildClanSetupPayload, buildClanHelpText, hasClanCreateAccess, CLAN_SPECIAL_CREATE_ROLE_ID, CLAN_SPECIAL_ROLE_COST } = require("../ui/clan-setup-v2");
 const {
@@ -528,47 +529,31 @@ module.exports = async function handleSlash(interaction) {
     await setPlayer(interaction.user.id, me);
     await setPlayer(enemy.id, op);
 
-    const eventCurrency = eventKey === "bleach" ? "Reiatsu" : "Cursed Energy";
     const remaining = Math.max(0, 3 - Number(me.cardClashDaily.used || 0));
-    const container = new ContainerBuilder()
-      .addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-          "## CARD SLASH | " + eventKey.toUpperCase() + "\n" +
-          "<@" + interaction.user.id + "> vs <@" + enemy.id + ">"
-        )
-      )
-      .addSeparatorComponents(new SeparatorBuilder())
-      .addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-          "### Matchup\n" +
-          "- <@" + interaction.user.id + ">: **" + myCard.name + "** (Lv." + myLevel + ", PWR " + myPower + ")\n" +
-          "- <@" + enemy.id + ">: **" + enemyPick.card.name + "** (Lv." + enemyPick.level + ", PWR " + enemyPick.power + ")"
-        )
-      )
-      .addSeparatorComponents(new SeparatorBuilder())
-      .addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-          "### Result\n" +
-          "- Winner: <@" + winnerId + ">\n" +
-          "- Loser: <@" + loserId + ">\n" +
-          "- Impact: **" + diff + "**"
-        )
-      )
-      .addSeparatorComponents(new SeparatorBuilder())
-      .addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-          "### Rewards\n" +
-          "- Winner: **+" + winnerEventReward + " " + eventCurrency + "** + **" + winnerDrakoReward + " Drako**\n" +
-          "- Loser: **+" + loserEventReward + " " + eventCurrency + "** + **" + loserDrakoReward + " Drako**\n" +
-          "\nUses left today: **" + remaining + "/3**"
-        )
-      );
-
-    return interaction.reply({
-      components: [container],
-      flags: MessageFlags.IsComponentsV2,
-      ephemeral: false,
+    const png = await buildCardSlashImage({
+      eventKey,
+      winnerId,
+      impact: diff,
+      usesLeft: remaining,
+      left: {
+        userId: interaction.user.id,
+        userName: safeName(interaction.user.username),
+        card: myCard,
+        level: myLevel,
+        stats: myStats,
+        power: myPower,
+      },
+      right: {
+        userId: enemy.id,
+        userName: safeName(enemy.username),
+        card: enemyPick.card,
+        level: enemyPick.level,
+        stats: enemyPick.stats,
+        power: enemyPick.power,
+      },
     });
+    const file = new AttachmentBuilder(png, { name: `cardslash-${eventKey}.png` });
+    return interaction.reply({ files: [file], ephemeral: false });
   }
 
   if (interaction.commandName === "cardmastery") {
