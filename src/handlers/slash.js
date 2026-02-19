@@ -40,6 +40,7 @@ const { buildShopV2Payload } = require("../ui/shop-v2");
 const { buildPackOpeningImage, buildCardRevealImage } = require("../ui/card-pack");
 const { collectRowsForPlayer, buildCardsBookPayload } = require("../ui/cards-book-v2");
 const { buildClanBossHudImage, buildClanLeaderboardImage, buildClanInfoImage } = require("../ui/clan-card");
+const { buildClanSetupPayload, buildClanHelpText, hasClanCreateAccess, CLAN_SPECIAL_CREATE_ROLE_ID, CLAN_SPECIAL_ROLE_COST } = require("../ui/clan-setup-v2");
 const { findCard, getCardById, cardStatsAtLevel, cardPower, CARD_MAX_LEVEL, CARD_POOL } = require("../data/cards");
 const {
   MAX_CLAN_MEMBERS,
@@ -637,7 +638,31 @@ module.exports = async function handleSlash(interaction) {
 
   if (interaction.commandName === "clan") {
     const sub = interaction.options.getSubcommand(true);
+    if (sub === "setup") {
+      const payload = await buildClanSetupPayload({
+        guild: interaction.guild,
+        userId: interaction.user.id,
+        member: interaction.member,
+      });
+      return interaction.reply(payload);
+    }
+    if (sub === "help") {
+      const c = new ContainerBuilder()
+        .addTextDisplayComponents(new TextDisplayBuilder().setContent(buildClanHelpText()));
+      return interaction.reply({ components: [c], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+    }
+
+    // legacy fallback (kept for old cached commands)
     if (sub === "create") {
+      if (!hasClanCreateAccess(interaction.member)) {
+        return interaction.reply({
+          content:
+            "You cannot create a clan yet.\n" +
+            "Required role: <@&1472494294173745223> or <@&1443940262635245598> or <@&1474147727645474836>.\n" +
+            `Special role can be bought for ${CLAN_SPECIAL_ROLE_COST.toLocaleString("en-US")} Reiatsu/CE in /clan setup.`,
+          ephemeral: true,
+        });
+      }
       const name = interaction.options.getString("name", true);
       const icon = interaction.options.getString("icon") || "";
       const res = await createClan({ ownerId: interaction.user.id, name, icon });
