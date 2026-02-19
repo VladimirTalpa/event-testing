@@ -144,6 +144,76 @@ const commands = [
     .addStringOption((opt) => opt.setName("currency").setDescription("Which currency?").setRequired(true).addChoices(...CURRENCY_CHOICES))
     .addIntegerOption((opt) => opt.setName("amount").setDescription("Amount to add").setRequired(true).setMinValue(1))
     .addUserOption((opt) => opt.setName("user").setDescription("Target user (optional)").setRequired(false)),
+
+  new SlashCommandBuilder()
+    .setName("clan")
+    .setDescription("Clan system commands")
+    .addSubcommand((sc) =>
+      sc
+        .setName("create")
+        .setDescription("Create a clan")
+        .addStringOption((opt) => opt.setName("name").setDescription("Clan name (3-32 chars)").setRequired(true))
+        .addStringOption((opt) => opt.setName("icon").setDescription("Short icon/tag like ⚔️ or [MOHG]").setRequired(false))
+    )
+    .addSubcommand((sc) =>
+      sc
+        .setName("join")
+        .setDescription("Join a clan by name")
+        .addStringOption((opt) => opt.setName("name").setDescription("Exact clan name").setRequired(true))
+    )
+    .addSubcommand((sc) => sc.setName("leave").setDescription("Leave your current clan"))
+    .addSubcommand((sc) =>
+      sc
+        .setName("info")
+        .setDescription("Show clan info")
+        .addStringOption((opt) => opt.setName("name").setDescription("Clan name (optional)").setRequired(false))
+    ),
+
+  new SlashCommandBuilder()
+    .setName("clanboss")
+    .setDescription("Clan boss commands")
+    .addSubcommand((sc) =>
+      sc
+        .setName("start")
+        .setDescription("Start a clan-exclusive boss")
+        .addStringOption((opt) => opt.setName("event").setDescription("Bleach or JJK").setRequired(true).addChoices(...EVENT_CHOICES))
+    )
+    .addSubcommand((sc) =>
+      sc
+        .setName("hit")
+        .setDescription("Hit active clan boss with your strongest card in the event")
+        .addStringOption((opt) => opt.setName("event").setDescription("Bleach or JJK").setRequired(true).addChoices(...EVENT_CHOICES))
+    )
+    .addSubcommand((sc) => sc.setName("status").setDescription("Show active clan boss status")),
+
+  new SlashCommandBuilder()
+    .setName("clanleaderboard")
+    .setDescription("Weekly clan ranking by damage/activity/clears"),
+
+  new SlashCommandBuilder()
+    .setName("cardmastery")
+    .setDescription("Card mastery progression M1 -> M2 -> M3")
+    .addSubcommand((sc) =>
+      sc
+        .setName("info")
+        .setDescription("Show mastery status for a card")
+        .addStringOption((opt) => opt.setName("event").setDescription("Bleach or JJK").setRequired(true).addChoices(...EVENT_CHOICES))
+        .addStringOption((opt) => opt.setName("card").setDescription("Card id or name").setRequired(true))
+    )
+    .addSubcommand((sc) =>
+      sc
+        .setName("upgrade")
+        .setDescription("Upgrade card mastery if requirements are met")
+        .addStringOption((opt) => opt.setName("event").setDescription("Bleach or JJK").setRequired(true).addChoices(...EVENT_CHOICES))
+        .addStringOption((opt) => opt.setName("card").setDescription("Card id or name").setRequired(true))
+    ),
+
+  new SlashCommandBuilder()
+    .setName("cardfuse")
+    .setDescription("Fuse two M3 cards into a duo card")
+    .addStringOption((opt) => opt.setName("event").setDescription("Bleach or JJK").setRequired(true).addChoices(...EVENT_CHOICES))
+    .addStringOption((opt) => opt.setName("card_a").setDescription("First card id or name").setRequired(true))
+    .addStringOption((opt) => opt.setName("card_b").setDescription("Second card id or name").setRequired(true)),
 ].map((c) => c.toJSON());
 
 const rest = new REST({ version: "10" }).setToken(TOKEN);

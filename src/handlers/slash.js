@@ -40,6 +40,18 @@ const { buildShopV2Payload } = require("../ui/shop-v2");
 const { buildPackOpeningImage, buildCardRevealImage } = require("../ui/card-pack");
 const { collectRowsForPlayer, buildCardsBookPayload } = require("../ui/cards-book-v2");
 const { findCard, getCardById, cardStatsAtLevel, cardPower, CARD_MAX_LEVEL, CARD_POOL } = require("../data/cards");
+const {
+  MAX_CLAN_MEMBERS,
+  CLAN_CREATE_COST_DRAKO,
+  getClan,
+  findClanByName,
+  createClan,
+  joinClan,
+  leaveClan,
+  startClanBoss,
+  hitClanBoss,
+  getClanWeeklyLeaderboard,
+} = require("../core/clans");
 
 const { spawnBoss } = require("../events/boss");
 const { spawnMob } = require("../events/mob");
@@ -73,6 +85,49 @@ function strongestOwnedCard(player, eventKey) {
     if (!best || power > best.power) best = { card, level: lv, amount, stats, power };
   }
   return best;
+}
+
+const DUO_RECIPES = {
+  jjk: [
+    { a: "jjk_yuji", b: "jjk_todo", duoId: "duo_jjk_itadori_todo", name: "Itadori x Todo Duo" },
+    { a: "jjk_gojo", b: "jjk_nanami", duoId: "duo_jjk_gojo_nanami", name: "Gojo x Nanami Duo" },
+    { a: "jjk_sukuna", b: "jjk_megumi", duoId: "duo_jjk_sukuna_megumi", name: "Sukuna x Megumi Duo" },
+  ],
+  bleach: [],
+};
+
+function masteryStageName(n) {
+  const x = Math.max(1, Math.min(3, Math.floor(Number(n || 1))));
+  return `M${x}`;
+}
+
+function getMasteryMap(player, eventKey) {
+  return eventKey === "jjk" ? (player?.cardMastery?.jjk || {}) : (player?.cardMastery?.bleach || {});
+}
+
+function ensureCardSystems(player) {
+  if (!player.cards || typeof player.cards !== "object") player.cards = { bleach: {}, jjk: {} };
+  if (!player.cards.bleach) player.cards.bleach = {};
+  if (!player.cards.jjk) player.cards.jjk = {};
+  if (!player.cardLevels || typeof player.cardLevels !== "object") player.cardLevels = { bleach: {}, jjk: {} };
+  if (!player.cardLevels.bleach) player.cardLevels.bleach = {};
+  if (!player.cardLevels.jjk) player.cardLevels.jjk = {};
+  if (!player.cardMastery || typeof player.cardMastery !== "object") player.cardMastery = { bleach: {}, jjk: {} };
+  if (!player.cardMastery.bleach) player.cardMastery.bleach = {};
+  if (!player.cardMastery.jjk) player.cardMastery.jjk = {};
+  if (!player.duoCards || typeof player.duoCards !== "object") player.duoCards = { bleach: {}, jjk: {} };
+  if (!player.duoCards.bleach) player.duoCards.bleach = {};
+  if (!player.duoCards.jjk) player.duoCards.jjk = {};
+}
+
+function getMasteryRequirements(currentStage, level) {
+  if (currentStage <= 1) {
+    return { toStage: 2, minLevel: 10, dupNeed: 3, drakoNeed: 500 };
+  }
+  if (currentStage === 2) {
+    return { toStage: 3, minLevel: CARD_MAX_LEVEL, dupNeed: 5, drakoNeed: 1200 };
+  }
+  return null;
 }
 
 function isAllowedSpawnChannel(eventKey, channelId) {
@@ -460,6 +515,286 @@ module.exports = async function handleSlash(interaction) {
       ephemeral: false,
     });
   }
+
+  if (interaction.commandName === "cardmastery") {
+    const sub = interaction.options.getSubcommand(true);
+    const eventKey = normalizeEventKey(interaction.options.getString("event", true));
+    const query = interaction.options.getString("card", true);
+    const p = await getPlayer(interaction.user.id);
+    ensureCardSystems(p);
+    const card = findCard(eventKey, query);
+    if (!card) return interaction.reply({ content: "Card not found.", ephemeral: true });
+
+    const cardsMap = eventKey === "jjk" ? p.cards.jjk : p.cards.bleach;
+    const levels = eventKey === "jjk" ? p.cardLevels.jjk : p.cardLevels.bleach;
+    const mastery = eventKey === "jjk" ? p.cardMastery.jjk : p.cardMastery.bleach;
+    const owned = Math.max(0, Number(cardsMap[card.id] || 0));
+    const level = Math.max(1, Number(levels[card.id] || 1));
+    const stage = Math.max(1, Math.min(3, Number(mastery[card.id] || 1)));
+    const req = getMasteryRequirements(stage, level);
+
+    if (sub === "info") {
+      const content =
+        `## CARD MASTERY | ${eventKey.toUpperCase()}\n` +
+        `Card: **${card.name}**\n` +
+        `Owned: **x${owned}** | Level: **${level}** | Mastery: **${masteryStageName(stage)}**\n` +
+        (req
+          ? `Next: **${masteryStageName(req.toStage)}** requires Lv.${req.minLevel}, ${req.dupNeed} duplicates, ${req.drakoNeed} Drako`
+          : "Status: **MAX Mastery (M3)**");
+      const container = new ContainerBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(content));
+      return interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+    }
+
+    if (owned <= 0) return interaction.reply({ content: "You do not own this card.", ephemeral: true });
+    if (!req) return interaction.reply({ content: "This card is already at M3.", ephemeral: true });
+    if (level < req.minLevel) {
+      return interaction.reply({ content: `Need level ${req.minLevel} first (current: ${level}).`, ephemeral: true });
+    }
+    const usableDup = Math.max(0, owned - 1);
+    if (usableDup < req.dupNeed) {
+      return interaction.reply({ content: `Need ${req.dupNeed} duplicates (usable now: ${usableDup}).`, ephemeral: true });
+    }
+    if (p.drako < req.drakoNeed) {
+      return interaction.reply({ content: `Need ${req.drakoNeed} Drako (current: ${p.drako}).`, ephemeral: true });
+    }
+
+    cardsMap[card.id] = owned - req.dupNeed;
+    p.drako -= req.drakoNeed;
+    mastery[card.id] = req.toStage;
+    await setPlayer(interaction.user.id, p);
+
+    const res = new ContainerBuilder()
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          `## MASTERY UPGRADE SUCCESS\n` +
+          `Card: **${card.name}**\n` +
+          `Stage: **${masteryStageName(stage)} -> ${masteryStageName(req.toStage)}**\n` +
+          `Spent: **${req.dupNeed} duplicates** + **${req.drakoNeed} Drako**\n` +
+          `Remaining: **x${cardsMap[card.id]}** cards | **${p.drako} Drako**`
+        )
+      );
+    return interaction.reply({ components: [res], flags: MessageFlags.IsComponentsV2 });
+  }
+
+  if (interaction.commandName === "cardfuse") {
+    const eventKey = normalizeEventKey(interaction.options.getString("event", true));
+    const qa = interaction.options.getString("card_a", true);
+    const qb = interaction.options.getString("card_b", true);
+    const pa = findCard(eventKey, qa);
+    const pb = findCard(eventKey, qb);
+    if (!pa || !pb) return interaction.reply({ content: "One or both cards not found.", ephemeral: true });
+    if (pa.id === pb.id) return interaction.reply({ content: "Choose two different cards.", ephemeral: true });
+
+    const recipes = DUO_RECIPES[eventKey] || [];
+    const rec = recipes.find((r) => {
+      const set = new Set([r.a, r.b]);
+      return set.has(pa.id) && set.has(pb.id);
+    });
+    if (!rec) {
+      return interaction.reply({ content: "This pair has no duo fusion recipe yet.", ephemeral: true });
+    }
+
+    const p = await getPlayer(interaction.user.id);
+    ensureCardSystems(p);
+    const cardsMap = eventKey === "jjk" ? p.cards.jjk : p.cards.bleach;
+    const mastery = eventKey === "jjk" ? p.cardMastery.jjk : p.cardMastery.bleach;
+    const duoMap = eventKey === "jjk" ? p.duoCards.jjk : p.duoCards.bleach;
+
+    const amountA = Math.max(0, Number(cardsMap[pa.id] || 0));
+    const amountB = Math.max(0, Number(cardsMap[pb.id] || 0));
+    const ma = Math.max(1, Number(mastery[pa.id] || 1));
+    const mb = Math.max(1, Number(mastery[pb.id] || 1));
+    if (amountA <= 0 || amountB <= 0) return interaction.reply({ content: "You must own both cards.", ephemeral: true });
+    if (ma < 3 || mb < 3) {
+      return interaction.reply({ content: "Both cards must be M3 to fuse.", ephemeral: true });
+    }
+
+    cardsMap[pa.id] = amountA - 1;
+    cardsMap[pb.id] = amountB - 1;
+    duoMap[rec.duoId] = Math.max(0, Number(duoMap[rec.duoId] || 0)) + 1;
+    await setPlayer(interaction.user.id, p);
+
+    const c = new ContainerBuilder().addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `## DUO FUSION SUCCESS\n` +
+        `Fusion: **${rec.name}**\n` +
+        `Duo Card ID: \`${rec.duoId}\`\n` +
+        `Owned Duo Copies: **${duoMap[rec.duoId]}**`
+      )
+    );
+    return interaction.reply({ components: [c], flags: MessageFlags.IsComponentsV2 });
+  }
+
+  if (interaction.commandName === "clan") {
+    const sub = interaction.options.getSubcommand(true);
+    if (sub === "create") {
+      const name = interaction.options.getString("name", true);
+      const icon = interaction.options.getString("icon") || "";
+      const res = await createClan({ ownerId: interaction.user.id, name, icon });
+      if (!res.ok) return interaction.reply({ content: res.error, ephemeral: true });
+      const clan = res.clan;
+      const container = new ContainerBuilder().addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          `## CLAN CREATED\n` +
+          `${clan.icon ? `${clan.icon} ` : ""}**${clan.name}**\n` +
+          `Owner: <@${clan.ownerId}>\n` +
+          `Members: **${clan.members.length}/${MAX_CLAN_MEMBERS}**\n` +
+          `Cost: **${CLAN_CREATE_COST_DRAKO} Drako**`
+        )
+      );
+      return interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
+    }
+
+    if (sub === "join") {
+      const name = interaction.options.getString("name", true);
+      const res = await joinClan({ userId: interaction.user.id, clanName: name });
+      if (!res.ok) return interaction.reply({ content: res.error, ephemeral: true });
+      return interaction.reply({
+        components: [new ContainerBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`## CLAN JOINED\nYou joined **${res.clan.name}**.`))],
+        flags: MessageFlags.IsComponentsV2,
+      });
+    }
+
+    if (sub === "leave") {
+      const res = await leaveClan({ userId: interaction.user.id });
+      if (!res.ok) return interaction.reply({ content: res.error, ephemeral: true });
+      return interaction.reply({
+        components: [new ContainerBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent("## CLAN LEFT\nYou left your clan."))],
+        flags: MessageFlags.IsComponentsV2,
+      });
+    }
+
+    if (sub === "info") {
+      const name = interaction.options.getString("name");
+      let clan = null;
+      if (name) clan = await findClanByName(name);
+      if (!clan) {
+        const me = await getPlayer(interaction.user.id);
+        if (me.clanId) clan = await getClan(me.clanId);
+      }
+      if (!clan) return interaction.reply({ content: "Clan not found.", ephemeral: true });
+      const memberMentions = clan.members.slice(0, 15).map((x) => `<@${x}>`).join(", ");
+      const hasBoss = !!(clan.activeBoss && clan.activeBoss.hpCurrent > 0 && clan.activeBoss.endsAt > Date.now());
+      const bossText = hasBoss
+        ? `${clan.activeBoss.name} | ${clan.activeBoss.hpCurrent}/${clan.activeBoss.hpMax} HP`
+        : "No active clan boss";
+      const container = new ContainerBuilder().addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          `## CLAN INFO\n` +
+          `${clan.icon ? `${clan.icon} ` : ""}**${clan.name}**\n` +
+          `Owner: <@${clan.ownerId}>\n` +
+          `Members: **${clan.members.length}/${MAX_CLAN_MEMBERS}**\n` +
+          `Weekly: DMG **${clan.weekly.totalDamage}** | Clears **${clan.weekly.bossClears}** | Activity **${clan.weekly.activity}**\n` +
+          `Boss: ${bossText}\n` +
+          `${memberMentions ? `\nMembers:\n${memberMentions}` : ""}`
+        )
+      );
+      return interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
+    }
+  }
+
+  if (interaction.commandName === "clanboss") {
+    const sub = interaction.options.getSubcommand(true);
+    if (sub === "start") {
+      const eventKey = normalizeEventKey(interaction.options.getString("event", true));
+      const res = await startClanBoss({ userId: interaction.user.id, eventKey });
+      if (!res.ok) return interaction.reply({ content: res.error, ephemeral: true });
+      const boss = res.clan.activeBoss;
+      const container = new ContainerBuilder().addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          `## CLAN BOSS STARTED\n` +
+          `Clan: **${res.clan.name}**\n` +
+          `Boss: **${boss.name}**\n` +
+          `Event: **${boss.eventKey.toUpperCase()}**\n` +
+          `HP: **${boss.hpCurrent}/${boss.hpMax}**\n` +
+          `Duration: **30 min**\n` +
+          `Use \`/clanboss hit event:${boss.eventKey}\` to attack.`
+        )
+      );
+      return interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
+    }
+
+    if (sub === "hit") {
+      const eventKey = normalizeEventKey(interaction.options.getString("event", true));
+      const res = await hitClanBoss({ userId: interaction.user.id, cardEventKey: eventKey });
+      if (!res.ok) return interaction.reply({ content: res.error, ephemeral: true });
+      const boss = res.clan.activeBoss;
+      if (!res.cleared) {
+        const c = new ContainerBuilder().addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(
+            `## CLAN BOSS HIT\n` +
+            `Damage: **${res.dmg}**\n` +
+            `Boss HP: **${boss.hpCurrent}/${boss.hpMax}**\n` +
+            `Event: **${boss.eventKey.toUpperCase()}**`
+          )
+        );
+        return interaction.reply({ components: [c], flags: MessageFlags.IsComponentsV2 });
+      }
+
+      const top = [...res.rewardRows]
+        .sort((a, b) => b.damage - a.damage)
+        .slice(0, 8)
+        .map((x, i) => `**#${i + 1}** <@${x.userId}> - DMG **${x.damage}** | +**${x.eventReward}** + **${x.drakoReward} Drako**`)
+        .join("\n");
+
+      const clear = new ContainerBuilder()
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(
+            `## CLAN BOSS CLEARED\n` +
+            `Clan: **${res.clan.name}**\n` +
+            `Final Hit: **${res.dmg}**\n` +
+            `Rewards distributed by contribution.\n\n${top || "_No reward rows_"}`
+          )
+        );
+      return interaction.reply({ components: [clear], flags: MessageFlags.IsComponentsV2 });
+    }
+
+    if (sub === "status") {
+      const me = await getPlayer(interaction.user.id);
+      if (!me.clanId) return interaction.reply({ content: "Join a clan first.", ephemeral: true });
+      const clan = await getClan(me.clanId);
+      if (!clan) return interaction.reply({ content: "Clan not found.", ephemeral: true });
+      const b = clan.activeBoss;
+      if (!b || b.hpCurrent <= 0 || b.endsAt <= Date.now()) {
+        return interaction.reply({
+          components: [new ContainerBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent("## CLAN BOSS STATUS\nNo active clan boss."))],
+          flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+        });
+      }
+      const top = Object.entries(b.damageByUser || {})
+        .sort((a, b2) => Number(b2[1] || 0) - Number(a[1] || 0))
+        .slice(0, 6)
+        .map(([uid, dmg], i) => `**#${i + 1}** <@${uid}> - **${Math.floor(Number(dmg || 0))}**`)
+        .join("\n");
+      const c = new ContainerBuilder().addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          `## CLAN BOSS STATUS\n` +
+          `Clan: **${clan.name}**\n` +
+          `Boss: **${b.name}**\n` +
+          `HP: **${b.hpCurrent}/${b.hpMax}**\n` +
+          `Ends: <t:${Math.floor(b.endsAt / 1000)}:R>\n` +
+          `${top ? `\nTop Damage:\n${top}` : ""}`
+        )
+      );
+      return interaction.reply({ components: [c], flags: MessageFlags.IsComponentsV2 });
+    }
+  }
+
+  if (interaction.commandName === "clanleaderboard") {
+    const rows = await getClanWeeklyLeaderboard(10);
+    const lines = rows.map((r, i) =>
+      `**#${i + 1}** ${r.icon ? `${r.icon} ` : ""}**${safeName(r.name)}** | Score **${r.score}** | DMG ${r.damage} | Clears ${r.clears} | Activity ${r.activity}`
+    );
+    const c = new ContainerBuilder().addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `## WEEKLY CLAN LEADERBOARD\n` +
+        `Ranked by damage + activity + boss clears.\n\n` +
+        `${lines.join("\n") || "_No clans yet._"}`
+      )
+    );
+    return interaction.reply({ components: [c], flags: MessageFlags.IsComponentsV2 });
+  }
+
   if (interaction.commandName === "leaderboard") {
     const eventKey = interaction.options.getString("event", true);
     const rows = await getTopPlayers(eventKey, 10);

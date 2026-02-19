@@ -22,6 +22,12 @@ function normalizePlayer(raw = {}) {
   const cardLevelsRaw = raw.cardLevels && typeof raw.cardLevels === "object" ? raw.cardLevels : {};
   const bleachCardLevelsRaw = cardLevelsRaw.bleach && typeof cardLevelsRaw.bleach === "object" ? cardLevelsRaw.bleach : {};
   const jjkCardLevelsRaw = cardLevelsRaw.jjk && typeof cardLevelsRaw.jjk === "object" ? cardLevelsRaw.jjk : {};
+  const cardMasteryRaw = raw.cardMastery && typeof raw.cardMastery === "object" ? raw.cardMastery : {};
+  const bleachCardMasteryRaw = cardMasteryRaw.bleach && typeof cardMasteryRaw.bleach === "object" ? cardMasteryRaw.bleach : {};
+  const jjkCardMasteryRaw = cardMasteryRaw.jjk && typeof cardMasteryRaw.jjk === "object" ? cardMasteryRaw.jjk : {};
+  const duoCardsRaw = raw.duoCards && typeof raw.duoCards === "object" ? raw.duoCards : {};
+  const bleachDuoCardsRaw = duoCardsRaw.bleach && typeof duoCardsRaw.bleach === "object" ? duoCardsRaw.bleach : {};
+  const jjkDuoCardsRaw = duoCardsRaw.jjk && typeof duoCardsRaw.jjk === "object" ? duoCardsRaw.jjk : {};
   const cursedShards =
     Number.isFinite(jjkMaterials.cursedShards) ? jjkMaterials.cursedShards :
     (Number.isFinite(jjk.cursedShards) ? jjk.cursedShards : 0);
@@ -32,6 +38,8 @@ function normalizePlayer(raw = {}) {
 
   return {
     drako: Number.isFinite(raw.drako) ? raw.drako : 0,
+    clanId: String(raw.clanId || ""),
+    clanJoinedAt: Math.max(0, Math.floor(Number(raw.clanJoinedAt || 0))),
     ownedRoles: [...new Set(ownedRoles)],
     cardClashDaily: {
       day: typeof cardClashDailyRaw.day === "string" ? cardClashDailyRaw.day : "",
@@ -96,6 +104,30 @@ function normalizePlayer(raw = {}) {
         Object.entries(jjkCardLevelsRaw)
           .map(([k, v]) => [String(k), Math.max(1, Math.floor(Number(v || 1)))])
           .filter(([k, v]) => !!k && v >= 1)
+      ),
+    },
+    cardMastery: {
+      bleach: Object.fromEntries(
+        Object.entries(bleachCardMasteryRaw)
+          .map(([k, v]) => [String(k), Math.max(1, Math.min(3, Math.floor(Number(v || 1))))])
+          .filter(([k, v]) => !!k && v >= 1)
+      ),
+      jjk: Object.fromEntries(
+        Object.entries(jjkCardMasteryRaw)
+          .map(([k, v]) => [String(k), Math.max(1, Math.min(3, Math.floor(Number(v || 1))))])
+          .filter(([k, v]) => !!k && v >= 1)
+      ),
+    },
+    duoCards: {
+      bleach: Object.fromEntries(
+        Object.entries(bleachDuoCardsRaw)
+          .map(([k, v]) => [String(k), Math.max(0, Math.floor(Number(v || 0)))])
+          .filter(([k, v]) => !!k && v > 0)
+      ),
+      jjk: Object.fromEntries(
+        Object.entries(jjkDuoCardsRaw)
+          .map(([k, v]) => [String(k), Math.max(0, Math.floor(Number(v || 0)))])
+          .filter(([k, v]) => !!k && v > 0)
       ),
     },
   };
