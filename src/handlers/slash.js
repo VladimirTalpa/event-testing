@@ -40,6 +40,7 @@ const { buildShopV2Payload } = require("../ui/shop-v2");
 const { buildPackOpeningImage, buildCardRevealImage } = require("../ui/card-pack");
 const { collectRowsForPlayer, buildCardsBookPayload } = require("../ui/cards-book-v2");
 const { buildCardSlashImage } = require("../ui/cardslash-card");
+const { buildErrorV2 } = require("../ui/feedback-v2");
 const { buildClanBossHudImage, buildClanLeaderboardImage, buildClanInfoImage } = require("../ui/clan-card");
 const { buildClanSetupPayload, buildClanHelpText, hasClanCreateAccess, CLAN_SPECIAL_CREATE_ROLE_ID, CLAN_SPECIAL_ROLE_COST } = require("../ui/clan-setup-v2");
 const {
@@ -421,13 +422,16 @@ module.exports = async function handleSlash(interaction) {
   }
 
   if (interaction.commandName === "cardslash") {
+    const replyCardslashError = (text) =>
+      interaction.reply(buildErrorV2(text, "Cardslash Error"));
+
     const eventKey = normalizeEventKey(interaction.options.getString("event", true));
     const myCardQuery = interaction.options.getString("card", true);
     const enemy = interaction.options.getUser("user", true);
     const enemyCardQuery = interaction.options.getString("enemy_card");
 
-    if (enemy.bot) return interaction.reply({ content: "You cannot clash with a bot.", ephemeral: true });
-    if (enemy.id === interaction.user.id) return interaction.reply({ content: "Pick another user.", ephemeral: true });
+    if (enemy.bot) return replyCardslashError("You cannot clash with a bot.");
+    if (enemy.id === interaction.user.id) return replyCardslashError("Pick another user.");
 
     const me = await getPlayer(interaction.user.id);
     const op = await getPlayer(enemy.id);
@@ -441,29 +445,20 @@ module.exports = async function handleSlash(interaction) {
     }
     const usedToday = Math.max(0, Number(me.cardClashDaily.used || 0));
     if (usedToday >= 3) {
-      const err = new ContainerBuilder()
-        .addTextDisplayComponents(
-          new TextDisplayBuilder().setContent("## CARD CLASH LIMIT")
+      return interaction.reply(
+        buildErrorV2(
+          "You already used `/cardslash` 3/3 times today.\nTry again after daily reset (UTC).",
+          "Cardslash Limit"
         )
-        .addSeparatorComponents(new SeparatorBuilder())
-        .addTextDisplayComponents(
-          new TextDisplayBuilder().setContent(
-            "You already used `/cardslash` **3/3** times today.\n" +
-            "Try again after daily reset (UTC)."
-          )
-        );
-      return interaction.reply({
-        components: [err],
-        flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
-      });
+      );
     }
     const normalMyCard = findCard(eventKey, myCardQuery);
     const myDuo = getOwnedDuoCard(eventKey, me, myCardQuery);
-    if (!normalMyCard && !myDuo) return interaction.reply({ content: "Your card/duo was not found.", ephemeral: true });
+    if (!normalMyCard && !myDuo) return replyCardslashError("Your card/duo was not found.");
 
     const myCard = myDuo ? myDuo.duo : normalMyCard;
     const myAmount = myDuo ? myDuo.amount : Math.max(0, Number(getEventCardsMap(me, eventKey)[myCard.id] || 0));
-    if (myAmount <= 0) return interaction.reply({ content: "You do not own that card.", ephemeral: true });
+    if (myAmount <= 0) return replyCardslashError("You do not own that card.");
 
     const myLevel = Math.max(1, Number(getEventLevelsMap(me, eventKey)[myCard.id] || 1));
     const myStats = cardStatsAtLevel(myCard, myLevel);
@@ -473,16 +468,16 @@ module.exports = async function handleSlash(interaction) {
     if (enemyCardQuery) {
       const c = findCard(eventKey, enemyCardQuery);
       const duo = getOwnedDuoCard(eventKey, op, enemyCardQuery);
-      if (!c && !duo) return interaction.reply({ content: "Enemy card query not found.", ephemeral: true });
+      if (!c && !duo) return replyCardslashError("Enemy card query not found.");
       const pick = duo ? duo.duo : c;
       const amount = duo ? duo.amount : Math.max(0, Number(getEventCardsMap(op, eventKey)[pick.id] || 0));
-      if (amount <= 0) return interaction.reply({ content: "Enemy does not own that card.", ephemeral: true });
+      if (amount <= 0) return replyCardslashError("Enemy does not own that card.");
       const lv = Math.max(1, Number(getEventLevelsMap(op, eventKey)[pick.id] || 1));
       const stats = cardStatsAtLevel(pick, lv);
       enemyPick = { card: pick, level: lv, stats, power: duo ? Math.floor(cardPower(stats) * 0.97) : cardPower(stats) };
     } else {
       enemyPick = strongestOwnedCard(op, eventKey);
-      if (!enemyPick) return interaction.reply({ content: "Enemy has no card in this event.", ephemeral: true });
+      if (!enemyPick) return replyCardslashError("Enemy has no card in this event.");
     }
 
     me.cardClashDaily.used = usedToday + 1;
