@@ -74,6 +74,28 @@ function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function stripFlags(payload) {
+  const out = { ...(payload || {}) };
+  delete out.flags;
+  return out;
+}
+
+async function editClanPanel(interaction, payload, extra = {}) {
+  const base = stripFlags(payload);
+  const msg = { ...base, ...extra };
+  try {
+    await interaction.editReply(msg);
+    return true;
+  } catch {}
+  try {
+    if (interaction.message) {
+      await interaction.message.edit(msg);
+      return true;
+    }
+  } catch {}
+  return false;
+}
+
 function parseUserIdInput(v) {
   const s = String(v || "").trim();
   if (!s) return "";
@@ -247,23 +269,6 @@ module.exports = async function handleButtons(interaction) {
 
   const cid = interaction.customId;
   if (cid.startsWith("clanui:")) {
-    if (cid === "clanui:help") {
-      const c = new ContainerBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(buildClanHelpText()));
-      return interaction.reply({ components: [c], flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2 }).catch(() => {});
-    }
-
-    if (cid === "clanui:refresh") {
-      const payload = await buildClanSetupPayload({
-        guild: interaction.guild,
-        userId: interaction.user.id,
-        member: interaction.member,
-        notice: "Panel refreshed.",
-      });
-      return interaction.update(payload).catch(async () => {
-        await interaction.reply(payload).catch(() => {});
-      });
-    }
-
     if (cid === "clanui:create" || cid === "clanui:request" || cid === "clanui:accept" ||
         cid === "clanui:invite" || cid === "clanui:approve" || cid === "clanui:deny" ||
         cid === "clanui:promote" || cid === "clanui:demote" || cid === "clanui:transfer" || cid === "clanui:kick") {
@@ -284,6 +289,26 @@ module.exports = async function handleButtons(interaction) {
       return interaction.showModal(modal).catch(() => {});
     }
 
+    // For non-modal clan UI actions, defer first to prevent "interaction failed".
+    try { await interaction.deferUpdate(); } catch {}
+
+    if (cid === "clanui:help") {
+      const c = new ContainerBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(buildClanHelpText()));
+      await interaction.followUp({ components: [c], flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2 }).catch(() => {});
+      const payload = await buildClanSetupPayload({ guild: interaction.guild, userId: interaction.user.id, member: interaction.member, notice: "Opened help in ephemeral message." });
+      return editClanPanel(interaction, payload);
+    }
+
+    if (cid === "clanui:refresh") {
+      const payload = await buildClanSetupPayload({
+        guild: interaction.guild,
+        userId: interaction.user.id,
+        member: interaction.member,
+        notice: "Panel refreshed.",
+      });
+      return editClanPanel(interaction, payload);
+    }
+
     if (cid === "clanui:leave") {
       const res = await leaveClan({ userId: interaction.user.id });
       const payload = await buildClanSetupPayload({
@@ -292,19 +317,19 @@ module.exports = async function handleButtons(interaction) {
         member: interaction.member,
         notice: res.ok ? "You left your clan." : res.error,
       });
-      return interaction.update(payload).catch(() => {});
+      return editClanPanel(interaction, payload);
     }
 
     if (cid === "clanui:requests") {
       const p = await getPlayer(interaction.user.id);
       if (!p.clanId) {
         const payload = await buildClanSetupPayload({ guild: interaction.guild, userId: interaction.user.id, member: interaction.member, notice: "You are not in a clan." });
-        return interaction.update(payload).catch(() => {});
+        return editClanPanel(interaction, payload);
       }
       const clan = await getClan(p.clanId);
       if (!clan || !canManageClan(clan, interaction.user.id)) {
         const payload = await buildClanSetupPayload({ guild: interaction.guild, userId: interaction.user.id, member: interaction.member, notice: "Only owner/officers can view queue." });
-        return interaction.update(payload).catch(() => {});
+        return editClanPanel(interaction, payload);
       }
       const req = (clan.joinRequests || []).slice(0, 12).map((x, i) => `**#${i + 1}** <@${x.userId}>`).join("\n");
       const inv = (clan.invites || []).slice(0, 12).map((x, i) => `**#${i + 1}** <@${x.userId}>`).join("\n");
@@ -314,7 +339,7 @@ module.exports = async function handleButtons(interaction) {
         member: interaction.member,
         notice: `Queue\nRequests:\n${req || "_none_"}\nInvites:\n${inv || "_none_"}`,
       });
-      return interaction.update(payload).catch(() => {});
+      return editClanPanel(interaction, payload);
     }
 
     if (cid.startsWith("clanui:buyrole:")) {
@@ -322,18 +347,18 @@ module.exports = async function handleButtons(interaction) {
       const p = await getPlayer(interaction.user.id);
       if (interaction.member?.roles?.cache?.has(CLAN_SPECIAL_CREATE_ROLE_ID)) {
         const payload = await buildClanSetupPayload({ guild: interaction.guild, userId: interaction.user.id, member: interaction.member, notice: "Special role already owned." });
-        return interaction.update(payload).catch(() => {});
+        return editClanPanel(interaction, payload);
       }
       if (eventKey === "bleach") {
         if (p.bleach.reiatsu < CLAN_SPECIAL_ROLE_COST) {
           const payload = await buildClanSetupPayload({ guild: interaction.guild, userId: interaction.user.id, member: interaction.member, notice: `Need ${CLAN_SPECIAL_ROLE_COST} Reiatsu.` });
-          return interaction.update(payload).catch(() => {});
+          return editClanPanel(interaction, payload);
         }
         p.bleach.reiatsu -= CLAN_SPECIAL_ROLE_COST;
       } else {
         if (p.jjk.cursedEnergy < CLAN_SPECIAL_ROLE_COST) {
           const payload = await buildClanSetupPayload({ guild: interaction.guild, userId: interaction.user.id, member: interaction.member, notice: `Need ${CLAN_SPECIAL_ROLE_COST} Cursed Energy.` });
-          return interaction.update(payload).catch(() => {});
+          return editClanPanel(interaction, payload);
         }
         p.jjk.cursedEnergy -= CLAN_SPECIAL_ROLE_COST;
       }
@@ -347,26 +372,26 @@ module.exports = async function handleButtons(interaction) {
         member: await interaction.guild.members.fetch(interaction.user.id).catch(() => interaction.member),
         notice: roleRes.ok ? "Special clan create role purchased." : `Role saved to wardrobe. Assign failed: ${roleRes.reason}`,
       });
-      return interaction.update(payload).catch(() => {});
+      return editClanPanel(interaction, payload);
     }
 
     if (cid.startsWith("clanui:boss:start:") || cid.startsWith("clanui:boss:hit:") || cid === "clanui:boss:status") {
       const p = await getPlayer(interaction.user.id);
       if (!p.clanId) {
         const payload = await buildClanSetupPayload({ guild: interaction.guild, userId: interaction.user.id, member: interaction.member, notice: "Join a clan first." });
-        return interaction.update(payload).catch(() => {});
+        return editClanPanel(interaction, payload);
       }
       const clan = await getClan(p.clanId);
       if (!clan) {
         const payload = await buildClanSetupPayload({ guild: interaction.guild, userId: interaction.user.id, member: interaction.member, notice: "Clan not found." });
-        return interaction.update(payload).catch(() => {});
+        return editClanPanel(interaction, payload);
       }
       if (cid.startsWith("clanui:boss:start:")) {
         const eventKey = cid.endsWith(":jjk") ? "jjk" : "bleach";
         const res = await startClanBoss({ userId: interaction.user.id, eventKey });
         if (!res.ok) {
           const payload = await buildClanSetupPayload({ guild: interaction.guild, userId: interaction.user.id, member: interaction.member, notice: res.error });
-          return interaction.update(payload).catch(() => {});
+          return editClanPanel(interaction, payload);
         }
         const b = res.clan.activeBoss;
         const png = await buildClanBossHudImage({
@@ -384,14 +409,14 @@ module.exports = async function handleButtons(interaction) {
         });
         const file = new AttachmentBuilder(png, { name: `clan-boss-${b.eventKey}.png` });
         const payload = await buildClanSetupPayload({ guild: interaction.guild, userId: interaction.user.id, member: interaction.member, notice: `Boss started: ${b.name}` });
-        return interaction.update({ ...payload, files: [file] }).catch(() => {});
+        return editClanPanel(interaction, payload, { files: [file] });
       }
       if (cid.startsWith("clanui:boss:hit:")) {
         const eventKey = cid.endsWith(":jjk") ? "jjk" : "bleach";
         const res = await hitClanBoss({ userId: interaction.user.id, cardEventKey: eventKey });
         if (!res.ok) {
           const payload = await buildClanSetupPayload({ guild: interaction.guild, userId: interaction.user.id, member: interaction.member, notice: res.error });
-          return interaction.update(payload).catch(() => {});
+          return editClanPanel(interaction, payload);
         }
         const b = res.clan.activeBoss;
         if (!res.cleared && b) {
@@ -403,19 +428,19 @@ module.exports = async function handleButtons(interaction) {
           });
           const file = new AttachmentBuilder(png, { name: `clan-boss-${b.eventKey}.png` });
           const payload = await buildClanSetupPayload({ guild: interaction.guild, userId: interaction.user.id, member: interaction.member, notice: `Hit dealt: ${res.dmg}` });
-          return interaction.update({ ...payload, files: [file] }).catch(() => {});
+          return editClanPanel(interaction, payload, { files: [file] });
         }
         const lbRows = await getClanWeeklyLeaderboard(10);
         const png = await buildClanLeaderboardImage(lbRows);
         const file = new AttachmentBuilder(png, { name: "clan-leaderboard-weekly.png" });
         const payload = await buildClanSetupPayload({ guild: interaction.guild, userId: interaction.user.id, member: interaction.member, notice: `Boss cleared by ${res.clan.name}.` });
-        return interaction.update({ ...payload, files: [file] }).catch(() => {});
+        return editClanPanel(interaction, payload, { files: [file] });
       }
       if (cid === "clanui:boss:status") {
         const b = clan.activeBoss;
         if (!b || b.hpCurrent <= 0 || b.endsAt <= Date.now()) {
           const payload = await buildClanSetupPayload({ guild: interaction.guild, userId: interaction.user.id, member: interaction.member, notice: "No active clan boss." });
-          return interaction.update(payload).catch(() => {});
+          return editClanPanel(interaction, payload);
         }
         const top = Object.entries(b.damageByUser || {}).map(([uid, dmg]) => ({ name: uid, dmg }));
         const png = await buildClanBossHudImage({
@@ -425,7 +450,7 @@ module.exports = async function handleButtons(interaction) {
         });
         const file = new AttachmentBuilder(png, { name: `clan-boss-status-${b.eventKey}.png` });
         const payload = await buildClanSetupPayload({ guild: interaction.guild, userId: interaction.user.id, member: interaction.member, notice: `Boss HP ${b.hpCurrent}/${b.hpMax}` });
-        return interaction.update({ ...payload, files: [file] }).catch(() => {});
+        return editClanPanel(interaction, payload, { files: [file] });
       }
     }
 
@@ -434,23 +459,23 @@ module.exports = async function handleButtons(interaction) {
       const png = await buildClanLeaderboardImage(rows);
       const file = new AttachmentBuilder(png, { name: "clan-leaderboard-weekly.png" });
       const payload = await buildClanSetupPayload({ guild: interaction.guild, userId: interaction.user.id, member: interaction.member, notice: "Weekly leaderboard updated." });
-      return interaction.update({ ...payload, files: [file] }).catch(() => {});
+      return editClanPanel(interaction, payload, { files: [file] });
     }
 
     if (cid === "clanui:info") {
       const p = await getPlayer(interaction.user.id);
       if (!p.clanId) {
         const payload = await buildClanSetupPayload({ guild: interaction.guild, userId: interaction.user.id, member: interaction.member, notice: "No clan found." });
-        return interaction.update(payload).catch(() => {});
+        return editClanPanel(interaction, payload);
       }
       const clan = await getClan(p.clanId);
       if (!clan) {
         const payload = await buildClanSetupPayload({ guild: interaction.guild, userId: interaction.user.id, member: interaction.member, notice: "Clan not found." });
-        return interaction.update(payload).catch(() => {});
+        return editClanPanel(interaction, payload);
       }
       const info = await buildClanInfoReply(interaction.guild, clan);
       const payload = await buildClanSetupPayload({ guild: interaction.guild, userId: interaction.user.id, member: interaction.member, notice: "Clan profile rendered." });
-      return interaction.update({ ...payload, files: info.files }).catch(() => {});
+      return editClanPanel(interaction, payload, { files: info.files });
     }
 
     const payload = await buildClanSetupPayload({
@@ -459,7 +484,7 @@ module.exports = async function handleButtons(interaction) {
       member: interaction.member,
       notice: "Unknown clan action.",
     });
-    return interaction.update(payload).catch(() => {});
+    return editClanPanel(interaction, payload);
   }
 
   try { await interaction.deferUpdate(); } catch {}

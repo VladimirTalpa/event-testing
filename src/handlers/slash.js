@@ -644,9 +644,7 @@ module.exports = async function handleSlash(interaction) {
         `2. Upgrade both to **M${req.minMastery}**\n` +
         `3. Keep at least **${req.copiesEach} copies** of each card\n` +
         `4. Pay **${req.drakoCost.toLocaleString("en-US")} Drako** + **${req.eventCurrencyCost.toLocaleString("en-US")} ${eventKey === "bleach" ? "Reiatsu" : "Cursed Energy"}**\n` +
-        `5. Use \`/cardfuse craft\` with the exact pair\n\n` +
-        `Fusion card art path:\n` +
-        `\`assets/cards/fusion/${eventKey}/<duoId>.png\``;
+        `5. Use \`/cardfuse craft\` with the exact pair\n\n`
       const c = new ContainerBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(text));
       return interaction.reply({ components: [c], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
     }
