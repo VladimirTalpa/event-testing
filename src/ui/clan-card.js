@@ -228,7 +228,116 @@ async function buildClanLeaderboardImage(rows = []) {
   return canvas.toBuffer("image/png");
 }
 
+async function buildClanInfoImage(input = {}) {
+  const W = 1600;
+  const H = 950;
+  const canvas = createCanvas(W, H);
+  const ctx = canvas.getContext("2d");
+
+  const bg = ctx.createLinearGradient(0, 0, W, H);
+  bg.addColorStop(0, "#090d24");
+  bg.addColorStop(0.5, "#14153a");
+  bg.addColorStop(1, "#1f0a35");
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+  starField(ctx, W, H, 320);
+
+  roundedRect(ctx, 20, 20, W - 40, H - 40, 24);
+  ctx.strokeStyle = "rgba(121,226,255,0.78)";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  drawPanel(ctx, 56, 56, W - 112, 188);
+  drawPanel(ctx, 56, 268, 1030, 632);
+  drawPanel(ctx, 1112, 268, 432, 632);
+
+  const clanName = String(input.name || "Unknown Clan");
+  const icon = String(input.icon || "");
+  const ownerName = String(input.ownerName || "Unknown");
+  const createdText = String(input.createdText || "-");
+
+  const title = `${icon ? `${icon} ` : ""}${clanName}`;
+  ctx.font = '800 74px "Orbitron", "Segoe UI", sans-serif';
+  const tg = ctx.createLinearGradient(84, 78, 760, 78);
+  tg.addColorStop(0, "#53f7ff");
+  tg.addColorStop(1, "#ff6fe0");
+  ctx.fillStyle = tg;
+  ctx.fillText(fitText(ctx, title, 1220), 82, 142);
+
+  ctx.font = '600 34px "Inter", "Segoe UI", sans-serif';
+  ctx.fillStyle = "#d8ecff";
+  ctx.fillText(`Owner: ${ownerName}`, 84, 196);
+  ctx.fillStyle = "#8de4ff";
+  ctx.fillText(`Created: ${createdText}`, 560, 196);
+
+  const members = Array.isArray(input.members) ? input.members : [];
+  const officers = Array.isArray(input.officers) ? input.officers : [];
+  const weekly = input.weekly || {};
+  const activeBoss = input.activeBoss || null;
+
+  ctx.font = '700 42px "Orbitron", "Segoe UI", sans-serif';
+  ctx.fillStyle = "#86e4ff";
+  ctx.fillText("Members", 84, 324);
+  ctx.fillStyle = "#ff89ea";
+  ctx.fillText("Clan Status", 1142, 324);
+
+  const memberLines = members.slice(0, 15);
+  let my = 374;
+  for (let i = 0; i < memberLines.length; i++) {
+    const m = String(memberLines[i] || "");
+    roundedRect(ctx, 84, my - 30, 978, 42, 10);
+    ctx.fillStyle = "rgba(7,9,24,0.82)";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(116,215,255,0.42)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.font = '600 27px "Inter", "Segoe UI", sans-serif';
+    ctx.fillStyle = "#eaf7ff";
+    ctx.fillText(fitText(ctx, `${i + 1}. ${m}`, 940), 96, my);
+    my += 46;
+    if (my > 875) break;
+  }
+
+  const infoLines = [
+    `Members: ${Math.max(0, Number(input.memberCount || members.length))}/${Math.max(1, Number(input.maxMembers || 30))}`,
+    `Officers: ${Math.max(0, Number(input.officerCount || officers.length))}`,
+    `Requests: ${Math.max(0, Number(input.requestCount || 0))}`,
+    `Invites: ${Math.max(0, Number(input.inviteCount || 0))}`,
+    `Weekly DMG: ${Math.floor(Number(weekly.totalDamage || 0)).toLocaleString("en-US")}`,
+    `Weekly Clears: ${Math.floor(Number(weekly.bossClears || 0))}`,
+    `Weekly Activity: ${Math.floor(Number(weekly.activity || 0))}`,
+    `Boss: ${activeBoss ? `${activeBoss.name} (${Math.floor(Number(activeBoss.hpCurrent || 0)).toLocaleString("en-US")}/${Math.floor(Number(activeBoss.hpMax || 1)).toLocaleString("en-US")})` : "No active clan boss"}`,
+  ];
+
+  let iy = 382;
+  ctx.font = '700 28px "Inter", "Segoe UI", sans-serif';
+  for (const line of infoLines) {
+    roundedRect(ctx, 1132, iy - 30, 392, 44, 10);
+    ctx.fillStyle = "rgba(8,10,26,0.86)";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,129,233,0.48)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillStyle = "#f4fbff";
+    ctx.fillText(fitText(ctx, line, 372), 1144, iy);
+    iy += 54;
+  }
+
+  if (officers.length) {
+    ctx.font = '700 26px "Inter", "Segoe UI", sans-serif';
+    ctx.fillStyle = "#95e6ff";
+    ctx.fillText("Officer List", 1140, 836);
+    const offText = fitText(ctx, officers.join(", "), 370);
+    ctx.font = '600 23px "Inter", "Segoe UI", sans-serif';
+    ctx.fillStyle = "#dff3ff";
+    ctx.fillText(offText, 1140, 872);
+  }
+
+  return canvas.toBuffer("image/png");
+}
+
 module.exports = {
   buildClanBossHudImage,
   buildClanLeaderboardImage,
+  buildClanInfoImage,
 };

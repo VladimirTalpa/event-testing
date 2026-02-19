@@ -39,7 +39,7 @@ const { buildExchangeImage } = require("../ui/exchange-card");
 const { buildShopV2Payload } = require("../ui/shop-v2");
 const { buildPackOpeningImage, buildCardRevealImage } = require("../ui/card-pack");
 const { collectRowsForPlayer, buildCardsBookPayload } = require("../ui/cards-book-v2");
-const { buildClanBossHudImage, buildClanLeaderboardImage } = require("../ui/clan-card");
+const { buildClanBossHudImage, buildClanLeaderboardImage, buildClanInfoImage } = require("../ui/clan-card");
 const { findCard, getCardById, cardStatsAtLevel, cardPower, CARD_MAX_LEVEL, CARD_POOL } = require("../data/cards");
 const {
   MAX_CLAN_MEMBERS,
@@ -785,20 +785,73 @@ module.exports = async function handleSlash(interaction) {
       const bossText = hasBoss
         ? `${clan.activeBoss.name} | ${clan.activeBoss.hpCurrent}/${clan.activeBoss.hpMax} HP`
         : "No active clan boss";
-      const container = new ContainerBuilder().addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-          `## CLAN INFO\n` +
-          `${clan.icon ? `${clan.icon} ` : ""}**${clan.name}**\n` +
-          `Owner: <@${clan.ownerId}>\n` +
-          `Members: **${clan.members.length}/${MAX_CLAN_MEMBERS}**\n` +
-          `Officers: ${officerMentions || "_none_"}\n` +
-          `Requests: **${(clan.joinRequests || []).length}** | Invites: **${(clan.invites || []).length}**\n` +
-          `Weekly: DMG **${clan.weekly.totalDamage}** | Clears **${clan.weekly.bossClears}** | Activity **${clan.weekly.activity}**\n` +
-          `Boss: ${bossText}\n` +
-          `${memberMentions ? `\nMembers:\n${memberMentions}` : ""}`
+      let ownerLabel = clan.ownerId;
+      try {
+        const m = await interaction.guild.members.fetch(clan.ownerId);
+        ownerLabel = safeName(m?.displayName || m?.user?.username || clan.ownerId);
+      } catch {}
+      const memberNames = [];
+      for (const uid of clan.members.slice(0, 15)) {
+        let display = uid;
+        try {
+          const m = await interaction.guild.members.fetch(uid);
+          display = safeName(m?.displayName || m?.user?.username || uid);
+        } catch {}
+        memberNames.push(display);
+      }
+      const officerNames = [];
+      for (const uid of clan.officers.slice(0, 10)) {
+        let display = uid;
+        try {
+          const m = await interaction.guild.members.fetch(uid);
+          display = safeName(m?.displayName || m?.user?.username || uid);
+        } catch {}
+        officerNames.push(display);
+      }
+      const createdText = clan.createdAt ? new Date(clan.createdAt).toISOString().slice(0, 10) : "-";
+      const png = await buildClanInfoImage({
+        name: clan.name,
+        icon: clan.icon,
+        ownerName: ownerLabel,
+        createdText,
+        members: memberNames,
+        officers: officerNames,
+        memberCount: clan.members.length,
+        maxMembers: MAX_CLAN_MEMBERS,
+        officerCount: clan.officers.length,
+        requestCount: (clan.joinRequests || []).length,
+        inviteCount: (clan.invites || []).length,
+        weekly: clan.weekly,
+        activeBoss: hasBoss ? clan.activeBoss : null,
+      });
+      const file = new AttachmentBuilder(png, { name: `clan-info-${clan.id}.png` });
+      const container = new ContainerBuilder()
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(
+            `## ${clan.icon ? `${clan.icon} ` : ""}CLAN PROFILE\n` +
+            `Name: **${clan.name}**  |  Owner: <@${clan.ownerId}>`
+          )
         )
-      );
-      return interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
+        .addSeparatorComponents(new SeparatorBuilder())
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(
+            `### Weekly Snapshot\n` +
+            `- Damage: **${clan.weekly.totalDamage}**\n` +
+            `- Boss Clears: **${clan.weekly.bossClears}**\n` +
+            `- Activity: **${clan.weekly.activity}**\n` +
+            `- Active Boss: ${bossText}`
+          )
+        )
+        .addSeparatorComponents(new SeparatorBuilder())
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(
+            `### Management\n` +
+            `- Officers: ${officerMentions || "_none_"}\n` +
+            `- Requests: **${(clan.joinRequests || []).length}** | Invites: **${(clan.invites || []).length}**\n` +
+            `- Members: ${memberMentions || "_none_"}`
+          )
+        );
+      return interaction.reply({ components: [container], files: [file], flags: MessageFlags.IsComponentsV2 });
     }
   }
 
@@ -952,13 +1005,25 @@ module.exports = async function handleSlash(interaction) {
     const lines = rows.map((r, i) =>
       `**#${i + 1}** ${r.icon ? `${r.icon} ` : ""}**${safeName(r.name)}** | Score **${r.score}** | DMG ${r.damage} | Clears ${r.clears} | Activity ${r.activity}`
     );
-    const c = new ContainerBuilder().addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(
-        `## WEEKLY CLAN LEADERBOARD\n` +
-        `Ranked by damage + activity + boss clears.\n\n` +
-        `${lines.join("\n") || "_No clans yet._"}`
+    const c = new ContainerBuilder()
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          `## CLAN WAR ROOM — WEEKLY RANKING\n` +
+          `Scoring model: **Damage + Activity + Boss Clears**`
+        )
       )
-    );
+      .addSeparatorComponents(new SeparatorBuilder())
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          `### Top Clans\n${lines.join("\n") || "_No clans yet._"}`
+        )
+      )
+      .addSeparatorComponents(new SeparatorBuilder())
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          `Use \`/clan info\` for profile, \`/clanboss status\` for live raid HUD, and \`/clan requests\` for management queue.`
+        )
+      );
     return interaction.reply({ components: [c], files: [file], flags: MessageFlags.IsComponentsV2 });
   }
 
