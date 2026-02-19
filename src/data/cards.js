@@ -39,13 +39,11 @@ const CARD_POOL = {
     { id: "jjk_yuji", name: "Yuji Itadori", rarity: "Rare", dmg: 430, def: 290, hp: 2300 },
     { id: "jjk_megumi", name: "Megumi Fushiguro", rarity: "Rare", dmg: 410, def: 310, hp: 2250 },
     { id: "jjk_nobara", name: "Nobara Kugisaki", rarity: "Common", dmg: 270, def: 230, hp: 1750 },
-    { id: "jjk_nobora", name: "Nobara Kugisaki (Alt)", rarity: "Common", dmg: 270, def: 230, hp: 1750 },
     { id: "jjk_todo", name: "Aoi Todo", rarity: "Epic", dmg: 620, def: 360, hp: 2750 },
-    { id: "jjk_todoi", name: "Aoi Todo (Alt)", rarity: "Epic", dmg: 620, def: 360, hp: 2750 },
     { id: "jjk_maki", name: "Maki Zenin", rarity: "Epic", dmg: 600, def: 340, hp: 2680 },
     { id: "jjk_yuta", name: "Yuta Okkotsu", rarity: "Legendary", dmg: 790, def: 450, hp: 3250 },
     { id: "jjk_nanami", name: "Kento Nanami", rarity: "Rare", dmg: 450, def: 300, hp: 2360 },
-    { id: "jjk_Gojo_Dimensoon", name: "Gojo Dimensoon", rarity: "Mythic", dmg: 1020, def: 580, hp: 4200 },
+    { id: "jjk_Gojo_Dimensoon", name: "Gojo (Domain)", rarity: "Mythic", dmg: 1020, def: 580, hp: 4200 },
   ],
 };
 
