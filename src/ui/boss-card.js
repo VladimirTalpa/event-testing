@@ -439,13 +439,21 @@ async function loadBossBackground(def, kind) {
   const eventKey = String(def?.event || "").toLowerCase();
   const phase = String(kind || "").toLowerCase();
   const phaseOrder = phase === "live" ? ["live", "result", "intro"] : [phase];
+  const bossAliases = Array.from(new Set([
+    bossId,
+    bossId === "specialgrade" ? "sgrade" : "",
+  ].filter(Boolean)));
   const files = [];
   for (const p of phaseOrder) {
+    for (const alias of bossAliases) {
+      files.push(
+        `${alias}_${p}.png`,
+        `${alias}_${p}.jpg`,
+        `${alias}_${p}.jpeg`,
+        `${alias}_${p}.webp`
+      );
+    }
     files.push(
-      `${bossId}_${p}.png`,
-      `${bossId}_${p}.jpg`,
-      `${bossId}_${p}.jpeg`,
-      `${bossId}_${p}.webp`,
       `${eventKey}_${p}.png`,
       `${eventKey}_${p}.jpg`,
       `${eventKey}_${p}.jpeg`,
@@ -466,7 +474,6 @@ async function loadBossBackground(def, kind) {
   }
   return null;
 }
-
 function hpBar(ctx, x, y, w, h, pct, theme) {
   rr(ctx, x, y, w, h, 12);
   ctx.fillStyle = "rgba(0,0,0,0.45)";
