@@ -20,7 +20,7 @@ const { bossByChannel } = require("../core/state");
 const { clamp, safeName, sleep } = require("../core/utils");
 const { getPlayer, setPlayer } = require("../core/players");
 const { BOSSES } = require("../data/bosses");
-const { CARD_POOL, cardStatsAtLevel, cardPower } = require("../data/cards");
+const { CARD_POOL, cardStatsAtLevel, cardPower, getFusionRecipesForEvent, getDuoCardFromRecipe } = require("../data/cards");
 const { bossButtons, singleActionRow, comboDefenseRows, dualChoiceRow, triChoiceRow } = require("../ui/components");
 const { buildBossIntroImage, buildBossResultImage, buildBossLiveImage, buildBossRewardImage } = require("../ui/boss-card");
 const {
@@ -33,7 +33,6 @@ const {
 } = require("../ui/embeds");
 const JOIN_WATCHDOG_MS = 1500;
 
-/* ===================== ROLE ADD/REMOVE ===================== */
 async function tryGiveRole(guild, userId, roleId) {
   try {
     const botMember = await guild.members.fetchMe();
@@ -92,6 +91,7 @@ function getStrongestCardPowerForEvent(player, eventKey) {
   const ek = eventKey === "jjk" ? "jjk" : "bleach";
   const cardsMap = ek === "bleach" ? (player?.cards?.bleach || {}) : (player?.cards?.jjk || {});
   const levels = ek === "bleach" ? (player?.cardLevels?.bleach || {}) : (player?.cardLevels?.jjk || {});
+  const duoMap = ek === "bleach" ? (player?.duoCards?.bleach || {}) : (player?.duoCards?.jjk || {});
   let best = 0;
 
   for (const c of CARD_POOL[ek] || []) {
@@ -100,6 +100,16 @@ function getStrongestCardPowerForEvent(player, eventKey) {
     const lv = Math.max(1, Number(levels[c.id] || 1));
     const stats = cardStatsAtLevel(c, lv);
     const p = Math.max(0, cardPower(stats));
+    if (p > best) best = p;
+  }
+  for (const recipe of getFusionRecipesForEvent(ek)) {
+    const amount = Math.max(0, Number(duoMap[recipe.duoId] || 0));
+    if (amount <= 0) continue;
+    const duo = getDuoCardFromRecipe(ek, recipe);
+    if (!duo) continue;
+    const lv = Math.max(1, Number(levels[recipe.duoId] || 1));
+    const stats = cardStatsAtLevel(duo, lv);
+    const p = Math.max(0, Math.floor(cardPower(stats) * 0.97));
     if (p > best) best = p;
   }
   return best;

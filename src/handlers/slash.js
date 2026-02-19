@@ -41,7 +41,16 @@ const { buildPackOpeningImage, buildCardRevealImage } = require("../ui/card-pack
 const { collectRowsForPlayer, buildCardsBookPayload } = require("../ui/cards-book-v2");
 const { buildClanBossHudImage, buildClanLeaderboardImage, buildClanInfoImage } = require("../ui/clan-card");
 const { buildClanSetupPayload, buildClanHelpText, hasClanCreateAccess, CLAN_SPECIAL_CREATE_ROLE_ID, CLAN_SPECIAL_ROLE_COST } = require("../ui/clan-setup-v2");
-const { findCard, getCardById, cardStatsAtLevel, cardPower, CARD_MAX_LEVEL, CARD_POOL } = require("../data/cards");
+const {
+  findCard,
+  getCardById,
+  cardStatsAtLevel,
+  cardPower,
+  CARD_MAX_LEVEL,
+  findFusionRecipe,
+  getFusionRecipesForEvent,
+  getDuoCardFromRecipe,
+} = require("../data/cards");
 const {
   MAX_CLAN_MEMBERS,
   CLAN_CREATE_COST_DRAKO,
@@ -81,32 +90,6 @@ function normalizeEventKey(v) {
   return v === "jjk" ? "jjk" : "bleach";
 }
 
-function strongestOwnedCard(player, eventKey) {
-  const cardsMap = getEventCardsMap(player, eventKey);
-  const levels = getEventLevelsMap(player, eventKey);
-  let best = null;
-  for (const [cardId, amountRaw] of Object.entries(cardsMap)) {
-    const amount = Math.max(0, Number(amountRaw || 0));
-    if (amount <= 0) continue;
-    const card = getCardById(eventKey, cardId);
-    if (!card) continue;
-    const lv = Math.max(1, Number(levels[cardId] || 1));
-    const stats = cardStatsAtLevel(card, lv);
-    const power = cardPower(stats);
-    if (!best || power > best.power) best = { card, level: lv, amount, stats, power };
-  }
-  return best;
-}
-
-const DUO_RECIPES = {
-  jjk: [
-    { a: "jjk_yuji", b: "jjk_todo", duoId: "duo_jjk_itadori_todo", name: "Itadori x Todo Duo" },
-    { a: "jjk_gojo", b: "jjk_nanami", duoId: "duo_jjk_gojo_nanami", name: "Gojo x Nanami Duo" },
-    { a: "jjk_sukuna", b: "jjk_megumi", duoId: "duo_jjk_sukuna_megumi", name: "Sukuna x Megumi Duo" },
-  ],
-  bleach: [],
-};
-
 function masteryStageName(n) {
   const x = Math.max(1, Math.min(3, Math.floor(Number(n || 1))));
   return `M${x}`;
@@ -139,6 +122,63 @@ function getMasteryRequirements(currentStage, level) {
     return { toStage: 3, minLevel: CARD_MAX_LEVEL, dupNeed: 5, drakoNeed: 1200 };
   }
   return null;
+}
+
+function getFusionRequirements() {
+  return {
+    minMastery: 3,
+    minLevel: 40,
+    copiesEach: 3,
+    drakoCost: 5000,
+    eventCurrencyCost: 25000,
+  };
+}
+
+function getOwnedDuoCard(eventKey, player, query) {
+  const q = String(query || "").trim().toLowerCase();
+  if (!q) return null;
+  const duoMap = eventKey === "jjk" ? (player?.duoCards?.jjk || {}) : (player?.duoCards?.bleach || {});
+  for (const recipe of getFusionRecipesForEvent(eventKey)) {
+    const amount = Math.max(0, Number(duoMap[recipe.duoId] || 0));
+    if (amount <= 0) continue;
+    if (recipe.duoId.toLowerCase() !== q && String(recipe.name || "").toLowerCase() !== q && !String(recipe.name || "").toLowerCase().includes(q)) continue;
+    const duo = getDuoCardFromRecipe(eventKey, recipe);
+    if (!duo) continue;
+    return { duo, recipe, amount };
+  }
+  return null;
+}
+
+function strongestOwnedCard(player, eventKey) {
+  const cardsMap = getEventCardsMap(player, eventKey);
+  const levels = getEventLevelsMap(player, eventKey);
+  const duos = eventKey === "jjk" ? (player?.duoCards?.jjk || {}) : (player?.duoCards?.bleach || {});
+  let best = null;
+
+  for (const [cardId, amountRaw] of Object.entries(cardsMap)) {
+    const amount = Math.max(0, Number(amountRaw || 0));
+    if (amount <= 0) continue;
+    const card = getCardById(eventKey, cardId);
+    if (!card) continue;
+    const lv = Math.max(1, Number(levels[cardId] || 1));
+    const stats = cardStatsAtLevel(card, lv);
+    const power = cardPower(stats);
+    if (!best || power > best.power) best = { card, level: lv, amount, stats, power, isDuo: false };
+  }
+
+  for (const recipe of getFusionRecipesForEvent(eventKey)) {
+    const amount = Math.max(0, Number(duos[recipe.duoId] || 0));
+    if (amount <= 0) continue;
+    const duoCard = getDuoCardFromRecipe(eventKey, recipe);
+    if (!duoCard) continue;
+    const lv = Math.max(1, Number(levels[recipe.duoId] || 1));
+    const stats = cardStatsAtLevel(duoCard, lv);
+    // Small fairness taper so duo is strong but not auto-win
+    const power = Math.floor(cardPower(stats) * 0.97);
+    if (!best || power > best.power) best = { card: duoCard, level: lv, amount, stats, power, isDuo: true };
+  }
+
+  return best;
 }
 
 function isAllowedSpawnChannel(eventKey, channelId) {
@@ -416,25 +456,29 @@ module.exports = async function handleSlash(interaction) {
         flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
       });
     }
-    const myCard = findCard(eventKey, myCardQuery);
-    if (!myCard) return interaction.reply({ content: "Your card was not found.", ephemeral: true });
+    const normalMyCard = findCard(eventKey, myCardQuery);
+    const myDuo = getOwnedDuoCard(eventKey, me, myCardQuery);
+    if (!normalMyCard && !myDuo) return interaction.reply({ content: "Your card/duo was not found.", ephemeral: true });
 
-    const myAmount = Math.max(0, Number(getEventCardsMap(me, eventKey)[myCard.id] || 0));
+    const myCard = myDuo ? myDuo.duo : normalMyCard;
+    const myAmount = myDuo ? myDuo.amount : Math.max(0, Number(getEventCardsMap(me, eventKey)[myCard.id] || 0));
     if (myAmount <= 0) return interaction.reply({ content: "You do not own that card.", ephemeral: true });
 
     const myLevel = Math.max(1, Number(getEventLevelsMap(me, eventKey)[myCard.id] || 1));
     const myStats = cardStatsAtLevel(myCard, myLevel);
-    const myPower = cardPower(myStats);
+    const myPower = myDuo ? Math.floor(cardPower(myStats) * 0.97) : cardPower(myStats);
 
     let enemyPick = null;
     if (enemyCardQuery) {
       const c = findCard(eventKey, enemyCardQuery);
-      if (!c) return interaction.reply({ content: "Enemy card query not found.", ephemeral: true });
-      const amount = Math.max(0, Number(getEventCardsMap(op, eventKey)[c.id] || 0));
+      const duo = getOwnedDuoCard(eventKey, op, enemyCardQuery);
+      if (!c && !duo) return interaction.reply({ content: "Enemy card query not found.", ephemeral: true });
+      const pick = duo ? duo.duo : c;
+      const amount = duo ? duo.amount : Math.max(0, Number(getEventCardsMap(op, eventKey)[pick.id] || 0));
       if (amount <= 0) return interaction.reply({ content: "Enemy does not own that card.", ephemeral: true });
-      const lv = Math.max(1, Number(getEventLevelsMap(op, eventKey)[c.id] || 1));
-      const stats = cardStatsAtLevel(c, lv);
-      enemyPick = { card: c, level: lv, stats, power: cardPower(stats) };
+      const lv = Math.max(1, Number(getEventLevelsMap(op, eventKey)[pick.id] || 1));
+      const stats = cardStatsAtLevel(pick, lv);
+      enemyPick = { card: pick, level: lv, stats, power: duo ? Math.floor(cardPower(stats) * 0.97) : cardPower(stats) };
     } else {
       enemyPick = strongestOwnedCard(op, eventKey);
       if (!enemyPick) return interaction.reply({ content: "Enemy has no card in this event.", ephemeral: true });
@@ -588,49 +632,95 @@ module.exports = async function handleSlash(interaction) {
   }
 
   if (interaction.commandName === "cardfuse") {
+    const sub = interaction.options.getSubcommand(true);
     const eventKey = normalizeEventKey(interaction.options.getString("event", true));
+    const recipes = getFusionRecipesForEvent(eventKey);
+    const req = getFusionRequirements();
+
+    if (sub === "guide") {
+      const text =
+        `## CARD FUSION GUIDE | ${eventKey.toUpperCase()}\n` +
+        `1. Level both parent cards to **Lv.${req.minLevel}+**\n` +
+        `2. Upgrade both to **M${req.minMastery}**\n` +
+        `3. Keep at least **${req.copiesEach} copies** of each card\n` +
+        `4. Pay **${req.drakoCost.toLocaleString("en-US")} Drako** + **${req.eventCurrencyCost.toLocaleString("en-US")} ${eventKey === "bleach" ? "Reiatsu" : "Cursed Energy"}**\n` +
+        `5. Use \`/cardfuse craft\` with the exact pair\n\n` +
+        `Fusion card art path:\n` +
+        `\`assets/cards/fusion/${eventKey}/<duoId>.png\``;
+      const c = new ContainerBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(text));
+      return interaction.reply({ components: [c], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+    }
+
+    if (sub === "list") {
+      const lines = recipes.map((r, i) => `**#${i + 1}** ${r.name}  |  \`${r.a}\` + \`${r.b}\`  ->  \`${r.duoId}\``);
+      const c = new ContainerBuilder().addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          `## FUSION RECIPES | ${eventKey.toUpperCase()}\n` +
+          `${lines.join("\n") || "_No recipes_"}\n\n` +
+          `Requirement: Lv.${req.minLevel}+ + M${req.minMastery} + ${req.copiesEach} copies each + ${req.drakoCost} Drako + ${req.eventCurrencyCost} ${eventKey === "bleach" ? "Reiatsu" : "CE"}.`
+        )
+      );
+      return interaction.reply({ components: [c], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+    }
+
     const qa = interaction.options.getString("card_a", true);
     const qb = interaction.options.getString("card_b", true);
     const pa = findCard(eventKey, qa);
     const pb = findCard(eventKey, qb);
-    if (!pa || !pb) return interaction.reply({ content: "One or both cards not found.", ephemeral: true });
+    if (!pa || !pb) return interaction.reply({ content: "One or both parent cards not found.", ephemeral: true });
     if (pa.id === pb.id) return interaction.reply({ content: "Choose two different cards.", ephemeral: true });
 
-    const recipes = DUO_RECIPES[eventKey] || [];
-    const rec = recipes.find((r) => {
-      const set = new Set([r.a, r.b]);
-      return set.has(pa.id) && set.has(pb.id);
-    });
-    if (!rec) {
-      return interaction.reply({ content: "This pair has no duo fusion recipe yet.", ephemeral: true });
-    }
+    const rec = findFusionRecipe(eventKey, pa.id, pb.id);
+    if (!rec) return interaction.reply({ content: "This pair has no fusion recipe.", ephemeral: true });
 
     const p = await getPlayer(interaction.user.id);
     ensureCardSystems(p);
     const cardsMap = eventKey === "jjk" ? p.cards.jjk : p.cards.bleach;
+    const levels = eventKey === "jjk" ? p.cardLevels.jjk : p.cardLevels.bleach;
     const mastery = eventKey === "jjk" ? p.cardMastery.jjk : p.cardMastery.bleach;
     const duoMap = eventKey === "jjk" ? p.duoCards.jjk : p.duoCards.bleach;
 
     const amountA = Math.max(0, Number(cardsMap[pa.id] || 0));
     const amountB = Math.max(0, Number(cardsMap[pb.id] || 0));
+    const lvA = Math.max(1, Number(levels[pa.id] || 1));
+    const lvB = Math.max(1, Number(levels[pb.id] || 1));
     const ma = Math.max(1, Number(mastery[pa.id] || 1));
     const mb = Math.max(1, Number(mastery[pb.id] || 1));
-    if (amountA <= 0 || amountB <= 0) return interaction.reply({ content: "You must own both cards.", ephemeral: true });
-    if (ma < 3 || mb < 3) {
-      return interaction.reply({ content: "Both cards must be M3 to fuse.", ephemeral: true });
+
+    if (amountA < req.copiesEach || amountB < req.copiesEach) {
+      return interaction.reply({ content: `Need ${req.copiesEach} copies of each parent card.`, ephemeral: true });
     }
+    if (lvA < req.minLevel || lvB < req.minLevel) {
+      return interaction.reply({ content: `Both cards must be level ${req.minLevel}+ (now ${lvA}/${lvB}).`, ephemeral: true });
+    }
+    if (ma < req.minMastery || mb < req.minMastery) {
+      return interaction.reply({ content: `Both cards must be M${req.minMastery} (now M${ma}/M${mb}).`, ephemeral: true });
+    }
+    if (p.drako < req.drakoCost) return interaction.reply({ content: `Need ${req.drakoCost} Drako.`, ephemeral: true });
+    if (eventKey === "bleach" && p.bleach.reiatsu < req.eventCurrencyCost) return interaction.reply({ content: `Need ${req.eventCurrencyCost} Reiatsu.`, ephemeral: true });
+    if (eventKey === "jjk" && p.jjk.cursedEnergy < req.eventCurrencyCost) return interaction.reply({ content: `Need ${req.eventCurrencyCost} Cursed Energy.`, ephemeral: true });
 
-    cardsMap[pa.id] = amountA - 1;
-    cardsMap[pb.id] = amountB - 1;
+    cardsMap[pa.id] = amountA - req.copiesEach;
+    cardsMap[pb.id] = amountB - req.copiesEach;
+    p.drako -= req.drakoCost;
+    if (eventKey === "bleach") p.bleach.reiatsu -= req.eventCurrencyCost;
+    else p.jjk.cursedEnergy -= req.eventCurrencyCost;
+
     duoMap[rec.duoId] = Math.max(0, Number(duoMap[rec.duoId] || 0)) + 1;
-    await setPlayer(interaction.user.id, p);
+    if (!levels[rec.duoId]) levels[rec.duoId] = 1;
 
+    const duoCard = getDuoCardFromRecipe(eventKey, rec);
+    const duoStats = cardStatsAtLevel(duoCard, levels[rec.duoId] || 1);
+    const duoPower = Math.floor(cardPower(duoStats) * 0.97);
+
+    await setPlayer(interaction.user.id, p);
     const c = new ContainerBuilder().addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## DUO FUSION SUCCESS\n` +
-        `Fusion: **${rec.name}**\n` +
-        `Duo Card ID: \`${rec.duoId}\`\n` +
-        `Owned Duo Copies: **${duoMap[rec.duoId]}**`
+        `## FUSION SUCCESS\n` +
+        `Duo: **${rec.name}**  (\`${rec.duoId}\`)\n` +
+        `Owned Duo: **${duoMap[rec.duoId]}**\n` +
+        `Base Power: **${duoPower}** (fair-capped)\n` +
+        `Spent: ${req.copiesEach}x ${pa.name}, ${req.copiesEach}x ${pb.name}, ${req.drakoCost} Drako, ${req.eventCurrencyCost} ${eventKey === "bleach" ? "Reiatsu" : "CE"}.`
       )
     );
     return interaction.reply({ components: [c], flags: MessageFlags.IsComponentsV2 });

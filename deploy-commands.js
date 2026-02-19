@@ -171,10 +171,27 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName("cardfuse")
-    .setDescription("Fuse two M3 cards into a duo card")
-    .addStringOption((opt) => opt.setName("event").setDescription("Bleach or JJK").setRequired(true).addChoices(...EVENT_CHOICES))
-    .addStringOption((opt) => opt.setName("card_a").setDescription("First card id or name").setRequired(true))
-    .addStringOption((opt) => opt.setName("card_b").setDescription("Second card id or name").setRequired(true)),
+    .setDescription("Fusion system for duo cards")
+    .addSubcommand((sc) =>
+      sc
+        .setName("guide")
+        .setDescription("Show fusion guide and requirements")
+        .addStringOption((opt) => opt.setName("event").setDescription("Bleach or JJK").setRequired(true).addChoices(...EVENT_CHOICES))
+    )
+    .addSubcommand((sc) =>
+      sc
+        .setName("list")
+        .setDescription("List available fusion recipes")
+        .addStringOption((opt) => opt.setName("event").setDescription("Bleach or JJK").setRequired(true).addChoices(...EVENT_CHOICES))
+    )
+    .addSubcommand((sc) =>
+      sc
+        .setName("craft")
+        .setDescription("Craft a duo card from two parent cards")
+        .addStringOption((opt) => opt.setName("event").setDescription("Bleach or JJK").setRequired(true).addChoices(...EVENT_CHOICES))
+        .addStringOption((opt) => opt.setName("card_a").setDescription("First parent card id/name").setRequired(true))
+        .addStringOption((opt) => opt.setName("card_b").setDescription("Second parent card id/name").setRequired(true))
+    ),
 ].map((c) => c.toJSON());
 
 const rest = new REST({ version: "10" }).setToken(TOKEN);

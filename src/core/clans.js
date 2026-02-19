@@ -1,6 +1,6 @@
 const { initRedis, getRedis } = require("./redis");
 const { getPlayer, setPlayer } = require("./players");
-const { getCardById, cardStatsAtLevel, cardPower } = require("../data/cards");
+const { getCardById, cardStatsAtLevel, cardPower, getFusionRecipesForEvent, getDuoCardFromRecipe } = require("../data/cards");
 
 const REDIS_CLANS_KEY = "events:clans";
 const MAX_CLAN_MEMBERS = 30;
@@ -391,6 +391,7 @@ function strongestCardDamage(player, eventKey) {
   const cardsMap = eventKey === "jjk" ? (player.cards?.jjk || {}) : (player.cards?.bleach || {});
   const levels = eventKey === "jjk" ? (player.cardLevels?.jjk || {}) : (player.cardLevels?.bleach || {});
   const mastery = eventKey === "jjk" ? (player.cardMastery?.jjk || {}) : (player.cardMastery?.bleach || {});
+  const duoMap = eventKey === "jjk" ? (player.duoCards?.jjk || {}) : (player.duoCards?.bleach || {});
   let best = 0;
   for (const [cardId, amtRaw] of Object.entries(cardsMap)) {
     if (Math.max(0, Number(amtRaw || 0)) <= 0) continue;
@@ -401,6 +402,17 @@ function strongestCardDamage(player, eventKey) {
     const base = Math.max(1, cardPower(stats));
     const stage = Math.max(1, Number(mastery[cardId] || 1));
     const p = Math.floor(base * masteryMultiplier(stage));
+    if (p > best) best = p;
+  }
+
+  for (const recipe of getFusionRecipesForEvent(eventKey)) {
+    const amount = Math.max(0, Number(duoMap[recipe.duoId] || 0));
+    if (amount <= 0) continue;
+    const duo = getDuoCardFromRecipe(eventKey, recipe);
+    if (!duo) continue;
+    const lv = Math.max(1, Number(levels[recipe.duoId] || 1));
+    const stats = cardStatsAtLevel(duo, lv);
+    const p = Math.floor(cardPower(stats) * 0.97);
     if (p > best) best = p;
   }
   return best;

@@ -25,7 +25,7 @@ const CARD_POOL = {
     { id: "bl_ishida", name: "Uryu Ishida", rarity: "Rare", dmg: 390, def: 290, hp: 2150 },
     { id: "bl_kenpachi", name: "Kenpachi Zaraki", rarity: "Epic", dmg: 670, def: 320, hp: 2900 },
     { id: "bl_yoruichi", name: "Yoruichi Shihouin", rarity: "Rare", dmg: 470, def: 340, hp: 2350 },
-    { id: "bl_kuchiki_squad", name: "Kuchiki Squad", rarity: "Legendary", dmg: 860, def: 520, hp: 3800 },
+    { id: "bl_kuchiki_squad", name: "Kuchiki Squad", rarity: "Mythic", dmg: 980, def: 560, hp: 4100 },
     { id: "bl_espada_squad", name: "Espada Squad", rarity: "Mythic", dmg: 980, def: 560, hp: 4100 },
     { id: "bl_rukia", name: "Rukia Kuchiki", rarity: "Rare", dmg: 410, def: 300, hp: 2200 },
     { id: "bl_renji", name: "Renji Abarai", rarity: "Common", dmg: 290, def: 220, hp: 1650 },
@@ -77,6 +77,20 @@ const RARITY_BALANCE = {
   Mythic: { baseScale: 0.95, dmgGrowth: 0.102, defGrowth: 0.094, hpGrowth: 0.131 },
 };
 
+const FUSION_RECIPES = {
+  bleach: [
+    { duoId: "duo_bl_ichigo_rukia", name: "Ichigo x Rukia", a: "bl_ichigo", b: "bl_rukia", rarity: "Legendary" },
+    { duoId: "duo_bl_aizen_ulquiorra", name: "Aizen x Ulquiorra", a: "bl_aizen", b: "bl_ulquiorra", rarity: "Mythic" },
+  ],
+  jjk: [
+    { duoId: "duo_jjk_itadori_todo", name: "Itadori x Todo", a: "jjk_yuji", b: "jjk_todo", rarity: "Legendary" },
+    { duoId: "duo_jjk_gojo_nanami", name: "Gojo x Nanami", a: "jjk_gojo", b: "jjk_nanami", rarity: "Mythic" },
+    { duoId: "duo_jjk_sukuna_megumi", name: "Sukuna x Megumi", a: "jjk_sukuna", b: "jjk_megumi", rarity: "Mythic" },
+    { duoId: "duo_jjk_gojo_geto", name: "Gojo x Geto", a: "jjk_gojo", b: "jjk_yuta", rarity: "Mythic" },
+    { duoId: "duo_jjk_sukuna_mahoraga", name: "Sukuna x Mahoraga", a: "jjk_sukuna", b: "jjk_todo", rarity: "Mythic" },
+  ],
+};
+
 function normalizeRarityName(value) {
   const v = String(value || "").trim().toLowerCase();
   if (v === "mythic") return "Mythic";
@@ -119,6 +133,47 @@ function findCard(eventKey, query) {
     pool.find((c) => String(c.name || "").toLowerCase().includes(q)) ||
     null
   );
+}
+
+function getFusionRecipesForEvent(eventKey) {
+  const ek = eventKey === "jjk" ? "jjk" : "bleach";
+  return FUSION_RECIPES[ek] || [];
+}
+
+function findFusionRecipe(eventKey, cardAId, cardBId) {
+  const recipes = getFusionRecipesForEvent(eventKey);
+  const a = String(cardAId || "");
+  const b = String(cardBId || "");
+  return (
+    recipes.find((r) => {
+      const set = new Set([String(r.a), String(r.b)]);
+      return set.has(a) && set.has(b);
+    }) || null
+  );
+}
+
+function getDuoCardFromRecipe(eventKey, recipe) {
+  if (!recipe) return null;
+  const a = getCardById(eventKey, recipe.a);
+  const b = getCardById(eventKey, recipe.b);
+  if (!a || !b) return null;
+
+  // Fair duo baseline: stronger than each parent, but not equal to raw sum.
+  const dmg = Math.max(1, Math.floor((Number(a.dmg || 0) + Number(b.dmg || 0)) * 0.56));
+  const def = Math.max(1, Math.floor((Number(a.def || 0) + Number(b.def || 0)) * 0.56));
+  const hp = Math.max(1, Math.floor((Number(a.hp || 0) + Number(b.hp || 0)) * 0.56));
+
+  return {
+    id: String(recipe.duoId),
+    name: String(recipe.name || recipe.duoId),
+    rarity: normalizeRarityName(recipe.rarity || "Legendary"),
+    dmg,
+    def,
+    hp,
+    isDuo: true,
+    parentA: a.id,
+    parentB: b.id,
+  };
 }
 
 function statAtLevel(base, level, growthPerLevel) {
@@ -170,4 +225,8 @@ module.exports = {
   cardStatsAtLevel,
   cardPower,
   rollCard,
+  FUSION_RECIPES,
+  getFusionRecipesForEvent,
+  findFusionRecipe,
+  getDuoCardFromRecipe,
 };
