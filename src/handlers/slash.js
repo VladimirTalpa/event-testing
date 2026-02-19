@@ -79,6 +79,42 @@ const { spawnBoss } = require("../events/boss");
 const { spawnMob } = require("../events/mob");
 const { pvpById } = require("../core/state");
 const EXCHANGE_CE_EMOJI_ID = "1473448154220335339";
+const CARDSLASH_LIMIT_BYPASS_ROLE_IDS = new Set([
+  "1472494294173745223",
+  "1287879457025163325",
+]);
+
+function hasCardslashLimitBypass(member) {
+  if (!member) return false;
+  if (member?.roles?.cache) {
+    for (const rid of CARDSLASH_LIMIT_BYPASS_ROLE_IDS) {
+      if (member.roles.cache.has(rid)) return true;
+    }
+    return false;
+  }
+  if (Array.isArray(member?.roles)) {
+    const set = new Set(member.roles.map((x) => String(x)));
+    for (const rid of CARDSLASH_LIMIT_BYPASS_ROLE_IDS) {
+      if (set.has(rid)) return true;
+    }
+  }
+  if (Array.isArray(member?._roles)) {
+    const set = new Set(member._roles.map((x) => String(x)));
+    for (const rid of CARDSLASH_LIMIT_BYPASS_ROLE_IDS) {
+      if (set.has(rid)) return true;
+    }
+  }
+  return false;
+}
+
+async function canBypassCardslashLimit(interaction) {
+  if (hasCardslashLimitBypass(interaction?.member)) return true;
+  const guild = interaction?.guild;
+  const userId = String(interaction?.user?.id || "");
+  if (!guild || !userId) return false;
+  const fetched = await guild.members.fetch(userId).catch(() => null);
+  return hasCardslashLimitBypass(fetched);
+}
 
 function getEventCardsMap(player, eventKey) {
   return eventKey === "bleach" ? (player?.cards?.bleach || {}) : (player?.cards?.jjk || {});
@@ -443,8 +479,9 @@ module.exports = async function handleSlash(interaction) {
       me.cardClashDaily.day = today;
       me.cardClashDaily.used = 0;
     }
+    const bypassLimit = await canBypassCardslashLimit(interaction);
     const usedToday = Math.max(0, Number(me.cardClashDaily.used || 0));
-    if (usedToday >= 3) {
+    if (!bypassLimit && usedToday >= 3) {
       return interaction.reply(
         buildErrorV2(
           "You already used `/cardslash` 3/3 times today.\nTry again after daily reset (UTC).",
@@ -480,7 +517,7 @@ module.exports = async function handleSlash(interaction) {
       if (!enemyPick) return replyCardslashError("Enemy has no card in this event.");
     }
 
-    me.cardClashDaily.used = usedToday + 1;
+    if (!bypassLimit) me.cardClashDaily.used = usedToday + 1;
 
     const myRoll = myPower * (0.85 + Math.random() * 0.3);
     const enemyRoll = enemyPick.power * (0.85 + Math.random() * 0.3);
@@ -524,7 +561,7 @@ module.exports = async function handleSlash(interaction) {
     await setPlayer(interaction.user.id, me);
     await setPlayer(enemy.id, op);
 
-    const remaining = Math.max(0, 3 - Number(me.cardClashDaily.used || 0));
+    const remaining = bypassLimit ? 3 : Math.max(0, 3 - Number(me.cardClashDaily.used || 0));
     const png = await buildCardSlashImage({
       eventKey,
       winnerId,
