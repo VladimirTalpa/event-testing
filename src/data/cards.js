@@ -25,8 +25,6 @@ const CARD_POOL = {
     { id: "bl_ishida", name: "Uryu Ishida", rarity: "Rare", dmg: 390, def: 290, hp: 2150 },
     { id: "bl_kenpachi", name: "Kenpachi Zaraki", rarity: "Epic", dmg: 670, def: 320, hp: 2900 },
     { id: "bl_yoruichi", name: "Yoruichi Shihouin", rarity: "Rare", dmg: 470, def: 340, hp: 2350 },
-    { id: "bl_kuchiki_squad", name: "Kuchiki Squad", rarity: "Mythic", dmg: 980, def: 560, hp: 4100 },
-    { id: "bl_espada_squad", name: "Espada Squad", rarity: "Mythic", dmg: 980, def: 560, hp: 4100 },
     { id: "bl_rukia", name: "Rukia Kuchiki", rarity: "Rare", dmg: 410, def: 300, hp: 2200 },
     { id: "bl_renji", name: "Renji Abarai", rarity: "Common", dmg: 290, def: 220, hp: 1650 },
     { id: "bl_toshiro", name: "Toshiro Hitsugaya", rarity: "Rare", dmg: 430, def: 320, hp: 2300 },
