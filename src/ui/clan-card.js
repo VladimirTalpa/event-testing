@@ -5,6 +5,8 @@ const path = require("path");
 const { createCanvas, loadImage } = require("@napi-rs/canvas");
 
 const CLAN_LB_BG_PATH = path.join(__dirname, "..", "..", "assets", "templates", "bg_lb_clan.png");
+const CLAN_BOSS_BG_PATH = path.join(__dirname, "..", "..", "assets", "templates", "bg_clan_boss.png");
+const CLAN_INFO_BG_PATH = path.join(__dirname, "..", "..", "assets", "templates", "bg_clan_info.png");
 
 function roundedRect(ctx, x, y, w, h, r) {
   const rr = Math.max(0, Math.min(r, Math.floor(Math.min(w, h) / 2)));
@@ -42,6 +44,40 @@ function starField(ctx, w, h, count = 220) {
   }
 }
 
+async function drawTemplateBackground(ctx, w, h, preferredPath) {
+  const candidates = [preferredPath, CLAN_LB_BG_PATH].filter(Boolean);
+  for (const p of candidates) {
+    if (!fs.existsSync(p)) continue;
+    try {
+      const img = await loadImage(p);
+      ctx.drawImage(img, 0, 0, w, h);
+      return true;
+    } catch {}
+  }
+  return false;
+}
+
+function remainingLabel(endsAt) {
+  const ts = Number(endsAt || 0);
+  if (ts <= Date.now()) return "Ends soon";
+  const sec = Math.max(1, Math.floor((ts - Date.now()) / 1000));
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  if (m >= 60) {
+    const h = Math.floor(m / 60);
+    const rm = m % 60;
+    return `Ends in ${h}h ${rm}m`;
+  }
+  return `Ends in ${m}m ${s}s`;
+}
+
+function clanIconPrefix(icon) {
+  const s = String(icon || "").trim();
+  if (!s) return "";
+  if (/^https?:\/\//i.test(s)) return "CLAN ";
+  return `${s} `;
+}
+
 function drawPanel(ctx, x, y, w, h) {
   roundedRect(ctx, x, y, w, h, 18);
   const g = ctx.createLinearGradient(x, y, x + w, y + h);
@@ -65,6 +101,12 @@ async function buildClanBossHudImage(input = {}) {
   bg.addColorStop(0.55, "#121235");
   bg.addColorStop(1, "#180a2b");
   ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+  await drawTemplateBackground(ctx, W, H, CLAN_BOSS_BG_PATH);
+  const overlay = ctx.createLinearGradient(0, 0, W, H);
+  overlay.addColorStop(0, "rgba(10,12,26,0.54)");
+  overlay.addColorStop(1, "rgba(11,6,20,0.66)");
+  ctx.fillStyle = overlay;
   ctx.fillRect(0, 0, W, H);
   starField(ctx, W, H, 280);
 
@@ -123,7 +165,7 @@ async function buildClanBossHudImage(input = {}) {
 
   ctx.font = '600 30px "Inter", "Segoe UI", sans-serif';
   ctx.fillStyle = "#91deff";
-  const endLabel = endsAt > 0 ? `Ends <t:${Math.floor(endsAt / 1000)}:R>` : "Ends soon";
+  const endLabel = remainingLabel(endsAt);
   ctx.fillText(endLabel, W - 420, 250);
 
   ctx.font = '700 42px "Orbitron", "Segoe UI", sans-serif';
@@ -149,11 +191,14 @@ async function buildClanBossHudImage(input = {}) {
     rg.addColorStop(1, "#ff5dcb");
     ctx.fillStyle = rg;
     ctx.fill();
-    ctx.font = '700 30px "Inter", "Segoe UI", sans-serif';
-    ctx.fillStyle = "#0a1024";
+    ctx.font = '700 29px "Inter", "Segoe UI", sans-serif';
+    ctx.fillStyle = "#06142a";
     ctx.fillText(`${i + 1}. ${name}`, 102, y + 31);
+    roundedRect(ctx, 770, y + 6, 164, 30, 9);
+    ctx.fillStyle = "rgba(5, 10, 24, 0.75)";
+    ctx.fill();
     ctx.fillStyle = "#ffffff";
-    ctx.fillText(`${dmg.toLocaleString("en-US")}`, 760, y + 31);
+    ctx.fillText(`${dmg.toLocaleString("en-US")}`, 796, y + 31);
     y += 50;
     if (y > 820) break;
   }
@@ -219,8 +264,16 @@ async function buildClanLeaderboardImage(rows = []) {
   ctx.fillText("WEEKLY CLAN LEADERBOARD", 70, 118);
 
   drawPanel(ctx, 54, 150, W - 108, H - 210);
+  ctx.font = '700 25px "Inter", "Segoe UI", sans-serif';
+  ctx.fillStyle = "#aeefff";
+  ctx.fillText("Clan", 96, 198);
+  ctx.fillText("Score", 650, 198);
+  ctx.fillText("Damage", 840, 198);
+  ctx.fillText("Clears", 1040, 198);
+  ctx.fillText("Activity", 1180, 198);
+  ctx.fillText("Members", 1350, 198);
   const sorted = Array.isArray(rows) ? rows.slice(0, 10) : [];
-  let y = 210;
+  let y = 220;
   for (let i = 0; i < sorted.length; i++) {
     const r = sorted[i];
     roundedRect(ctx, 78, y, W - 156, 64, 14);
@@ -229,14 +282,20 @@ async function buildClanLeaderboardImage(rows = []) {
     ctx.strokeStyle = i < 3 ? "rgba(255,212,116,0.96)" : "rgba(126,228,255,0.72)";
     ctx.lineWidth = 1.4;
     ctx.stroke();
-    ctx.font = '700 30px "Inter", "Segoe UI", sans-serif';
+    ctx.font = '700 28px "Inter", "Segoe UI", sans-serif';
     ctx.fillStyle = i < 3 ? "#ffd47a" : "#dcf2ff";
-    const left = `#${i + 1} ${r.icon ? `${r.icon} ` : ""}${fitText(ctx, String(r.name || "Clan"), 420)}`;
+    const left = `#${i + 1} ${r.icon ? `${r.icon} ` : ""}${fitText(ctx, String(r.name || "Clan"), 500)}`;
     ctx.fillText(left, 96, y + 42);
     ctx.fillStyle = "#9de5ff";
-    ctx.fillText(`Score ${Math.floor(Number(r.score || 0)).toLocaleString("en-US")}`, 630, y + 42);
-    ctx.fillStyle = "#ff92ea";
-    ctx.fillText(`DMG ${Math.floor(Number(r.damage || 0)).toLocaleString("en-US")} | Clears ${Math.floor(Number(r.clears || 0))} | Act ${Math.floor(Number(r.activity || 0))} | Members ${Math.floor(Number(r.members || 0))}`, 910, y + 42);
+    ctx.fillText(`${Math.floor(Number(r.score || 0)).toLocaleString("en-US")}`, 650, y + 42);
+    ctx.fillStyle = "#8fd8ff";
+    ctx.fillText(`${Math.floor(Number(r.damage || 0)).toLocaleString("en-US")}`, 840, y + 42);
+    ctx.fillStyle = "#ffa8f0";
+    ctx.fillText(`${Math.floor(Number(r.clears || 0))}`, 1040, y + 42);
+    ctx.fillStyle = "#ffd393";
+    ctx.fillText(`${Math.floor(Number(r.activity || 0))}`, 1180, y + 42);
+    ctx.fillStyle = "#ebf6ff";
+    ctx.fillText(`${Math.floor(Number(r.members || 0))}`, 1360, y + 42);
     y += 74;
     if (y > H - 100) break;
   }
@@ -256,6 +315,12 @@ async function buildClanInfoImage(input = {}) {
   bg.addColorStop(1, "#1f0a35");
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
+  await drawTemplateBackground(ctx, W, H, CLAN_INFO_BG_PATH);
+  const overlay = ctx.createLinearGradient(0, 0, W, H);
+  overlay.addColorStop(0, "rgba(10,16,30,0.5)");
+  overlay.addColorStop(1, "rgba(14,7,24,0.62)");
+  ctx.fillStyle = overlay;
+  ctx.fillRect(0, 0, W, H);
   starField(ctx, W, H, 320);
 
   roundedRect(ctx, 20, 20, W - 40, H - 40, 24);
@@ -272,7 +337,7 @@ async function buildClanInfoImage(input = {}) {
   const ownerName = String(input.ownerName || "Unknown");
   const createdText = String(input.createdText || "-");
 
-  const title = `${icon ? `${icon} ` : ""}${clanName}`;
+  const title = `${clanIconPrefix(icon)}${clanName}`;
   ctx.font = '800 74px "Orbitron", "Segoe UI", sans-serif';
   const tg = ctx.createLinearGradient(84, 78, 760, 78);
   tg.addColorStop(0, "#53f7ff");

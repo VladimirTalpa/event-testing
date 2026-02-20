@@ -3,7 +3,6 @@ function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
 function safeName(name) {
   return String(name || "Unknown")
     .replace(/@/g, "")
-    .replace(/#/g, "＃")
     .replace(/[|¦]+/g, " ")
     .replace(/[\r\n\t]+/g, " ")
     .replace(/\s+/g, " ")

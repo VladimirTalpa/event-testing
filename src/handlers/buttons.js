@@ -24,7 +24,7 @@ const { buildShopV2Payload } = require("../ui/shop-v2");
 const { buildPackOpeningImage, buildCardRevealImage } = require("../ui/card-pack");
 const { collectRowsForPlayer, buildCardsBookPayload } = require("../ui/cards-book-v2");
 const { buildPvpResultImage } = require("../ui/pvpclash-card");
-const { buildClanSetupPayload, buildClanHelpText, hasClanCreateAccess, CLAN_SPECIAL_CREATE_ROLE_ID, CLAN_SPECIAL_ROLE_COST } = require("../ui/clan-setup-v2");
+const { buildClanSetupPayload, buildClanHelpText, hasClanCreateAccess, memberHasRole, CLAN_SPECIAL_CREATE_ROLE_ID, CLAN_SPECIAL_ROLE_COST } = require("../ui/clan-setup-v2");
 const {
   getClan,
   findClanByName,
@@ -124,6 +124,31 @@ function parseUserIdInput(v) {
   return m ? m[0] : "";
 }
 
+function clanIconPrefix(icon) {
+  const s = String(icon || "").trim();
+  if (!s) return "";
+  if (/^https?:\/\//i.test(s)) return "🛡️ ";
+  return `${s} `;
+}
+
+async function resolveClanDamageRows(guild, damageByUser, limit = 10) {
+  const rows = Object.entries(damageByUser || {})
+    .map(([uid, dmg]) => ({ uid: String(uid), dmg: Math.max(0, Math.floor(Number(dmg || 0))) }))
+    .sort((a, b) => b.dmg - a.dmg)
+    .slice(0, Math.max(1, Math.floor(Number(limit || 10))));
+
+  const out = [];
+  for (const row of rows) {
+    let name = row.uid;
+    try {
+      const m = await guild.members.fetch(row.uid);
+      name = safeName(m?.displayName || m?.user?.username || row.uid);
+    } catch {}
+    out.push({ name, dmg: row.dmg });
+  }
+  return out;
+}
+
 async function buildClanInfoReply(guild, clan) {
   const hasBoss = !!(clan.activeBoss && clan.activeBoss.hpCurrent > 0 && clan.activeBoss.endsAt > Date.now());
   let ownerLabel = clan.ownerId;
@@ -169,7 +194,7 @@ async function buildClanInfoReply(guild, clan) {
   const container = new ContainerBuilder()
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## ${clan.icon ? `${clan.icon} ` : ""}CLAN PROFILE\n` +
+        `## ${clanIconPrefix(clan.icon)}CLAN PROFILE\n` +
         `Name: **${clan.name}**  |  Owner: <@${clan.ownerId}>`
       )
     )
@@ -305,7 +330,9 @@ module.exports = async function handleButtons(interaction) {
           .setPlaceholder("Mohg Legends|https://cdn.discordapp.com/attachments/.../icon.png")
           .setMaxLength(180);
       } else if (action === "request" || action === "accept") {
-        input.setLabel("Clan Name").setPlaceholder("Exact clan name").setMaxLength(32);
+        input.setLabel("Clan Name").setPlaceholder("Exact clan name").setMaxLength(64);
+      } else if (action === "approve" || action === "deny") {
+        input.setLabel("User @mention / ID / queue index").setPlaceholder("@User OR 123456789012345678 OR 1").setMaxLength(64);
       } else {
         input.setLabel("Target User ID / @mention").setPlaceholder("123456789012345678").setMaxLength(40);
       }
@@ -374,19 +401,20 @@ module.exports = async function handleButtons(interaction) {
     if (cid.startsWith("clanui:buyrole:")) {
       const eventKey = cid.endsWith(":jjk") ? "jjk" : "bleach";
       const p = await getPlayer(interaction.user.id);
-      if (interaction.member?.roles?.cache?.has(CLAN_SPECIAL_CREATE_ROLE_ID)) {
-        const payload = await buildClanSetupPayload({ guild: interaction.guild, userId: interaction.user.id, member: interaction.member, notice: "Special role already owned." });
+      const liveMember = await interaction.guild.members.fetch(interaction.user.id).catch(() => interaction.member);
+      if (memberHasRole(liveMember, CLAN_SPECIAL_CREATE_ROLE_ID)) {
+        const payload = await buildClanSetupPayload({ guild: interaction.guild, userId: interaction.user.id, member: liveMember, notice: "Special role already owned." });
         return syncClanPanel(interaction, payload);
       }
       if (eventKey === "bleach") {
         if (p.bleach.reiatsu < CLAN_SPECIAL_ROLE_COST) {
-          const payload = await buildClanSetupPayload({ guild: interaction.guild, userId: interaction.user.id, member: interaction.member, notice: `Need ${CLAN_SPECIAL_ROLE_COST} Reiatsu.` });
+          const payload = await buildClanSetupPayload({ guild: interaction.guild, userId: interaction.user.id, member: liveMember, notice: `Need ${CLAN_SPECIAL_ROLE_COST} Reiatsu.` });
           return syncClanPanel(interaction, payload);
         }
         p.bleach.reiatsu -= CLAN_SPECIAL_ROLE_COST;
       } else {
         if (p.jjk.cursedEnergy < CLAN_SPECIAL_ROLE_COST) {
-          const payload = await buildClanSetupPayload({ guild: interaction.guild, userId: interaction.user.id, member: interaction.member, notice: `Need ${CLAN_SPECIAL_ROLE_COST} Cursed Energy.` });
+          const payload = await buildClanSetupPayload({ guild: interaction.guild, userId: interaction.user.id, member: liveMember, notice: `Need ${CLAN_SPECIAL_ROLE_COST} Cursed Energy.` });
           return syncClanPanel(interaction, payload);
         }
         p.jjk.cursedEnergy -= CLAN_SPECIAL_ROLE_COST;
@@ -404,7 +432,12 @@ module.exports = async function handleButtons(interaction) {
       return syncClanPanel(interaction, payload);
     }
 
-    if (cid.startsWith("clanui:boss:start:") || cid.startsWith("clanui:boss:hit:") || cid === "clanui:boss:status") {
+    if (
+      cid.startsWith("clanui:boss:start:") ||
+      cid.startsWith("clanui:boss:hit:") ||
+      cid === "clanui:boss:hit" ||
+      cid === "clanui:boss:status"
+    ) {
       const p = await getPlayer(interaction.user.id);
       if (!p.clanId) {
         const payload = await buildClanSetupPayload({ guild: interaction.guild, userId: interaction.user.id, member: interaction.member, notice: "Join a clan first." });
@@ -441,8 +474,14 @@ module.exports = async function handleButtons(interaction) {
         await sendClanFiles(interaction, [file], "Clan Boss HUD");
         return syncClanPanel(interaction, payload);
       }
-      if (cid.startsWith("clanui:boss:hit:")) {
-        const eventKey = cid.endsWith(":jjk") ? "jjk" : "bleach";
+      if (cid.startsWith("clanui:boss:hit:") || cid === "clanui:boss:hit") {
+        const eventKey = cid === "clanui:boss:hit"
+          ? String(clan.activeBoss?.eventKey || "")
+          : (cid.endsWith(":jjk") ? "jjk" : "bleach");
+        if (!eventKey) {
+          const payload = await buildClanSetupPayload({ guild: interaction.guild, userId: interaction.user.id, member: interaction.member, notice: "No active clan boss to hit." });
+          return syncClanPanel(interaction, payload);
+        }
         const res = await hitClanBoss({ userId: interaction.user.id, cardEventKey: eventKey });
         if (!res.ok) {
           const payload = await buildClanSetupPayload({ guild: interaction.guild, userId: interaction.user.id, member: interaction.member, notice: res.error });
@@ -450,7 +489,7 @@ module.exports = async function handleButtons(interaction) {
         }
         const b = res.clan.activeBoss;
         if (!res.cleared && b) {
-          const top = Object.entries(b.damageByUser || {}).map(([uid, dmg]) => ({ name: uid, dmg }));
+          const top = await resolveClanDamageRows(interaction.guild, b.damageByUser || {}, 10);
           const png = await buildClanBossHudImage({
             clanName: res.clan.name, bossName: b.name, eventKey: b.eventKey, hpMax: b.hpMax, hpCurrent: b.hpCurrent,
             topDamage: top, joined: res.clan.members.length, alive: res.clan.members.length,
@@ -474,7 +513,7 @@ module.exports = async function handleButtons(interaction) {
           const payload = await buildClanSetupPayload({ guild: interaction.guild, userId: interaction.user.id, member: interaction.member, notice: "No active clan boss." });
           return syncClanPanel(interaction, payload);
         }
-        const top = Object.entries(b.damageByUser || {}).map(([uid, dmg]) => ({ name: uid, dmg }));
+        const top = await resolveClanDamageRows(interaction.guild, b.damageByUser || {}, 10);
         const png = await buildClanBossHudImage({
           clanName: clan.name, bossName: b.name, eventKey: b.eventKey, hpMax: b.hpMax, hpCurrent: b.hpCurrent,
           topDamage: top, joined: clan.members.length, alive: clan.members.length,

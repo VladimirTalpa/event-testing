@@ -240,6 +240,31 @@ function utcDayKey(ts = Date.now()) {
   return `${y}-${m}-${day}`;
 }
 
+async function resolveClanDamageRows(guild, damageByUser, limit = 10) {
+  const rows = Object.entries(damageByUser || {})
+    .map(([uid, dmg]) => ({ uid: String(uid), dmg: Math.max(0, Math.floor(Number(dmg || 0))) }))
+    .sort((a, b) => b.dmg - a.dmg)
+    .slice(0, Math.max(1, Math.floor(Number(limit || 10))));
+
+  const out = [];
+  for (const row of rows) {
+    let name = row.uid;
+    try {
+      const m = await guild.members.fetch(row.uid);
+      name = safeName(m?.displayName || m?.user?.username || row.uid);
+    } catch {}
+    out.push({ name, dmg: row.dmg });
+  }
+  return out;
+}
+
+function clanIconPrefix(icon) {
+  const s = String(icon || "").trim();
+  if (!s) return "";
+  if (/^https?:\/\//i.test(s)) return "🛡️ ";
+  return `${s} `;
+}
+
 module.exports = async function handleSlash(interaction) {
   const channel = interaction.channel;
   if (!channel || !channel.isTextBased()) {
@@ -777,7 +802,7 @@ module.exports = async function handleSlash(interaction) {
       const container = new ContainerBuilder().addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
           `## CLAN CREATED\n` +
-          `${clan.icon ? `${clan.icon} ` : ""}**${clan.name}**\n` +
+          `${clanIconPrefix(clan.icon)}**${clan.name}**\n` +
           `Owner: <@${clan.ownerId}>\n` +
           `Members: **${clan.members.length}/${MAX_CLAN_MEMBERS}**\n` +
           `Cost: **${CLAN_CREATE_COST_DRAKO} Drako**`
@@ -959,7 +984,7 @@ module.exports = async function handleSlash(interaction) {
       const container = new ContainerBuilder()
         .addTextDisplayComponents(
           new TextDisplayBuilder().setContent(
-            `## ${clan.icon ? `${clan.icon} ` : ""}CLAN PROFILE\n` +
+            `## ${clanIconPrefix(clan.icon)}CLAN PROFILE\n` +
             `Name: **${clan.name}**  |  Owner: <@${clan.ownerId}>`
           )
         )
@@ -993,7 +1018,7 @@ module.exports = async function handleSlash(interaction) {
       const res = await startClanBoss({ userId: interaction.user.id, eventKey });
       if (!res.ok) return interaction.reply({ content: res.error, ephemeral: true });
       const boss = res.clan.activeBoss;
-      const top = Object.entries(boss.damageByUser || {}).map(([uid, dmg]) => ({ name: uid, dmg }));
+      const top = await resolveClanDamageRows(interaction.guild, boss.damageByUser || {}, 10);
       const png = await buildClanBossHudImage({
         clanName: res.clan.name,
         bossName: boss.name,
@@ -1028,10 +1053,7 @@ module.exports = async function handleSlash(interaction) {
       if (!res.ok) return interaction.reply({ content: res.error, ephemeral: true });
       const boss = res.clan.activeBoss;
       if (!res.cleared) {
-        const top = Object.entries(boss.damageByUser || {})
-          .sort((a, b) => Number(b[1] || 0) - Number(a[1] || 0))
-          .slice(0, 10)
-          .map(([uid, dmg]) => ({ name: uid, dmg }));
+        const top = await resolveClanDamageRows(interaction.guild, boss.damageByUser || {}, 10);
         const totalDamage = top.reduce((a, b) => a + Number(b.dmg || 0), 0);
         const png = await buildClanBossHudImage({
           clanName: res.clan.name,
@@ -1096,10 +1118,7 @@ module.exports = async function handleSlash(interaction) {
         .slice(0, 6)
         .map(([uid, dmg], i) => `**#${i + 1}** <@${uid}> - **${Math.floor(Number(dmg || 0))}**`)
         .join("\n");
-      const topRows = Object.entries(b.damageByUser || {})
-        .sort((a, b2) => Number(b2[1] || 0) - Number(a[1] || 0))
-        .slice(0, 10)
-        .map(([uid, dmg]) => ({ name: uid, dmg }));
+      const topRows = await resolveClanDamageRows(interaction.guild, b.damageByUser || {}, 10);
       const totalDamage = topRows.reduce((a, r) => a + Number(r.dmg || 0), 0);
       const png = await buildClanBossHudImage({
         clanName: clan.name,

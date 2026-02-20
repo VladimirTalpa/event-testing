@@ -68,7 +68,7 @@ function normalizeClan(raw = {}) {
   return cleanupTickets({
     id: String(raw.id || ""),
     name: String(raw.name || "Unnamed Clan").trim().slice(0, 32),
-    icon: String(raw.icon || "").trim().slice(0, 64),
+    icon: String(raw.icon || "").trim().slice(0, 512),
     ownerId: String(raw.ownerId || ""),
     officers: Array.isArray(raw.officers) ? raw.officers.map(String).filter(Boolean) : [],
     members: [...new Set(members)],

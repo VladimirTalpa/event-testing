@@ -5,6 +5,7 @@ const {
   hasClanCreateAccess,
   CLAN_SPECIAL_ROLE_COST,
 } = require("../ui/clan-setup-v2");
+const { getPlayer } = require("../core/players");
 const {
   createClan,
   getClan,
@@ -50,7 +51,8 @@ module.exports = async function handleModals(interaction) {
   let ok = false;
 
   if (action === "create") {
-    if (!hasClanCreateAccess(interaction.member)) {
+    const liveMember = await interaction.guild.members.fetch(interaction.user.id).catch(() => interaction.member);
+    if (!hasClanCreateAccess(liveMember)) {
       notice =
         "You cannot create a clan.\n" +
         "Need allowed create role.\n" +
@@ -127,7 +129,7 @@ module.exports = async function handleModals(interaction) {
   const payload = await buildClanSetupPayload({
     guild: interaction.guild,
     userId: interaction.user.id,
-    member: interaction.member,
+    member: await interaction.guild.members.fetch(interaction.user.id).catch(() => interaction.member),
     notice: `${ok ? "Success" : "Failed"}: ${notice}`,
   });
   return interaction.reply(payload);
