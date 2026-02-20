@@ -75,6 +75,11 @@ const {
   hitClanBoss,
   getClanWeeklyLeaderboard,
 } = require("../core/clans");
+const {
+  getChaosProfile,
+  recordChaosResult,
+  getChaosLeaderboard,
+} = require("../core/chaos");
 
 const { spawnBoss } = require("../events/boss");
 const { spawnMob } = require("../events/mob");
@@ -230,6 +235,72 @@ function randomInt(min, max) {
   const a = Math.floor(Number(min || 0));
   const b = Math.floor(Number(max || 0));
   return Math.floor(Math.random() * (b - a + 1)) + a;
+}
+
+function playChaosRun() {
+  const steps = [];
+  let points = 0;
+  let hp = 3;
+
+  const events = ["cache", "fight", "trap", "surge", "jackpot"];
+  for (let i = 0; i < 5; i++) {
+    if (hp <= 0) break;
+    const kind = events[randomInt(0, events.length - 1)];
+    if (kind === "cache") {
+      const gain = randomInt(70, 180);
+      points += gain;
+      steps.push(`Room ${i + 1}: Supply Cache found +${gain} pts`);
+      continue;
+    }
+    if (kind === "fight") {
+      const powerRoll = randomInt(1, 100);
+      if (powerRoll >= 32) {
+        const gain = randomInt(110, 260);
+        points += gain;
+        steps.push(`Room ${i + 1}: Rift Beast defeated +${gain} pts`);
+      } else {
+        const loss = randomInt(60, 130);
+        points = Math.max(0, points - loss);
+        hp -= 1;
+        steps.push(`Room ${i + 1}: Rift Beast hit you -${loss} pts | HP ${Math.max(0, hp)}/3`);
+      }
+      continue;
+    }
+    if (kind === "trap") {
+      const loss = randomInt(90, 170);
+      points = Math.max(0, points - loss);
+      hp -= 1;
+      steps.push(`Room ${i + 1}: Void Trap triggered -${loss} pts | HP ${Math.max(0, hp)}/3`);
+      continue;
+    }
+    if (kind === "surge") {
+      const gain = randomInt(80, 210);
+      points += gain;
+      steps.push(`Room ${i + 1}: Adrenaline Surge +${gain} pts`);
+      continue;
+    }
+    const gain = randomInt(170, 360);
+    points += gain;
+    steps.push(`Room ${i + 1}: Legendary Jackpot +${gain} pts`);
+  }
+
+  const survived = hp > 0;
+  if (!survived) {
+    const crashLoss = randomInt(80, 200);
+    points = Math.max(0, points - crashLoss);
+    steps.push(`Collapse: Rift overrun -${crashLoss} pts`);
+  } else {
+    const bonus = randomInt(90, 220);
+    points += bonus;
+    steps.push(`Extraction Bonus +${bonus} pts`);
+  }
+
+  return {
+    points: Math.max(0, Math.floor(points)),
+    survived,
+    hp: Math.max(0, hp),
+    steps,
+  };
 }
 
 function utcDayKey(ts = Date.now()) {
@@ -1175,6 +1246,131 @@ module.exports = async function handleSlash(interaction) {
         )
       );
     return interaction.reply({ components: [c], files: [file], flags: MessageFlags.IsComponentsV2 });
+  }
+
+  if (interaction.commandName === "chaos") {
+    const sub = interaction.options.getSubcommand(true);
+
+    if (sub === "help") {
+      const c = new ContainerBuilder()
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(
+            "## CHAOS RIFT EVENT\n" +
+            "A fast rogue-like mini event with random rooms, traps and jackpots.\n\n" +
+            "### Commands\n" +
+            "- `/chaos play event:bleach|jjk`\n" +
+            "- `/chaos profile [user]`\n" +
+            "- `/chaos leaderboard`\n\n" +
+            "### Rules\n" +
+            "- 5 rooms per run\n" +
+            "- Survive to keep bonus points\n" +
+            "- Cooldown: 2 minutes\n" +
+            "- Rewards: event currency + Drako"
+          )
+        );
+      return interaction.reply({ components: [c], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+    }
+
+    if (sub === "profile") {
+      const target = interaction.options.getUser("user") || interaction.user;
+      const prof = await getChaosProfile(target.id);
+      const wr = prof.games > 0 ? ((prof.wins / prof.games) * 100).toFixed(1) : "0.0";
+      const c = new ContainerBuilder()
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(
+            `## CHAOS PROFILE\n` +
+            `User: <@${target.id}>\n` +
+            `Games: **${prof.games}** | Wins: **${prof.wins}** | Losses: **${prof.losses}**\n` +
+            `Win Rate: **${wr}%**\n` +
+            `Total Points: **${prof.totalPoints.toLocaleString("en-US")}**\n` +
+            `Highest Points: **${prof.highestPoints.toLocaleString("en-US")}**\n` +
+            `Streak: **${prof.streak}** | Best Streak: **${prof.bestStreak}**`
+          )
+        );
+      return interaction.reply({ components: [c], flags: MessageFlags.IsComponentsV2 });
+    }
+
+    if (sub === "leaderboard") {
+      const top = await getChaosLeaderboard(10);
+      const lines = [];
+      for (let i = 0; i < top.length; i++) {
+        const row = top[i];
+        let name = row.userId;
+        try {
+          const m = await interaction.guild.members.fetch(row.userId);
+          name = safeName(m?.displayName || m?.user?.username || row.userId);
+        } catch {}
+        lines.push(
+          `**#${i + 1}** ${name} | Points **${row.totalPoints.toLocaleString("en-US")}** | Wins **${row.wins}** | Best Streak **${row.bestStreak}**`
+        );
+      }
+      const c = new ContainerBuilder()
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(
+            "## CHAOS RIFT LEADERBOARD\n" +
+            "Ranked by Total Points, then Wins, then Best Streak."
+          )
+        )
+        .addSeparatorComponents(new SeparatorBuilder())
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(`### Top 10\n${lines.join("\n") || "_No data yet._"}`)
+        );
+      return interaction.reply({ components: [c], flags: MessageFlags.IsComponentsV2 });
+    }
+
+    if (sub === "play") {
+      const eventKey = normalizeEventKey(interaction.options.getString("event", true));
+      const me = await getPlayer(interaction.user.id);
+      const prof = await getChaosProfile(interaction.user.id);
+      const now = Date.now();
+      const cooldownMs = 2 * 60 * 1000;
+      const waitMs = cooldownMs - (now - Number(prof.lastPlayAt || 0));
+      if (waitMs > 0) {
+        const sec = Math.ceil(waitMs / 1000);
+        return interaction.reply(
+          buildErrorV2(`Chaos Rift cooldown active. Try again in ${sec}s.`, "Chaos Cooldown")
+        );
+      }
+
+      const run = playChaosRun();
+      const points = Math.max(0, Number(run.points || 0));
+      const baseRate = eventKey === "bleach" ? randomInt(13, 19) : randomInt(12, 18);
+      const eventReward = Math.max(0, Math.floor(points * baseRate + (run.survived ? randomInt(120, 260) : randomInt(20, 90))));
+      const drakoReward = Math.max(0, Math.floor(points / 240) + (run.survived ? randomInt(4, 12) : randomInt(1, 4)));
+
+      if (eventKey === "bleach") me.bleach.reiatsu += eventReward;
+      else me.jjk.cursedEnergy += eventReward;
+      me.drako += drakoReward;
+      await setPlayer(interaction.user.id, me);
+      await recordChaosResult(interaction.user.id, { points, won: run.survived, at: now });
+
+      const symbol = eventKey === "bleach" ? E_REIATSU : E_CE;
+      const resultLine = run.survived ? "Status: **CLEARED**" : "Status: **FAILED**";
+      const steps = run.steps.slice(0, 8).map((x) => `- ${x}`).join("\n");
+      const c = new ContainerBuilder()
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(
+            `## CHAOS RIFT RUN\n` +
+            `Player: <@${interaction.user.id}>\n` +
+            `${resultLine} | HP Left: **${run.hp}/3**\n` +
+            `Points: **${points.toLocaleString("en-US")}**`
+          )
+        )
+        .addSeparatorComponents(new SeparatorBuilder())
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(`### Run Log\n${steps || "_No steps_"}`)
+        )
+        .addSeparatorComponents(new SeparatorBuilder())
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(
+            `### Rewards\n` +
+            `- ${symbol} **+${eventReward.toLocaleString("en-US")}**\n` +
+            `- ${E_DRAKO} **+${drakoReward.toLocaleString("en-US")}**\n` +
+            `- New Balance: ${eventKey === "bleach" ? `${E_REIATSU} ${me.bleach.reiatsu.toLocaleString("en-US")}` : `${E_CE} ${me.jjk.cursedEnergy.toLocaleString("en-US")}`} | ${E_DRAKO} ${me.drako.toLocaleString("en-US")}`
+          )
+        );
+      return interaction.reply({ components: [c], flags: MessageFlags.IsComponentsV2 });
+    }
   }
 
   if (interaction.commandName === "leaderboard") {

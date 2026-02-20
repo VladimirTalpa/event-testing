@@ -152,6 +152,32 @@ const commands = [
     .addSubcommand((sc) => sc.setName("help").setDescription("Show clan help and requirements")),
 
   new SlashCommandBuilder()
+    .setName("chaos")
+    .setDescription("Chaos Rift mini-event mode")
+    .addSubcommand((sc) =>
+      sc
+        .setName("play")
+        .setDescription("Enter the Chaos Rift and roll random encounters")
+        .addStringOption((opt) => opt.setName("event").setDescription("Reward event").setRequired(true).addChoices(...EVENT_CHOICES))
+    )
+    .addSubcommand((sc) =>
+      sc
+        .setName("profile")
+        .setDescription("Show Chaos Rift profile")
+        .addUserOption((opt) => opt.setName("user").setDescription("User").setRequired(false))
+    )
+    .addSubcommand((sc) =>
+      sc
+        .setName("leaderboard")
+        .setDescription("Top Chaos Rift players")
+    )
+    .addSubcommand((sc) =>
+      sc
+        .setName("help")
+        .setDescription("How Chaos Rift works")
+    ),
+
+  new SlashCommandBuilder()
     .setName("cardmastery")
     .setDescription("Card mastery progression M1 -> M2 -> M3")
     .addSubcommand((sc) =>
