@@ -134,14 +134,42 @@ async function setClan(clan) {
 }
 
 function normalizeClanName(name) {
-  return String(name || "").trim().toLowerCase();
+  return String(name || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+function normalizeClanSlug(name) {
+  return normalizeClanName(name).replace(/\s+/g, "");
 }
 
 async function findClanByName(name) {
   const target = normalizeClanName(name);
+  const targetSlug = normalizeClanSlug(name);
   if (!target) return null;
   const rows = await listClans();
-  return rows.find((c) => normalizeClanName(c.name) === target) || null;
+  const exact = rows.find((c) => {
+    const n = normalizeClanName(c.name);
+    const s = normalizeClanSlug(c.name);
+    return n === target || s === targetSlug;
+  });
+  if (exact) return exact;
+
+  const starts = rows.find((c) => {
+    const n = normalizeClanName(c.name);
+    const s = normalizeClanSlug(c.name);
+    return n.startsWith(target) || s.startsWith(targetSlug);
+  });
+  if (starts) return starts;
+
+  const contains = rows.find((c) => {
+    const n = normalizeClanName(c.name);
+    const s = normalizeClanSlug(c.name);
+    return n.includes(target) || s.includes(targetSlug);
+  });
+  return contains || null;
 }
 
 async function createClan({ ownerId, name, icon = "" }) {

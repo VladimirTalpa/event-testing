@@ -60,11 +60,16 @@ async function buildClanSetupPayload({ guild, userId, member, notice = "" }) {
         `- Members: **${clan.members.length}/30**\n` +
         `- Weekly: DMG **${clan.weekly.totalDamage}** | Clears **${clan.weekly.bossClears}** | Activity **${clan.weekly.activity}**`
       : `### Queue\n- Join a clan or create one to unlock clan content.`;
+  const iconGuide =
+    `### Icon Guide\n` +
+    `- Upload image in Discord -> Right click -> **Copy Link**\n` +
+    `- Paste as: \`ClanName|https://cdn.discordapp.com/.../icon.png\`\n` +
+    `- Tip: Use PNG/JPG square image (512x512).`;
 
   const container = new ContainerBuilder()
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(header))
     .addSeparatorComponents(new SeparatorBuilder())
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent(`${status}\n\n${queue}`));
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent(`${status}\n\n${queue}\n\n${iconGuide}`));
 
   if (notice) {
     container.addSeparatorComponents(new SeparatorBuilder());
@@ -145,6 +150,15 @@ function buildClanHelpText() {
     "### Buyable Special Role\n" +
     "- Cost: **60,000 Reiatsu** or **60,000 Cursed Energy**\n" +
     "- Buy inside `/clan setup` using the Buy Access buttons.\n\n" +
+    "### Clan Icon URL (Recommended)\n" +
+    "1. Upload icon image in Discord.\n" +
+    "2. Right click image -> Copy Link.\n" +
+    "3. Use in create modal as `Name|ImageURL`.\n" +
+    "4. Example: `Shadow Core|https://cdn.discordapp.com/attachments/.../icon.png`\n\n" +
+    "### Applications (Join Requests)\n" +
+    "- Player uses **Request Join** with clan name.\n" +
+    "- Owner/officers open **View Queue** in `/clan setup`.\n" +
+    "- Use **Approve**/**Deny** with user mention, user id, or queue index (`1`, `2`, ...).\n\n" +
     "### Clan Loop\n" +
     "1. Request/Accept/Invite into clan.\n" +
     "2. Owner/Officer manages queue and roster.\n" +

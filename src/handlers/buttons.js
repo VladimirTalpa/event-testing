@@ -300,7 +300,10 @@ module.exports = async function handleButtons(interaction) {
         .setStyle(TextInputStyle.Short)
         .setRequired(true);
       if (action === "create") {
-        input.setLabel("Clan Name | optional icon (name|icon)").setPlaceholder("Mohg Legends|⚔️").setMaxLength(48);
+        input
+          .setLabel("Clan Name | optional icon URL (name|url)")
+          .setPlaceholder("Mohg Legends|https://cdn.discordapp.com/attachments/.../icon.png")
+          .setMaxLength(180);
       } else if (action === "request" || action === "accept") {
         input.setLabel("Clan Name").setPlaceholder("Exact clan name").setMaxLength(32);
       } else {

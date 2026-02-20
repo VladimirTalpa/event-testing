@@ -1,6 +1,10 @@
 "use strict";
 
-const { createCanvas } = require("@napi-rs/canvas");
+const fs = require("fs");
+const path = require("path");
+const { createCanvas, loadImage } = require("@napi-rs/canvas");
+
+const CLAN_LB_BG_PATH = path.join(__dirname, "..", "..", "assets", "templates", "bg_lb_clan.png");
 
 function roundedRect(ctx, x, y, w, h, r) {
   const rr = Math.max(0, Math.min(r, Math.floor(Math.min(w, h) / 2)));
@@ -182,23 +186,35 @@ async function buildClanLeaderboardImage(rows = []) {
   const canvas = createCanvas(W, H);
   const ctx = canvas.getContext("2d");
 
-  const bg = ctx.createLinearGradient(0, 0, W, H);
-  bg.addColorStop(0, "#0b091f");
-  bg.addColorStop(0.6, "#1b0f33");
-  bg.addColorStop(1, "#120722");
-  ctx.fillStyle = bg;
+  const base = ctx.createLinearGradient(0, 0, W, H);
+  base.addColorStop(0, "#0b091f");
+  base.addColorStop(0.6, "#1b0f33");
+  base.addColorStop(1, "#120722");
+  ctx.fillStyle = base;
+  ctx.fillRect(0, 0, W, H);
+  if (fs.existsSync(CLAN_LB_BG_PATH)) {
+    try {
+      const bgImg = await loadImage(CLAN_LB_BG_PATH);
+      ctx.drawImage(bgImg, 0, 0, W, H);
+    } catch {}
+  }
+  const overlay = ctx.createLinearGradient(0, 0, W, H);
+  overlay.addColorStop(0, "rgba(8,9,28,0.56)");
+  overlay.addColorStop(0.5, "rgba(21,8,33,0.52)");
+  overlay.addColorStop(1, "rgba(10,5,24,0.66)");
+  ctx.fillStyle = overlay;
   ctx.fillRect(0, 0, W, H);
   starField(ctx, W, H, 300);
 
   roundedRect(ctx, 24, 24, W - 48, H - 48, 22);
-  ctx.strokeStyle = "rgba(151,222,255,0.74)";
+  ctx.strokeStyle = "rgba(158,234,255,0.88)";
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  ctx.font = '800 66px "Orbitron", "Segoe UI", sans-serif';
+  ctx.font = '800 68px "Orbitron", "Segoe UI", sans-serif';
   const tg = ctx.createLinearGradient(64, 52, 760, 52);
-  tg.addColorStop(0, "#58f5ff");
-  tg.addColorStop(1, "#ff6fdd");
+  tg.addColorStop(0, "#69fbff");
+  tg.addColorStop(1, "#ff78ef");
   ctx.fillStyle = tg;
   ctx.fillText("WEEKLY CLAN LEADERBOARD", 70, 118);
 
@@ -208,10 +224,10 @@ async function buildClanLeaderboardImage(rows = []) {
   for (let i = 0; i < sorted.length; i++) {
     const r = sorted[i];
     roundedRect(ctx, 78, y, W - 156, 64, 14);
-    ctx.fillStyle = "rgba(8,10,24,0.88)";
+    ctx.fillStyle = "rgba(9,12,28,0.84)";
     ctx.fill();
-    ctx.strokeStyle = i < 3 ? "rgba(255,197,97,0.92)" : "rgba(122,209,255,0.62)";
-    ctx.lineWidth = 1.1;
+    ctx.strokeStyle = i < 3 ? "rgba(255,212,116,0.96)" : "rgba(126,228,255,0.72)";
+    ctx.lineWidth = 1.4;
     ctx.stroke();
     ctx.font = '700 30px "Inter", "Segoe UI", sans-serif';
     ctx.fillStyle = i < 3 ? "#ffd47a" : "#dcf2ff";

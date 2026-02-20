@@ -7,6 +7,7 @@ const {
 } = require("../ui/clan-setup-v2");
 const {
   createClan,
+  getClan,
   requestJoinClan,
   acceptInvite,
   inviteToClan,
@@ -23,6 +24,21 @@ function parseUserIdInput(v) {
   if (!s) return "";
   const m = s.match(/\d{17,20}/);
   return m ? m[0] : "";
+}
+
+async function resolveRequestTargetId(action, userId, raw) {
+  const uid = parseUserIdInput(raw);
+  if (uid) return uid;
+  if (action !== "approve" && action !== "deny") return "";
+
+  const idx = Number(String(raw || "").trim());
+  if (!Number.isInteger(idx) || idx < 1) return "";
+  const me = await getPlayer(userId);
+  if (!me?.clanId) return "";
+  const clan = await getClan(me.clanId);
+  if (!clan) return "";
+  const row = (clan.joinRequests || [])[idx - 1];
+  return row?.userId ? String(row.userId) : "";
 }
 
 module.exports = async function handleModals(interaction) {
@@ -53,14 +69,28 @@ module.exports = async function handleModals(interaction) {
     const res = await requestJoinClan({ userId: interaction.user.id, clanName: raw });
     ok = res.ok;
     notice = res.ok ? `Join request sent to ${res.clan.name}.` : res.error;
+    if (res.ok && res.clan?.ownerId) {
+      const owner = await interaction.client.users.fetch(String(res.clan.ownerId)).catch(() => null);
+      if (owner) {
+        await owner.send(
+          `New clan application for **${res.clan.name}**\n` +
+          `User: <@${interaction.user.id}> (${interaction.user.id})\n` +
+          `Open \`/clan setup\` -> **View Queue** -> **Approve** or **Deny**`
+        ).catch(() => {});
+      }
+    }
   } else if (action === "accept") {
     const res = await acceptInvite({ userId: interaction.user.id, clanName: raw });
     ok = res.ok;
     notice = res.ok ? `Invite accepted. Joined ${res.clan.name}.` : res.error;
   } else {
-    const uid = parseUserIdInput(raw);
+    const uid = await resolveRequestTargetId(action, interaction.user.id, raw);
     if (!uid) {
-      notice = "Invalid user id / mention.";
+      if (action === "approve" || action === "deny") {
+        notice = "Invalid user id / mention / queue index.";
+      } else {
+        notice = "Invalid user id / mention.";
+      }
     } else if (action === "invite") {
       const res = await inviteToClan({ managerId: interaction.user.id, targetUserId: uid });
       ok = res.ok;
