@@ -156,6 +156,22 @@ const commands = [
     .setDescription("Chaos Rift mini-event mode")
     .addSubcommand((sc) =>
       sc
+        .setName("team")
+        .setDescription("Choose your permanent Chaos team (cannot be changed)")
+        .addStringOption((opt) =>
+          opt
+            .setName("choice")
+            .setDescription("Team choice")
+            .setRequired(true)
+            .addChoices(
+              { name: "Vanguard Division", value: "vanguard" },
+              { name: "Eclipse Syndicate", value: "eclipse" },
+              { name: "Titan Protocol", value: "titan" }
+            )
+        )
+    )
+    .addSubcommand((sc) =>
+      sc
         .setName("play")
         .setDescription("Enter the Chaos Rift and roll random encounters")
         .addStringOption((opt) => opt.setName("event").setDescription("Reward event").setRequired(true).addChoices(...EVENT_CHOICES))

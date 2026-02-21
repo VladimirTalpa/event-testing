@@ -76,9 +76,16 @@ const {
   getClanWeeklyLeaderboard,
 } = require("../core/clans");
 const {
+  TEAM_IDS,
   getChaosProfile,
+  setChaosProfile,
+  setChaosTeam,
+  getDailyUsesLeft,
+  consumeDailyUse,
   recordChaosResult,
   getChaosLeaderboard,
+  getChaosTeamLeaderboard,
+  getTeamWinnerLine,
 } = require("../core/chaos");
 
 const { spawnBoss } = require("../events/boss");
@@ -301,6 +308,52 @@ function playChaosRun() {
     hp: Math.max(0, hp),
     steps,
   };
+}
+
+const CHAOS_DAILY_LIMIT = 6;
+const CHAOS_COOLDOWN_MS = 2 * 60 * 1000;
+const CHAOS_TEAM_META = {
+  vanguard: {
+    label: "Vanguard Division",
+    badge: "Aegis",
+    flavor: "Defensive frontline. Stable rewards and high clear rate.",
+  },
+  eclipse: {
+    label: "Eclipse Syndicate",
+    badge: "Shadow",
+    flavor: "High-risk strike team. Strong point bursts.",
+  },
+  titan: {
+    label: "Titan Protocol",
+    badge: "Core",
+    flavor: "Heavy assault doctrine. Sustained pressure and durability.",
+  },
+};
+
+function chaosTeamLabel(teamId) {
+  const id = String(teamId || "").toLowerCase();
+  return CHAOS_TEAM_META[id]?.label || "Unassigned";
+}
+
+function chaosTeamBadge(teamId) {
+  const id = String(teamId || "").toLowerCase();
+  return CHAOS_TEAM_META[id]?.badge || "-";
+}
+
+function chaosResetUnix(now = Date.now()) {
+  const d = new Date(now);
+  const next = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1, 0, 0, 0, 0);
+  return Math.floor(next / 1000);
+}
+
+function chaosTeamBonusPercent(rows, teamId) {
+  if (!Array.isArray(rows) || !rows.length || !teamId) return 0;
+  const top = rows[0];
+  if (!top || Number(top.totalPoints || 0) <= 0) return 0;
+  const index = rows.findIndex((r) => String(r.teamId || "") === String(teamId || ""));
+  if (index === 0) return 15;
+  if (index === 1) return 8;
+  return 0;
 }
 
 function utcDayKey(ts = Date.now()) {
@@ -1252,39 +1305,82 @@ module.exports = async function handleSlash(interaction) {
     const sub = interaction.options.getSubcommand(true);
 
     if (sub === "help") {
+      const teamLines = TEAM_IDS
+        .map((id) => {
+          const t = CHAOS_TEAM_META[id];
+          return `- **${t.label}** (${id}) | Badge: ${t.badge}\n  ${t.flavor}`;
+        })
+        .join("\n");
       const c = new ContainerBuilder()
         .addTextDisplayComponents(
           new TextDisplayBuilder().setContent(
             "## CHAOS RIFT EVENT\n" +
-            "A fast rogue-like mini event with random rooms, traps and jackpots.\n\n" +
+            "Permanent faction war with rogue-like runs, daily limits and global winners.\n\n" +
             "### Commands\n" +
+            "- `/chaos team choice:<vanguard|eclipse|titan>`\n" +
             "- `/chaos play event:bleach|jjk`\n" +
             "- `/chaos profile [user]`\n" +
             "- `/chaos leaderboard`\n\n" +
+            "### Team Protocol\n" +
+            "- Team choice is **permanent** once selected\n" +
+            "- Team ranking gives bonus rewards for top factions\n\n" +
             "### Rules\n" +
             "- 5 rooms per run\n" +
             "- Survive to keep bonus points\n" +
-            "- Cooldown: 2 minutes\n" +
+            `- Daily Limit: ${CHAOS_DAILY_LIMIT} runs (UTC reset)\n` +
+            "- Cooldown: 2 minutes per run\n" +
             "- Rewards: event currency + Drako"
           )
         );
+      if (teamLines) {
+        c.addSeparatorComponents(new SeparatorBuilder())
+          .addTextDisplayComponents(new TextDisplayBuilder().setContent(`### Factions\n${teamLines}`));
+      }
       return interaction.reply({ components: [c], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+    }
+
+    if (sub === "team") {
+      const choice = String(interaction.options.getString("choice", true) || "").toLowerCase();
+      if (!TEAM_IDS.includes(choice)) {
+        return interaction.reply(buildErrorV2("Invalid team choice.", "Chaos Team"));
+      }
+      const res = await setChaosTeam(interaction.user.id, choice);
+      if (!res.ok) {
+        return interaction.reply(buildErrorV2(res.error || "Team lock failed.", "Chaos Team"));
+      }
+      const t = CHAOS_TEAM_META[choice];
+      const c = new ContainerBuilder()
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(
+            "## CHAOS TEAM LOCKED\n" +
+            `Player: <@${interaction.user.id}>\n` +
+            `Team: **${t.label}** (${choice.toUpperCase()})\n` +
+            `Badge: **${t.badge}**\n\n` +
+            "This selection is permanent. Team cannot be changed."
+          )
+        );
+      return interaction.reply({ components: [c], flags: MessageFlags.IsComponentsV2 });
     }
 
     if (sub === "profile") {
       const target = interaction.options.getUser("user") || interaction.user;
       const prof = await getChaosProfile(target.id);
       const wr = prof.games > 0 ? ((prof.wins / prof.games) * 100).toFixed(1) : "0.0";
+      const usesLeft = getDailyUsesLeft(prof, CHAOS_DAILY_LIMIT);
+      const resetAt = chaosResetUnix();
+      const teamText = prof.team ? `${chaosTeamLabel(prof.team)} (${prof.team.toUpperCase()})` : "Unassigned";
       const c = new ContainerBuilder()
         .addTextDisplayComponents(
           new TextDisplayBuilder().setContent(
             `## CHAOS PROFILE\n` +
             `User: <@${target.id}>\n` +
+            `Team: **${teamText}**\n` +
             `Games: **${prof.games}** | Wins: **${prof.wins}** | Losses: **${prof.losses}**\n` +
             `Win Rate: **${wr}%**\n` +
             `Total Points: **${prof.totalPoints.toLocaleString("en-US")}**\n` +
             `Highest Points: **${prof.highestPoints.toLocaleString("en-US")}**\n` +
-            `Streak: **${prof.streak}** | Best Streak: **${prof.bestStreak}**`
+            `Streak: **${prof.streak}** | Best Streak: **${prof.bestStreak}**\n` +
+            `Daily Runs Left: **${usesLeft}/${CHAOS_DAILY_LIMIT}** (reset <t:${resetAt}:R>)`
           )
         );
       return interaction.reply({ components: [c], flags: MessageFlags.IsComponentsV2 });
@@ -1292,6 +1388,7 @@ module.exports = async function handleSlash(interaction) {
 
     if (sub === "leaderboard") {
       const top = await getChaosLeaderboard(10);
+      const teamTop = await getChaosTeamLeaderboard();
       const lines = [];
       for (let i = 0; i < top.length; i++) {
         const row = top[i];
@@ -1300,10 +1397,14 @@ module.exports = async function handleSlash(interaction) {
           const m = await interaction.guild.members.fetch(row.userId);
           name = safeName(m?.displayName || m?.user?.username || row.userId);
         } catch {}
+        const tag = row.team ? ` | ${row.team.toUpperCase()}` : "";
         lines.push(
-          `**#${i + 1}** ${name} | Points **${row.totalPoints.toLocaleString("en-US")}** | Wins **${row.wins}** | Best Streak **${row.bestStreak}**`
+          `**#${i + 1}** ${name}${tag} | Points **${row.totalPoints.toLocaleString("en-US")}** | Wins **${row.wins}** | Best Streak **${row.bestStreak}**`
         );
       }
+      const teamLines = teamTop.map((r, i) =>
+        `**#${i + 1}** ${chaosTeamLabel(r.teamId)} | PTS **${r.totalPoints.toLocaleString("en-US")}** | Wins **${r.wins}** | Clears **${r.clears}** | Members **${r.members}**`
+      );
       const c = new ContainerBuilder()
         .addTextDisplayComponents(
           new TextDisplayBuilder().setContent(
@@ -1314,6 +1415,12 @@ module.exports = async function handleSlash(interaction) {
         .addSeparatorComponents(new SeparatorBuilder())
         .addTextDisplayComponents(
           new TextDisplayBuilder().setContent(`### Top 10\n${lines.join("\n") || "_No data yet._"}`)
+        )
+        .addSeparatorComponents(new SeparatorBuilder())
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(
+            `### Team War Ranking\n${teamLines.join("\n") || "_No teams yet._"}\n\n${getTeamWinnerLine(teamTop)}`
+          )
         );
       return interaction.reply({ components: [c], flags: MessageFlags.IsComponentsV2 });
     }
@@ -1323,26 +1430,61 @@ module.exports = async function handleSlash(interaction) {
       const me = await getPlayer(interaction.user.id);
       const prof = await getChaosProfile(interaction.user.id);
       const now = Date.now();
-      const cooldownMs = 2 * 60 * 1000;
-      const waitMs = cooldownMs - (now - Number(prof.lastPlayAt || 0));
+      if (!prof.team) {
+        return interaction.reply(
+          buildErrorV2(
+            "Choose your permanent team first: `/chaos team choice:<vanguard|eclipse|titan>`.",
+            "Chaos Team Required"
+          )
+        );
+      }
+      const waitMs = CHAOS_COOLDOWN_MS - (now - Number(prof.lastPlayAt || 0));
       if (waitMs > 0) {
         const sec = Math.ceil(waitMs / 1000);
         return interaction.reply(
           buildErrorV2(`Chaos Rift cooldown active. Try again in ${sec}s.`, "Chaos Cooldown")
         );
       }
+      const leftBefore = getDailyUsesLeft(prof, CHAOS_DAILY_LIMIT);
+      if (leftBefore <= 0) {
+        return interaction.reply(
+          buildErrorV2(
+            `Daily limit reached (${CHAOS_DAILY_LIMIT}/${CHAOS_DAILY_LIMIT}). Reset <t:${chaosResetUnix(now)}:R>.`,
+            "Chaos Daily Limit"
+          )
+        );
+      }
+      const consume = consumeDailyUse(prof, CHAOS_DAILY_LIMIT);
+      if (!consume.ok) {
+        return interaction.reply(
+          buildErrorV2(
+            `Daily limit reached (${CHAOS_DAILY_LIMIT}/${CHAOS_DAILY_LIMIT}). Reset <t:${chaosResetUnix(now)}:R>.`,
+            "Chaos Daily Limit"
+          )
+        );
+      }
+      await setChaosProfile(interaction.user.id, consume.profile);
 
       const run = playChaosRun();
       const points = Math.max(0, Number(run.points || 0));
       const baseRate = eventKey === "bleach" ? randomInt(13, 19) : randomInt(12, 18);
-      const eventReward = Math.max(0, Math.floor(points * baseRate + (run.survived ? randomInt(120, 260) : randomInt(20, 90))));
-      const drakoReward = Math.max(0, Math.floor(points / 240) + (run.survived ? randomInt(4, 12) : randomInt(1, 4)));
+      let eventReward = Math.max(0, Math.floor(points * baseRate + (run.survived ? randomInt(120, 260) : randomInt(20, 90))));
+      let drakoReward = Math.max(0, Math.floor(points / 240) + (run.survived ? randomInt(4, 12) : randomInt(1, 4)));
+      const teamRowsNow = await getChaosTeamLeaderboard();
+      const teamBonusPct = chaosTeamBonusPercent(teamRowsNow, prof.team);
+      const teamEventBonus = Math.floor((eventReward * teamBonusPct) / 100);
+      const teamDrakoBonus = Math.max(0, Math.floor((drakoReward * teamBonusPct) / 100));
+      eventReward += teamEventBonus;
+      drakoReward += teamDrakoBonus;
 
       if (eventKey === "bleach") me.bleach.reiatsu += eventReward;
       else me.jjk.cursedEnergy += eventReward;
       me.drako += drakoReward;
       await setPlayer(interaction.user.id, me);
-      await recordChaosResult(interaction.user.id, { points, won: run.survived, at: now });
+      const updatedProf = await recordChaosResult(interaction.user.id, { points, won: run.survived, at: now });
+      const teamRowsAfter = await getChaosTeamLeaderboard();
+      const teamRank = teamRowsAfter.findIndex((r) => String(r.teamId || "") === String(prof.team || "")) + 1;
+      const dailyLeft = getDailyUsesLeft(updatedProf, CHAOS_DAILY_LIMIT);
 
       const symbol = eventKey === "bleach" ? E_REIATSU : E_CE;
       const resultLine = run.survived ? "Status: **CLEARED**" : "Status: **FAILED**";
@@ -1352,8 +1494,9 @@ module.exports = async function handleSlash(interaction) {
           new TextDisplayBuilder().setContent(
             `## CHAOS RIFT RUN\n` +
             `Player: <@${interaction.user.id}>\n` +
+            `Team: **${chaosTeamLabel(prof.team)}** | Badge: **${chaosTeamBadge(prof.team)}**\n` +
             `${resultLine} | HP Left: **${run.hp}/3**\n` +
-            `Points: **${points.toLocaleString("en-US")}**`
+            `Points: **${points.toLocaleString("en-US")}** | Team Rank: **#${teamRank || "-"}**`
           )
         )
         .addSeparatorComponents(new SeparatorBuilder())
@@ -1366,6 +1509,8 @@ module.exports = async function handleSlash(interaction) {
             `### Rewards\n` +
             `- ${symbol} **+${eventReward.toLocaleString("en-US")}**\n` +
             `- ${E_DRAKO} **+${drakoReward.toLocaleString("en-US")}**\n` +
+            `${teamBonusPct > 0 ? `- Team Bonus (${teamBonusPct}%): ${symbol} **+${teamEventBonus.toLocaleString("en-US")}** | ${E_DRAKO} **+${teamDrakoBonus.toLocaleString("en-US")}**\n` : ""}` +
+            `- Daily Runs Left: **${dailyLeft}/${CHAOS_DAILY_LIMIT}**\n` +
             `- New Balance: ${eventKey === "bleach" ? `${E_REIATSU} ${me.bleach.reiatsu.toLocaleString("en-US")}` : `${E_CE} ${me.jjk.cursedEnergy.toLocaleString("en-US")}`} | ${E_DRAKO} ${me.drako.toLocaleString("en-US")}`
           )
         );
