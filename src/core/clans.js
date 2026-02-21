@@ -13,6 +13,28 @@ function now() {
   return Date.now();
 }
 
+function sanitizeClanName(name, maxLen = 32) {
+  let s = String(name || "");
+  s = s
+    .replace(/https?:\/\/\S+/gi, " ")
+    .replace(/discord\.gg\/\S+/gi, " ")
+    .replace(/discord\.com\/\S+/gi, " ")
+    .replace(/[|`]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const tokens = s.split(/\s+/).filter(Boolean).filter((t) => {
+    const x = String(t || "").toLowerCase();
+    if (!x) return false;
+    if (x.includes("http")) return false;
+    if (x.includes("discord")) return false;
+    if (x.includes("channel")) return false;
+    if (/^\d{10,}$/.test(x)) return false;
+    return true;
+  });
+  const out = tokens.join(" ").trim();
+  return (out || "Unnamed Clan").slice(0, Math.max(3, Number(maxLen || 32)));
+}
+
 function normalizeWeekly(weekly = {}) {
   return {
     weekKey: String(weekly.weekKey || ""),
@@ -67,7 +89,7 @@ function normalizeClan(raw = {}) {
 
   return cleanupTickets({
     id: String(raw.id || ""),
-    name: String(raw.name || "Unnamed Clan").trim().slice(0, 32),
+    name: sanitizeClanName(raw.name || "Unnamed Clan", 32),
     icon: String(raw.icon || "").trim().slice(0, 512),
     ownerId: String(raw.ownerId || ""),
     officers: Array.isArray(raw.officers) ? raw.officers.map(String).filter(Boolean) : [],
@@ -153,13 +175,7 @@ function normalizeClanSlug(name) {
 }
 
 function cleanClanNameForDisplay(name) {
-  const s = String(name || "")
-    .replace(/https?:\/\/\S+/gi, "")
-    .replace(/discord\.gg\/\S+/gi, "")
-    .replace(/discord\.com\/\S+/gi, "")
-    .replace(/\s+/g, " ")
-    .trim();
-  return s || "Unnamed Clan";
+  return sanitizeClanName(name, 32);
 }
 
 async function findClanByName(name) {
@@ -192,12 +208,7 @@ async function findClanByName(name) {
 async function createClan({ ownerId, name, icon = "" }) {
   const owner = await getPlayer(ownerId);
   if (owner.clanId) return { ok: false, error: "You are already in a clan." };
-  const clean = String(name || "")
-    .replace(/https?:\/\/\S+/gi, "")
-    .replace(/discord\.gg\/\S+/gi, "")
-    .replace(/discord\.com\/\S+/gi, "")
-    .replace(/\s+/g, " ")
-    .trim();
+  const clean = sanitizeClanName(name || "", 32);
   if (clean.length < 3 || clean.length > 32) return { ok: false, error: "Clan name must be 3-32 chars." };
   if (owner.drako < CLAN_CREATE_COST_DRAKO) {
     return { ok: false, error: `Need ${CLAN_CREATE_COST_DRAKO} Drako to create a clan.` };

@@ -111,14 +111,24 @@ function clanIconInline(icon) {
 
 function sanitizeClanDisplayName(name) {
   const raw = String(name || "");
-  const noUrl = raw
-    .replace(/https?:\/\/\S+/gi, "")
-    .replace(/discord\.gg\/\S+/gi, "")
-    .replace(/discord\.com\/\S+/gi, "")
+  const base = raw
+    .replace(/https?:\/\/\S+/gi, " ")
+    .replace(/discord\.gg\/\S+/gi, " ")
+    .replace(/discord\.com\/\S+/gi, " ")
+    .replace(/[|`]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  if (!noUrl) return "Unnamed Clan";
-  return noUrl;
+  const tokens = base.split(/\s+/).filter(Boolean).filter((t) => {
+    const x = String(t || "").toLowerCase();
+    if (!x) return false;
+    if (x.includes("http")) return false;
+    if (x.includes("discord")) return false;
+    if (x.includes("channel")) return false;
+    if (/^\d{10,}$/.test(x)) return false;
+    return true;
+  });
+  const out = tokens.join(" ").trim();
+  return out || "Unnamed Clan";
 }
 
 function paletteByEvent(eventKey) {
