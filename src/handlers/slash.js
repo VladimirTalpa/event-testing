@@ -1304,8 +1304,15 @@ module.exports = async function handleSlash(interaction) {
 
   if (interaction.commandName === "chaos") {
     const sub = interaction.options.getSubcommand(true);
+    const chaosRespond = async (payload) => {
+      if (interaction.deferred || interaction.replied) return interaction.editReply(payload);
+      return interaction.reply(payload);
+    };
 
     if (sub === "help") {
+      if (!interaction.deferred && !interaction.replied) {
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+      }
       const png = await buildChaosHelpImage({
         dailyLimit: CHAOS_DAILY_LIMIT,
         cooldownSec: Math.floor(CHAOS_COOLDOWN_MS / 1000),
@@ -1322,7 +1329,7 @@ module.exports = async function handleSlash(interaction) {
           "Use `/chaos team`, then run `/chaos play`. Team is permanent."
         )
       );
-      return interaction.reply({ components: [c], files: [file], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+      return chaosRespond({ components: [c], files: [file], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
     }
 
     if (sub === "team") {
@@ -1333,6 +1340,9 @@ module.exports = async function handleSlash(interaction) {
       const res = await setChaosTeam(interaction.user.id, choice);
       if (!res.ok) {
         return interaction.reply(buildErrorV2(res.error || "Team lock failed.", "Chaos Team"));
+      }
+      if (!interaction.deferred && !interaction.replied) {
+        await interaction.deferReply();
       }
       const t = CHAOS_TEAM_META[choice];
       const png = await buildChaosTeamLockImage({
@@ -1346,7 +1356,7 @@ module.exports = async function handleSlash(interaction) {
       const c = new ContainerBuilder().addTextDisplayComponents(
         new TextDisplayBuilder().setContent("## CHAOS TEAM CONFIRMED\nTeam lock applied permanently.")
       );
-      return interaction.reply({ components: [c], files: [file], flags: MessageFlags.IsComponentsV2 });
+      return chaosRespond({ components: [c], files: [file], flags: MessageFlags.IsComponentsV2 });
     }
 
     if (sub === "profile") {
@@ -1356,6 +1366,9 @@ module.exports = async function handleSlash(interaction) {
       const usesLeft = getDailyUsesLeft(prof, CHAOS_DAILY_LIMIT);
       const resetAt = chaosResetUnix();
       const teamText = prof.team ? `${chaosTeamLabel(prof.team)} (${prof.team.toUpperCase()})` : "Unassigned";
+      if (!interaction.deferred && !interaction.replied) {
+        await interaction.deferReply();
+      }
       const png = await buildChaosProfileImage({
         username: safeName(target.username),
         teamLabel: prof.team ? chaosTeamLabel(prof.team) : "Unassigned",
@@ -1377,10 +1390,13 @@ module.exports = async function handleSlash(interaction) {
           `## CHAOS PROFILE SNAPSHOT\nUser: <@${target.id}> | Team: **${teamText}**`
         )
       );
-      return interaction.reply({ components: [c], files: [file], flags: MessageFlags.IsComponentsV2 });
+      return chaosRespond({ components: [c], files: [file], flags: MessageFlags.IsComponentsV2 });
     }
 
     if (sub === "leaderboard") {
+      if (!interaction.deferred && !interaction.replied) {
+        await interaction.deferReply();
+      }
       const top = await getChaosLeaderboard(10);
       const teamTop = await getChaosTeamLeaderboard();
       const lines = [];
@@ -1408,7 +1424,7 @@ module.exports = async function handleSlash(interaction) {
       const c = new ContainerBuilder().addTextDisplayComponents(
         new TextDisplayBuilder().setContent("## CHAOS LEADERBOARD UPDATE\nPlayer + Team war rankings synced.")
       );
-      return interaction.reply({ components: [c], files: [file], flags: MessageFlags.IsComponentsV2 });
+      return chaosRespond({ components: [c], files: [file], flags: MessageFlags.IsComponentsV2 });
     }
 
     if (sub === "play") {
@@ -1448,6 +1464,9 @@ module.exports = async function handleSlash(interaction) {
             "Chaos Daily Limit"
           )
         );
+      }
+      if (!interaction.deferred && !interaction.replied) {
+        await interaction.deferReply();
       }
       await setChaosProfile(interaction.user.id, consume.profile);
 
@@ -1502,7 +1521,7 @@ module.exports = async function handleSlash(interaction) {
           `## CHAOS RUN COMPLETE\n<@${interaction.user.id}> | ${resultLine} | Team Rank **#${teamRank || "-"}**`
         )
       );
-      return interaction.reply({ components: [c], files: [file], flags: MessageFlags.IsComponentsV2 });
+      return chaosRespond({ components: [c], files: [file], flags: MessageFlags.IsComponentsV2 });
     }
   }
 
