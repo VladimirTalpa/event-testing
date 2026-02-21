@@ -35,6 +35,25 @@ function normalizeClanNameInput(v) {
     .trim();
 }
 
+function extractNameAndIcon(rawInput) {
+  const raw = String(rawInput || "").trim();
+  if (!raw) return { name: "", icon: "" };
+  if (raw.includes("|")) {
+    const [nameRaw, iconRaw] = raw.split("|");
+    return {
+      name: normalizeClanNameInput(String(nameRaw || "")),
+      icon: String(iconRaw || "").trim(),
+    };
+  }
+  const urlMatch = raw.match(/https?:\/\/\S+/i);
+  if (!urlMatch) {
+    return { name: normalizeClanNameInput(raw), icon: "" };
+  }
+  const icon = String(urlMatch[0] || "").trim();
+  const name = normalizeClanNameInput(raw.replace(icon, "").trim());
+  return { name, icon };
+}
+
 async function resolveRequestTargetId(action, userId, raw) {
   const uid = parseUserIdInput(raw);
   if (uid) return uid;
@@ -67,11 +86,11 @@ module.exports = async function handleModals(interaction) {
         "Need allowed create role.\n" +
         `Special role can be bought in setup for ${CLAN_SPECIAL_ROLE_COST.toLocaleString("en-US")}.`;
     } else {
-      const [nameRaw, iconRaw] = raw.split("|");
+      const parsed = extractNameAndIcon(raw);
       const res = await createClan({
         ownerId: interaction.user.id,
-        name: normalizeClanNameInput(String(nameRaw || "").trim()),
-        icon: String(iconRaw || "").trim(),
+        name: parsed.name,
+        icon: parsed.icon,
       });
       ok = res.ok;
       notice = res.ok ? `Clan created: ${res.clan.name}` : res.error;

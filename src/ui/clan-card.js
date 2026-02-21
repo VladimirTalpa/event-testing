@@ -109,6 +109,18 @@ function clanIconInline(icon) {
   return `${s} `;
 }
 
+function sanitizeClanDisplayName(name) {
+  const raw = String(name || "");
+  const noUrl = raw
+    .replace(/https?:\/\/\S+/gi, "")
+    .replace(/discord\.gg\/\S+/gi, "")
+    .replace(/discord\.com\/\S+/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!noUrl) return "Unnamed Clan";
+  return noUrl;
+}
+
 function paletteByEvent(eventKey) {
   const jjk = String(eventKey || "").toLowerCase() === "jjk";
   if (jjk) {
@@ -363,7 +375,7 @@ async function buildClanLeaderboardImage(rows = []) {
     ctx.font = '700 28px "Inter", "Segoe UI", sans-serif';
     ctx.fillStyle = top ? "#ffd788" : "#e6f5ff";
     const rawName = String(r.name || "Clan");
-    const safeName = /^https?:\/\//i.test(rawName) ? "Unnamed Clan" : rawName;
+    const safeName = sanitizeClanDisplayName(rawName);
     const clanLabel = `#${i + 1} ${clanIconInline(r.icon)}${fitText(ctx, safeName, 510)}`;
     ctx.save();
     ctx.beginPath();

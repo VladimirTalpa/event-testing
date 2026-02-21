@@ -152,6 +152,16 @@ function normalizeClanSlug(name) {
   return normalizeClanName(name).replace(/\s+/g, "");
 }
 
+function cleanClanNameForDisplay(name) {
+  const s = String(name || "")
+    .replace(/https?:\/\/\S+/gi, "")
+    .replace(/discord\.gg\/\S+/gi, "")
+    .replace(/discord\.com\/\S+/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return s || "Unnamed Clan";
+}
+
 async function findClanByName(name) {
   const target = normalizeClanName(name);
   const targetSlug = normalizeClanSlug(name);
@@ -182,7 +192,12 @@ async function findClanByName(name) {
 async function createClan({ ownerId, name, icon = "" }) {
   const owner = await getPlayer(ownerId);
   if (owner.clanId) return { ok: false, error: "You are already in a clan." };
-  const clean = String(name || "").trim();
+  const clean = String(name || "")
+    .replace(/https?:\/\/\S+/gi, "")
+    .replace(/discord\.gg\/\S+/gi, "")
+    .replace(/discord\.com\/\S+/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
   if (clean.length < 3 || clean.length > 32) return { ok: false, error: "Clan name must be 3-32 chars." };
   if (owner.drako < CLAN_CREATE_COST_DRAKO) {
     return { ok: false, error: `Need ${CLAN_CREATE_COST_DRAKO} Drako to create a clan.` };
@@ -540,7 +555,7 @@ async function getClanWeeklyLeaderboard(limit = 10) {
       const score = Math.floor((w.totalDamage || 0) + (w.activity || 0) * 220 + (w.bossClears || 0) * 10000);
       return {
         id: c.id,
-        name: c.name,
+        name: cleanClanNameForDisplay(c.name),
         icon: c.icon || "",
         members: c.members.length,
         damage: w.totalDamage || 0,
