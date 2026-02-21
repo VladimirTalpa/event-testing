@@ -31,17 +31,40 @@ function fitText(ctx, text, maxW) {
   return `${out}...`;
 }
 
-function starField(ctx, w, h, count = 220) {
+function starField(ctx, w, h, count = 220, colors = ["255,255,255"]) {
   for (let i = 0; i < count; i++) {
     const x = Math.random() * w;
     const y = Math.random() * h;
     const r = Math.random() * 1.8 + 0.2;
-    const a = Math.random() * 0.45 + 0.15;
-    ctx.fillStyle = `rgba(255,255,255,${a.toFixed(3)})`;
+    const c = colors[i % colors.length];
+    const a = Math.random() * 0.45 + 0.14;
+    ctx.fillStyle = `rgba(${c},${a.toFixed(3)})`;
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fill();
   }
+}
+
+function drawPanel(ctx, x, y, w, h, opts = {}) {
+  const radius = Number(opts.radius || 16);
+  const border = String(opts.border || "rgba(112,228,255,0.82)");
+  const from = String(opts.from || "rgba(10,18,38,0.88)");
+  const to = String(opts.to || "rgba(18,8,34,0.84)");
+
+  roundedRect(ctx, x, y, w, h, radius);
+  const g = ctx.createLinearGradient(x, y, x + w, y + h);
+  g.addColorStop(0, from);
+  g.addColorStop(1, to);
+  ctx.fillStyle = g;
+  ctx.fill();
+
+  ctx.save();
+  ctx.strokeStyle = border;
+  ctx.lineWidth = 1.2;
+  ctx.shadowColor = border;
+  ctx.shadowBlur = 12;
+  ctx.stroke();
+  ctx.restore();
 }
 
 async function drawTemplateBackground(ctx, w, h, preferredPath) {
@@ -78,16 +101,24 @@ function clanIconPrefix(icon) {
   return `${s} `;
 }
 
-function drawPanel(ctx, x, y, w, h) {
-  roundedRect(ctx, x, y, w, h, 18);
-  const g = ctx.createLinearGradient(x, y, x + w, y + h);
-  g.addColorStop(0, "rgba(14,16,36,0.86)");
-  g.addColorStop(1, "rgba(20,10,40,0.82)");
-  ctx.fillStyle = g;
-  ctx.fill();
-  ctx.strokeStyle = "rgba(95,192,255,0.86)";
-  ctx.lineWidth = 1.2;
-  ctx.stroke();
+function paletteByEvent(eventKey) {
+  const jjk = String(eventKey || "").toLowerCase() === "jjk";
+  if (jjk) {
+    return {
+      bgA: "#200616",
+      bgB: "#0f0a1e",
+      accentA: "#ff5f88",
+      accentB: "#ff7ee0",
+      border: "rgba(255,125,203,0.82)",
+    };
+  }
+  return {
+    bgA: "#08172a",
+    bgB: "#140b2a",
+    accentA: "#53f5ff",
+    accentB: "#8d7bff",
+    border: "rgba(108,230,255,0.82)",
+  };
 }
 
 async function buildClanBossHudImage(input = {}) {
@@ -96,28 +127,45 @@ async function buildClanBossHudImage(input = {}) {
   const canvas = createCanvas(W, H);
   const ctx = canvas.getContext("2d");
 
+  const pal = paletteByEvent(input.eventKey);
   const bg = ctx.createLinearGradient(0, 0, W, H);
-  bg.addColorStop(0, "#070a1b");
-  bg.addColorStop(0.55, "#121235");
-  bg.addColorStop(1, "#180a2b");
+  bg.addColorStop(0, pal.bgA);
+  bg.addColorStop(0.56, "#101435");
+  bg.addColorStop(1, pal.bgB);
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
+
   await drawTemplateBackground(ctx, W, H, CLAN_BOSS_BG_PATH);
+
   const overlay = ctx.createLinearGradient(0, 0, W, H);
-  overlay.addColorStop(0, "rgba(10,12,26,0.54)");
-  overlay.addColorStop(1, "rgba(11,6,20,0.66)");
+  overlay.addColorStop(0, "rgba(8,10,24,0.56)");
+  overlay.addColorStop(1, "rgba(8,6,20,0.74)");
   ctx.fillStyle = overlay;
   ctx.fillRect(0, 0, W, H);
-  starField(ctx, W, H, 280);
+
+  starField(ctx, W, H, 280, ["255,255,255", "162,238,255", "255,165,236"]);
 
   roundedRect(ctx, 24, 24, W - 48, H - 48, 22);
-  ctx.strokeStyle = "rgba(74,243,255,0.7)";
+  ctx.strokeStyle = pal.border;
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  drawPanel(ctx, 52, 56, W - 104, 200);
-  drawPanel(ctx, 52, 282, 1020, 566);
-  drawPanel(ctx, 1098, 282, 450, 566);
+  drawPanel(ctx, 52, 56, W - 104, 214, {
+    border: pal.border,
+    from: "rgba(9,16,36,0.9)",
+    to: "rgba(24,9,38,0.84)",
+    radius: 18,
+  });
+  drawPanel(ctx, 52, 292, 1010, 556, {
+    border: "rgba(112,228,255,0.72)",
+    from: "rgba(7,14,32,0.88)",
+    to: "rgba(18,8,34,0.82)",
+  });
+  drawPanel(ctx, 1082, 292, 466, 556, {
+    border: "rgba(255,136,228,0.72)",
+    from: "rgba(12,10,28,0.88)",
+    to: "rgba(26,8,30,0.82)",
+  });
 
   const clanName = String(input.clanName || "Unknown Clan");
   const bossName = String(input.bossName || "Clan Boss");
@@ -129,78 +177,81 @@ async function buildClanBossHudImage(input = {}) {
   const endsAt = Number(input.endsAt || 0);
 
   ctx.font = '800 66px "Orbitron", "Segoe UI", sans-serif';
-  const titleGrad = ctx.createLinearGradient(70, 72, 750, 72);
-  titleGrad.addColorStop(0, "#55f4ff");
-  titleGrad.addColorStop(1, "#ff73f4");
-  ctx.fillStyle = titleGrad;
-  ctx.fillText("CLAN BOSS LIVE HUD", 76, 128);
+  const titleG = ctx.createLinearGradient(74, 70, 900, 70);
+  titleG.addColorStop(0, pal.accentA);
+  titleG.addColorStop(1, pal.accentB);
+  ctx.fillStyle = titleG;
+  ctx.fillText("CLAN BOSS LIVE", 78, 126);
 
-  ctx.font = '600 40px "Inter", "Segoe UI", sans-serif';
-  ctx.fillStyle = "#dce6ff";
-  ctx.fillText(fitText(ctx, `${clanName}  |  ${bossName} (${eventKey})`, W - 220), 78, 186);
+  ctx.font = '600 36px "Inter", "Segoe UI", sans-serif';
+  ctx.fillStyle = "#e8f4ff";
+  ctx.fillText(fitText(ctx, `${clanName} vs ${bossName} (${eventKey})`, W - 220), 78, 176);
 
-  const bx = 80;
-  const by = 208;
-  const bw = W - 160;
-  const bh = 24;
-  roundedRect(ctx, bx, by, bw, bh, 12);
-  ctx.fillStyle = "rgba(6,8,20,0.92)";
+  const barX = 80;
+  const barY = 208;
+  const barW = W - 160;
+  const barH = 36;
+
+  roundedRect(ctx, barX, barY, barW, barH, 16);
+  ctx.fillStyle = "rgba(6,10,22,0.95)";
   ctx.fill();
-  roundedRect(ctx, bx + 2, by + 2, Math.max(8, Math.floor((bw - 4) * (pct / 100))), bh - 4, 10);
-  const hpGrad = ctx.createLinearGradient(bx, by, bx + bw, by);
-  hpGrad.addColorStop(0, "#34f1ff");
-  hpGrad.addColorStop(0.5, "#6da8ff");
-  hpGrad.addColorStop(1, "#ff49ba");
+  roundedRect(ctx, barX + 3, barY + 3, Math.max(10, Math.floor((barW - 6) * (pct / 100))), barH - 6, 13);
+  const hpGrad = ctx.createLinearGradient(barX, barY, barX + barW, barY);
+  hpGrad.addColorStop(0, pal.accentA);
+  hpGrad.addColorStop(0.5, "#7ea5ff");
+  hpGrad.addColorStop(1, pal.accentB);
   ctx.fillStyle = hpGrad;
   ctx.fill();
-  ctx.strokeStyle = "rgba(130,236,255,0.86)";
-  ctx.lineWidth = 1;
-  roundedRect(ctx, bx, by, bw, bh, 12);
+  ctx.strokeStyle = pal.border;
+  ctx.lineWidth = 1.2;
+  roundedRect(ctx, barX, barY, barW, barH, 16);
   ctx.stroke();
 
   ctx.font = '700 34px "Inter", "Segoe UI", sans-serif';
-  ctx.fillStyle = "#f6fbff";
-  const hpLabel = `HP ${hpCurrent.toLocaleString("en-US")} / ${hpMax.toLocaleString("en-US")} (${pct}%)`;
-  ctx.fillText(hpLabel, 80, 250);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillText(`HP ${hpCurrent.toLocaleString("en-US")} / ${hpMax.toLocaleString("en-US")} (${pct}%)`, 82, 258);
+  ctx.fillStyle = "#a9e9ff";
+  ctx.fillText(remainingLabel(endsAt), W - 390, 258);
 
-  ctx.font = '600 30px "Inter", "Segoe UI", sans-serif';
-  ctx.fillStyle = "#91deff";
-  const endLabel = remainingLabel(endsAt);
-  ctx.fillText(endLabel, W - 420, 250);
-
-  ctx.font = '700 42px "Orbitron", "Segoe UI", sans-serif';
-  ctx.fillStyle = "#8bdcff";
-  ctx.fillText("Top Damage", 86, 338);
-  ctx.fillStyle = "#ff87ed";
-  ctx.fillText("Raid Info", 1126, 338);
+  ctx.font = '700 40px "Orbitron", "Segoe UI", sans-serif';
+  ctx.fillStyle = "#96e8ff";
+  ctx.fillText("Top Damage", 86, 345);
+  ctx.fillStyle = "#ff97e8";
+  ctx.fillText("Raid Stats", 1110, 345);
 
   const rows = topDamage.slice(0, 10);
   const max = Math.max(1, ...rows.map((r) => Math.max(0, Number(r.dmg || 0))));
-  let y = 392;
+
+  let y = 388;
+  ctx.font = '700 27px "Inter", "Segoe UI", sans-serif';
   for (let i = 0; i < rows.length; i++) {
-    const name = fitText(ctx, String(rows[i].name || "Unknown"), 520);
     const dmg = Math.max(0, Math.floor(Number(rows[i].dmg || 0)));
     const ratio = dmg / max;
-    const rw = Math.floor(850 * Math.max(0.08, ratio));
-    roundedRect(ctx, 86, y, 860, 44, 12);
-    ctx.fillStyle = "rgba(10,12,30,0.86)";
+    const rowW = Math.floor(850 * Math.max(0.08, ratio));
+    const name = fitText(ctx, String(rows[i].name || "Unknown"), 500);
+
+    roundedRect(ctx, 86, y, 900, 42, 11);
+    ctx.fillStyle = "rgba(8,11,28,0.86)";
     ctx.fill();
-    roundedRect(ctx, 88, y + 2, Math.max(10, rw), 40, 10);
-    const rg = ctx.createLinearGradient(88, y, 88 + rw, y);
-    rg.addColorStop(0, "#39efff");
-    rg.addColorStop(1, "#ff5dcb");
+
+    roundedRect(ctx, 88, y + 2, Math.max(16, rowW), 38, 10);
+    const rg = ctx.createLinearGradient(88, y, 88 + rowW, y);
+    rg.addColorStop(0, pal.accentA);
+    rg.addColorStop(1, pal.accentB);
     ctx.fillStyle = rg;
     ctx.fill();
-    ctx.font = '700 29px "Inter", "Segoe UI", sans-serif';
-    ctx.fillStyle = "#06142a";
-    ctx.fillText(`${i + 1}. ${name}`, 102, y + 31);
-    roundedRect(ctx, 770, y + 6, 164, 30, 9);
-    ctx.fillStyle = "rgba(5, 10, 24, 0.75)";
+
+    ctx.fillStyle = "#091425";
+    ctx.fillText(`${i + 1}. ${name}`, 102, y + 29);
+
+    roundedRect(ctx, 810, y + 6, 164, 30, 9);
+    ctx.fillStyle = "rgba(5,8,22,0.78)";
     ctx.fill();
     ctx.fillStyle = "#ffffff";
-    ctx.fillText(`${dmg.toLocaleString("en-US")}`, 796, y + 31);
+    ctx.fillText(`${dmg.toLocaleString("en-US")}`, 826, y + 29);
+
     y += 50;
-    if (y > 820) break;
+    if (y > 815) break;
   }
 
   const joined = Math.max(0, Number(input.joined || rows.length));
@@ -214,12 +265,20 @@ async function buildClanBossHudImage(input = {}) {
     `Total Damage: ${Math.floor(totalDamage).toLocaleString("en-US")}`,
     `Weekly Clears: ${clears}`,
   ];
-  let ty = 402;
+
+  let ty = 398;
   ctx.font = '700 34px "Inter", "Segoe UI", sans-serif';
   for (const line of info) {
-    ctx.fillStyle = "#e8f4ff";
-    ctx.fillText(line, 1128, ty);
-    ty += 66;
+    roundedRect(ctx, 1108, ty - 32, 414, 48, 10);
+    ctx.fillStyle = "rgba(7,10,28,0.82)";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,141,230,0.42)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.fillStyle = "#f2f8ff";
+    ctx.fillText(line, 1122, ty);
+    ty += 72;
   }
 
   return canvas.toBuffer("image/png");
@@ -231,73 +290,86 @@ async function buildClanLeaderboardImage(rows = []) {
   const canvas = createCanvas(W, H);
   const ctx = canvas.getContext("2d");
 
-  const base = ctx.createLinearGradient(0, 0, W, H);
-  base.addColorStop(0, "#0b091f");
-  base.addColorStop(0.6, "#1b0f33");
-  base.addColorStop(1, "#120722");
-  ctx.fillStyle = base;
+  const bg = ctx.createLinearGradient(0, 0, W, H);
+  bg.addColorStop(0, "#080d26");
+  bg.addColorStop(0.5, "#130e30");
+  bg.addColorStop(1, "#0c091f");
+  ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
-  if (fs.existsSync(CLAN_LB_BG_PATH)) {
-    try {
-      const bgImg = await loadImage(CLAN_LB_BG_PATH);
-      ctx.drawImage(bgImg, 0, 0, W, H);
-    } catch {}
-  }
+
+  await drawTemplateBackground(ctx, W, H, CLAN_LB_BG_PATH);
+
   const overlay = ctx.createLinearGradient(0, 0, W, H);
-  overlay.addColorStop(0, "rgba(8,9,28,0.56)");
-  overlay.addColorStop(0.5, "rgba(21,8,33,0.52)");
-  overlay.addColorStop(1, "rgba(10,5,24,0.66)");
+  overlay.addColorStop(0, "rgba(8,10,24,0.56)");
+  overlay.addColorStop(1, "rgba(12,8,24,0.72)");
   ctx.fillStyle = overlay;
   ctx.fillRect(0, 0, W, H);
-  starField(ctx, W, H, 300);
+
+  starField(ctx, W, H, 280, ["255,255,255", "164,235,255", "255,150,234"]);
 
   roundedRect(ctx, 24, 24, W - 48, H - 48, 22);
-  ctx.strokeStyle = "rgba(158,234,255,0.88)";
+  ctx.strokeStyle = "rgba(113,226,255,0.82)";
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  ctx.font = '800 68px "Orbitron", "Segoe UI", sans-serif';
-  const tg = ctx.createLinearGradient(64, 52, 760, 52);
-  tg.addColorStop(0, "#69fbff");
-  tg.addColorStop(1, "#ff78ef");
-  ctx.fillStyle = tg;
-  ctx.fillText("WEEKLY CLAN LEADERBOARD", 70, 118);
+  drawPanel(ctx, 52, 52, W - 104, 132, {
+    border: "rgba(113,226,255,0.82)",
+    from: "rgba(8,18,36,0.9)",
+    to: "rgba(20,9,34,0.84)",
+  });
+  drawPanel(ctx, 52, 204, W - 104, H - 256, {
+    border: "rgba(132,220,255,0.72)",
+    from: "rgba(8,14,32,0.88)",
+    to: "rgba(18,8,34,0.82)",
+  });
 
-  drawPanel(ctx, 54, 150, W - 108, H - 210);
-  ctx.font = '700 25px "Inter", "Segoe UI", sans-serif';
-  ctx.fillStyle = "#aeefff";
-  ctx.fillText("Clan", 96, 198);
-  ctx.fillText("Score", 650, 198);
-  ctx.fillText("Damage", 840, 198);
-  ctx.fillText("Clears", 1040, 198);
-  ctx.fillText("Activity", 1180, 198);
-  ctx.fillText("Members", 1350, 198);
+  ctx.font = '800 64px "Orbitron", "Segoe UI", sans-serif';
+  const tg = ctx.createLinearGradient(72, 72, 900, 72);
+  tg.addColorStop(0, "#58f6ff");
+  tg.addColorStop(1, "#ff76e3");
+  ctx.fillStyle = tg;
+  ctx.fillText("WEEKLY CLAN RANKING", 76, 138);
+
+  ctx.font = '700 26px "Inter", "Segoe UI", sans-serif';
+  ctx.fillStyle = "#abe9ff";
+  ctx.fillText("Clan", 90, 252);
+  ctx.fillText("Score", 700, 252);
+  ctx.fillText("Damage", 880, 252);
+  ctx.fillText("Clears", 1080, 252);
+  ctx.fillText("Activity", 1220, 252);
+  ctx.fillText("Members", 1370, 252);
+
   const sorted = Array.isArray(rows) ? rows.slice(0, 10) : [];
-  let y = 220;
+  let y = 276;
   for (let i = 0; i < sorted.length; i++) {
     const r = sorted[i];
-    roundedRect(ctx, 78, y, W - 156, 64, 14);
-    ctx.fillStyle = "rgba(9,12,28,0.84)";
-    ctx.fill();
-    ctx.strokeStyle = i < 3 ? "rgba(255,212,116,0.96)" : "rgba(126,228,255,0.72)";
-    ctx.lineWidth = 1.4;
-    ctx.stroke();
+    const top = i < 3;
+
+    drawPanel(ctx, 78, y, W - 156, 62, {
+      border: top ? "rgba(255,209,121,0.95)" : "rgba(124,220,255,0.62)",
+      from: top ? "rgba(36,24,8,0.74)" : "rgba(8,11,28,0.82)",
+      to: "rgba(16,8,28,0.78)",
+      radius: 12,
+    });
+
     ctx.font = '700 28px "Inter", "Segoe UI", sans-serif';
-    ctx.fillStyle = i < 3 ? "#ffd47a" : "#dcf2ff";
-    const left = `#${i + 1} ${r.icon ? `${r.icon} ` : ""}${fitText(ctx, String(r.name || "Clan"), 500)}`;
-    ctx.fillText(left, 96, y + 42);
-    ctx.fillStyle = "#9de5ff";
-    ctx.fillText(`${Math.floor(Number(r.score || 0)).toLocaleString("en-US")}`, 650, y + 42);
-    ctx.fillStyle = "#8fd8ff";
-    ctx.fillText(`${Math.floor(Number(r.damage || 0)).toLocaleString("en-US")}`, 840, y + 42);
-    ctx.fillStyle = "#ffa8f0";
-    ctx.fillText(`${Math.floor(Number(r.clears || 0))}`, 1040, y + 42);
-    ctx.fillStyle = "#ffd393";
-    ctx.fillText(`${Math.floor(Number(r.activity || 0))}`, 1180, y + 42);
-    ctx.fillStyle = "#ebf6ff";
-    ctx.fillText(`${Math.floor(Number(r.members || 0))}`, 1360, y + 42);
-    y += 74;
-    if (y > H - 100) break;
+    ctx.fillStyle = top ? "#ffd788" : "#e6f5ff";
+    const clanLabel = `#${i + 1} ${r.icon ? `${r.icon} ` : ""}${fitText(ctx, String(r.name || "Clan"), 510)}`;
+    ctx.fillText(clanLabel, 94, y + 41);
+
+    ctx.fillStyle = "#9be8ff";
+    ctx.fillText(`${Math.floor(Number(r.score || 0)).toLocaleString("en-US")}`, 700, y + 41);
+    ctx.fillStyle = "#9ddcff";
+    ctx.fillText(`${Math.floor(Number(r.damage || 0)).toLocaleString("en-US")}`, 880, y + 41);
+    ctx.fillStyle = "#ffabea";
+    ctx.fillText(`${Math.floor(Number(r.clears || 0))}`, 1080, y + 41);
+    ctx.fillStyle = "#ffd9a0";
+    ctx.fillText(`${Math.floor(Number(r.activity || 0))}`, 1220, y + 41);
+    ctx.fillStyle = "#f0f8ff";
+    ctx.fillText(`${Math.floor(Number(r.members || 0))}`, 1370, y + 41);
+
+    y += 70;
+    if (y > H - 80) break;
   }
 
   return canvas.toBuffer("image/png");
@@ -310,27 +382,42 @@ async function buildClanInfoImage(input = {}) {
   const ctx = canvas.getContext("2d");
 
   const bg = ctx.createLinearGradient(0, 0, W, H);
-  bg.addColorStop(0, "#090d24");
-  bg.addColorStop(0.5, "#14153a");
-  bg.addColorStop(1, "#1f0a35");
+  bg.addColorStop(0, "#081126");
+  bg.addColorStop(0.52, "#171038");
+  bg.addColorStop(1, "#100822");
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
+
   await drawTemplateBackground(ctx, W, H, CLAN_INFO_BG_PATH);
+
   const overlay = ctx.createLinearGradient(0, 0, W, H);
-  overlay.addColorStop(0, "rgba(10,16,30,0.5)");
-  overlay.addColorStop(1, "rgba(14,7,24,0.62)");
+  overlay.addColorStop(0, "rgba(8,10,24,0.54)");
+  overlay.addColorStop(1, "rgba(10,8,20,0.72)");
   ctx.fillStyle = overlay;
   ctx.fillRect(0, 0, W, H);
-  starField(ctx, W, H, 320);
+
+  starField(ctx, W, H, 300, ["255,255,255", "160,236,255", "255,162,236"]);
 
   roundedRect(ctx, 20, 20, W - 40, H - 40, 24);
-  ctx.strokeStyle = "rgba(121,226,255,0.78)";
+  ctx.strokeStyle = "rgba(116,226,255,0.78)";
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  drawPanel(ctx, 56, 56, W - 112, 188);
-  drawPanel(ctx, 56, 268, 1030, 632);
-  drawPanel(ctx, 1112, 268, 432, 632);
+  drawPanel(ctx, 56, 56, W - 112, 186, {
+    border: "rgba(114,226,255,0.84)",
+    from: "rgba(8,18,36,0.9)",
+    to: "rgba(20,9,34,0.84)",
+  });
+  drawPanel(ctx, 56, 266, 1020, 634, {
+    border: "rgba(114,226,255,0.66)",
+    from: "rgba(8,14,32,0.88)",
+    to: "rgba(18,8,34,0.82)",
+  });
+  drawPanel(ctx, 1102, 266, 442, 634, {
+    border: "rgba(255,137,229,0.66)",
+    from: "rgba(12,10,30,0.88)",
+    to: "rgba(24,8,30,0.82)",
+  });
 
   const clanName = String(input.name || "Unknown Clan");
   const icon = String(input.icon || "");
@@ -338,45 +425,44 @@ async function buildClanInfoImage(input = {}) {
   const createdText = String(input.createdText || "-");
 
   const title = `${clanIconPrefix(icon)}${clanName}`;
-  ctx.font = '800 74px "Orbitron", "Segoe UI", sans-serif';
-  const tg = ctx.createLinearGradient(84, 78, 760, 78);
-  tg.addColorStop(0, "#53f7ff");
-  tg.addColorStop(1, "#ff6fe0");
+  ctx.font = '800 72px "Orbitron", "Segoe UI", sans-serif';
+  const tg = ctx.createLinearGradient(82, 72, 900, 72);
+  tg.addColorStop(0, "#55f5ff");
+  tg.addColorStop(1, "#ff75e2");
   ctx.fillStyle = tg;
-  ctx.fillText(fitText(ctx, title, 1220), 82, 142);
+  ctx.fillText(fitText(ctx, title, 1200), 80, 140);
 
   ctx.font = '600 34px "Inter", "Segoe UI", sans-serif';
-  ctx.fillStyle = "#d8ecff";
-  ctx.fillText(`Owner: ${ownerName}`, 84, 196);
-  ctx.fillStyle = "#8de4ff";
-  ctx.fillText(`Created: ${createdText}`, 560, 196);
+  ctx.fillStyle = "#e2f4ff";
+  ctx.fillText(`Owner: ${fitText(ctx, ownerName, 420)}`, 84, 194);
+  ctx.fillStyle = "#9fe7ff";
+  ctx.fillText(`Created: ${createdText}`, 540, 194);
 
   const members = Array.isArray(input.members) ? input.members : [];
   const officers = Array.isArray(input.officers) ? input.officers : [];
   const weekly = input.weekly || {};
   const activeBoss = input.activeBoss || null;
 
-  ctx.font = '700 42px "Orbitron", "Segoe UI", sans-serif';
-  ctx.fillStyle = "#86e4ff";
-  ctx.fillText("Members", 84, 324);
-  ctx.fillStyle = "#ff89ea";
-  ctx.fillText("Clan Status", 1142, 324);
+  ctx.font = '700 40px "Orbitron", "Segoe UI", sans-serif';
+  ctx.fillStyle = "#91e6ff";
+  ctx.fillText("Members", 82, 322);
+  ctx.fillStyle = "#ff99eb";
+  ctx.fillText("Status", 1120, 322);
 
-  const memberLines = members.slice(0, 15);
-  let my = 374;
-  for (let i = 0; i < memberLines.length; i++) {
-    const m = String(memberLines[i] || "");
-    roundedRect(ctx, 84, my - 30, 978, 42, 10);
-    ctx.fillStyle = "rgba(7,9,24,0.82)";
-    ctx.fill();
-    ctx.strokeStyle = "rgba(116,215,255,0.42)";
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    ctx.font = '600 27px "Inter", "Segoe UI", sans-serif';
-    ctx.fillStyle = "#eaf7ff";
-    ctx.fillText(fitText(ctx, `${i + 1}. ${m}`, 940), 96, my);
+  let my = 366;
+  ctx.font = '600 27px "Inter", "Segoe UI", sans-serif';
+  for (let i = 0; i < members.slice(0, 15).length; i++) {
+    const line = `${i + 1}. ${String(members[i] || "")}`;
+    drawPanel(ctx, 80, my - 30, 986, 42, {
+      border: "rgba(112,220,255,0.42)",
+      from: "rgba(7,9,24,0.86)",
+      to: "rgba(14,8,24,0.8)",
+      radius: 10,
+    });
+    ctx.fillStyle = "#eef8ff";
+    ctx.fillText(fitText(ctx, line, 950), 92, my);
     my += 46;
-    if (my > 875) break;
+    if (my > 876) break;
   }
 
   const infoLines = [
@@ -384,34 +470,33 @@ async function buildClanInfoImage(input = {}) {
     `Officers: ${Math.max(0, Number(input.officerCount || officers.length))}`,
     `Requests: ${Math.max(0, Number(input.requestCount || 0))}`,
     `Invites: ${Math.max(0, Number(input.inviteCount || 0))}`,
-    `Weekly DMG: ${Math.floor(Number(weekly.totalDamage || 0)).toLocaleString("en-US")}`,
+    `Weekly Damage: ${Math.floor(Number(weekly.totalDamage || 0)).toLocaleString("en-US")}`,
     `Weekly Clears: ${Math.floor(Number(weekly.bossClears || 0))}`,
     `Weekly Activity: ${Math.floor(Number(weekly.activity || 0))}`,
-    `Boss: ${activeBoss ? `${activeBoss.name} (${Math.floor(Number(activeBoss.hpCurrent || 0)).toLocaleString("en-US")}/${Math.floor(Number(activeBoss.hpMax || 1)).toLocaleString("en-US")})` : "No active clan boss"}`,
+    `Boss: ${activeBoss ? `${activeBoss.name} ${Math.floor(Number(activeBoss.hpCurrent || 0)).toLocaleString("en-US")}/${Math.floor(Number(activeBoss.hpMax || 1)).toLocaleString("en-US")}` : "No active clan boss"}`,
   ];
 
-  let iy = 382;
-  ctx.font = '700 28px "Inter", "Segoe UI", sans-serif';
+  let iy = 372;
+  ctx.font = '700 27px "Inter", "Segoe UI", sans-serif';
   for (const line of infoLines) {
-    roundedRect(ctx, 1132, iy - 30, 392, 44, 10);
-    ctx.fillStyle = "rgba(8,10,26,0.86)";
-    ctx.fill();
-    ctx.strokeStyle = "rgba(255,129,233,0.48)";
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    ctx.fillStyle = "#f4fbff";
-    ctx.fillText(fitText(ctx, line, 372), 1144, iy);
-    iy += 54;
+    drawPanel(ctx, 1122, iy - 30, 404, 44, {
+      border: "rgba(255,140,228,0.46)",
+      from: "rgba(8,10,26,0.86)",
+      to: "rgba(20,8,26,0.8)",
+      radius: 10,
+    });
+    ctx.fillStyle = "#f2f9ff";
+    ctx.fillText(fitText(ctx, line, 382), 1136, iy);
+    iy += 52;
   }
 
   if (officers.length) {
     ctx.font = '700 26px "Inter", "Segoe UI", sans-serif';
-    ctx.fillStyle = "#95e6ff";
-    ctx.fillText("Officer List", 1140, 836);
-    const offText = fitText(ctx, officers.join(", "), 370);
-    ctx.font = '600 23px "Inter", "Segoe UI", sans-serif';
-    ctx.fillStyle = "#dff3ff";
-    ctx.fillText(offText, 1140, 872);
+    ctx.fillStyle = "#8fe4ff";
+    ctx.fillText("Officer List", 1128, 834);
+    ctx.font = '600 22px "Inter", "Segoe UI", sans-serif';
+    ctx.fillStyle = "#e2f5ff";
+    ctx.fillText(fitText(ctx, officers.join(", "), 388), 1128, 870);
   }
 
   return canvas.toBuffer("image/png");
