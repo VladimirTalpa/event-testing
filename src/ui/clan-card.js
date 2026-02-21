@@ -131,6 +131,18 @@ function sanitizeClanDisplayName(name) {
   return out || "Unnamed Clan";
 }
 
+function sanitizeLooseLabel(text) {
+  const t = String(text || "")
+    .replace(/https?:\/\/\S+/gi, " ")
+    .replace(/discord\.gg\/\S+/gi, " ")
+    .replace(/discord\.com\/\S+/gi, " ")
+    .replace(/[|`]+/g, " ")
+    .replace(/[^\p{L}\p{N}\s._-]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return t || "Unknown";
+}
+
 function paletteByEvent(eventKey) {
   const jjk = String(eventKey || "").toLowerCase() === "jjk";
   if (jjk) {
@@ -385,7 +397,7 @@ async function buildClanLeaderboardImage(rows = []) {
     ctx.font = '700 28px "Inter", "Segoe UI", sans-serif';
     ctx.fillStyle = top ? "#ffd788" : "#e6f5ff";
     const rawName = String(r.name || "Clan");
-    const safeName = sanitizeClanDisplayName(rawName);
+    const safeName = sanitizeLooseLabel(sanitizeClanDisplayName(rawName));
     const clanLabel = `#${i + 1} ${clanIconInline(r.icon)}${fitText(ctx, safeName, 510)}`;
     ctx.save();
     ctx.beginPath();
@@ -458,7 +470,7 @@ async function buildClanInfoImage(input = {}) {
 
   const clanName = String(input.name || "Unknown Clan");
   const icon = String(input.icon || "");
-  const ownerName = String(input.ownerName || "Unknown");
+  const ownerName = sanitizeLooseLabel(String(input.ownerName || "Unknown"));
   const createdText = String(input.createdText || "-");
 
   const title = `${clanIconPrefix(icon)}${clanName}`;
@@ -471,9 +483,12 @@ async function buildClanInfoImage(input = {}) {
 
   ctx.font = '600 34px "Inter", "Segoe UI", sans-serif';
   ctx.fillStyle = "#e2f4ff";
-  ctx.fillText(`Owner: ${fitText(ctx, ownerName, 420)}`, 84, 194);
+  const ownerLine = `Owner: ${fitText(ctx, ownerName, 700)}`;
+  ctx.fillText(ownerLine, 84, 194);
   ctx.fillStyle = "#9fe7ff";
-  ctx.fillText(`Created: ${createdText}`, 540, 194);
+  const createdLine = `Created: ${createdText}`;
+  const createdW = ctx.measureText(createdLine).width;
+  ctx.fillText(createdLine, W - 86 - createdW, 194);
 
   const members = Array.isArray(input.members) ? input.members : [];
   const officers = Array.isArray(input.officers) ? input.officers : [];
