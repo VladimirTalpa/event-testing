@@ -143,6 +143,13 @@ function sanitizeLooseLabel(text) {
   return t || "Unknown";
 }
 
+function forceSafeClanName(text) {
+  const s = sanitizeLooseLabel(sanitizeClanDisplayName(text));
+  const low = s.toLowerCase();
+  if (!s || low.includes("http") || low.includes("discord") || low.includes("channel")) return "Unnamed Clan";
+  return s;
+}
+
 function paletteByEvent(eventKey) {
   const jjk = String(eventKey || "").toLowerCase() === "jjk";
   if (jjk) {
@@ -397,7 +404,7 @@ async function buildClanLeaderboardImage(rows = []) {
     ctx.font = '700 28px "Inter", "Segoe UI", sans-serif';
     ctx.fillStyle = top ? "#ffd788" : "#e6f5ff";
     const rawName = String(r.name || "Clan");
-    const safeName = sanitizeLooseLabel(sanitizeClanDisplayName(rawName));
+    const safeName = forceSafeClanName(rawName);
     const clanLabel = `#${i + 1} ${clanIconInline(r.icon)}${fitText(ctx, safeName, 510)}`;
     ctx.save();
     ctx.beginPath();
@@ -468,7 +475,7 @@ async function buildClanInfoImage(input = {}) {
     to: "rgba(24,8,30,0.82)",
   });
 
-  const clanName = String(input.name || "Unknown Clan");
+  const clanName = forceSafeClanName(String(input.name || "Unknown Clan"));
   const icon = String(input.icon || "");
   const ownerName = sanitizeLooseLabel(String(input.ownerName || "Unknown"));
   const createdText = String(input.createdText || "-");
