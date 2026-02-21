@@ -101,6 +101,14 @@ function clanIconPrefix(icon) {
   return `${s} `;
 }
 
+function clanIconInline(icon) {
+  const s = String(icon || "").trim();
+  if (!s) return "";
+  if (/^https?:\/\//i.test(s)) return "";
+  if (s.length > 10) return "";
+  return `${s} `;
+}
+
 function paletteByEvent(eventKey) {
   const jjk = String(eventKey || "").toLowerCase() === "jjk";
   if (jjk) {
@@ -354,8 +362,15 @@ async function buildClanLeaderboardImage(rows = []) {
 
     ctx.font = '700 28px "Inter", "Segoe UI", sans-serif';
     ctx.fillStyle = top ? "#ffd788" : "#e6f5ff";
-    const clanLabel = `#${i + 1} ${r.icon ? `${r.icon} ` : ""}${fitText(ctx, String(r.name || "Clan"), 510)}`;
+    const rawName = String(r.name || "Clan");
+    const safeName = /^https?:\/\//i.test(rawName) ? "Unnamed Clan" : rawName;
+    const clanLabel = `#${i + 1} ${clanIconInline(r.icon)}${fitText(ctx, safeName, 510)}`;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(90, y + 3, 586, 56);
+    ctx.clip();
     ctx.fillText(clanLabel, 94, y + 41);
+    ctx.restore();
 
     ctx.fillStyle = "#9be8ff";
     ctx.fillText(`${Math.floor(Number(r.score || 0)).toLocaleString("en-US")}`, 700, y + 41);
