@@ -43,6 +43,7 @@ const { buildCardSlashImage } = require("../ui/cardslash-card");
 const { buildPvpChallengeImage } = require("../ui/pvpclash-card");
 const { buildErrorV2 } = require("../ui/feedback-v2");
 const { buildClanBossHudImage, buildClanLeaderboardImage, buildClanInfoImage } = require("../ui/clan-card");
+const { buildChaosHelpImage, buildChaosProfileImage, buildChaosLeaderboardImage, buildChaosRunImage, buildChaosTeamLockImage } = require("../ui/chaos-card");
 const { buildClanSetupPayload, buildClanHelpText, hasClanCreateAccess, CLAN_SPECIAL_CREATE_ROLE_ID, CLAN_SPECIAL_ROLE_COST } = require("../ui/clan-setup-v2");
 const {
   findCard,
@@ -1305,38 +1306,23 @@ module.exports = async function handleSlash(interaction) {
     const sub = interaction.options.getSubcommand(true);
 
     if (sub === "help") {
-      const teamLines = TEAM_IDS
-        .map((id) => {
-          const t = CHAOS_TEAM_META[id];
-          return `- **${t.label}** (${id}) | Badge: ${t.badge}\n  ${t.flavor}`;
-        })
-        .join("\n");
-      const c = new ContainerBuilder()
-        .addTextDisplayComponents(
-          new TextDisplayBuilder().setContent(
-            "## CHAOS RIFT EVENT\n" +
-            "Permanent faction war with rogue-like runs, daily limits and global winners.\n\n" +
-            "### Commands\n" +
-            "- `/chaos team choice:<vanguard|eclipse|titan>`\n" +
-            "- `/chaos play event:bleach|jjk`\n" +
-            "- `/chaos profile [user]`\n" +
-            "- `/chaos leaderboard`\n\n" +
-            "### Team Protocol\n" +
-            "- Team choice is **permanent** once selected\n" +
-            "- Team ranking gives bonus rewards for top factions\n\n" +
-            "### Rules\n" +
-            "- 5 rooms per run\n" +
-            "- Survive to keep bonus points\n" +
-            `- Daily Limit: ${CHAOS_DAILY_LIMIT} runs (UTC reset)\n` +
-            "- Cooldown: 2 minutes per run\n" +
-            "- Rewards: event currency + Drako"
-          )
-        );
-      if (teamLines) {
-        c.addSeparatorComponents(new SeparatorBuilder())
-          .addTextDisplayComponents(new TextDisplayBuilder().setContent(`### Factions\n${teamLines}`));
-      }
-      return interaction.reply({ components: [c], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+      const png = await buildChaosHelpImage({
+        dailyLimit: CHAOS_DAILY_LIMIT,
+        cooldownSec: Math.floor(CHAOS_COOLDOWN_MS / 1000),
+        teams: TEAM_IDS.map((id) => ({
+          id,
+          label: CHAOS_TEAM_META[id]?.label || id.toUpperCase(),
+          flavor: CHAOS_TEAM_META[id]?.flavor || "",
+        })),
+      });
+      const file = new AttachmentBuilder(png, { name: "chaos-help.png" });
+      const c = new ContainerBuilder().addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          "## CHAOS BRIEFING\n" +
+          "Use `/chaos team`, then run `/chaos play`. Team is permanent."
+        )
+      );
+      return interaction.reply({ components: [c], files: [file], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
     }
 
     if (sub === "team") {
@@ -1349,17 +1335,18 @@ module.exports = async function handleSlash(interaction) {
         return interaction.reply(buildErrorV2(res.error || "Team lock failed.", "Chaos Team"));
       }
       const t = CHAOS_TEAM_META[choice];
-      const c = new ContainerBuilder()
-        .addTextDisplayComponents(
-          new TextDisplayBuilder().setContent(
-            "## CHAOS TEAM LOCKED\n" +
-            `Player: <@${interaction.user.id}>\n` +
-            `Team: **${t.label}** (${choice.toUpperCase()})\n` +
-            `Badge: **${t.badge}**\n\n` +
-            "This selection is permanent. Team cannot be changed."
-          )
-        );
-      return interaction.reply({ components: [c], flags: MessageFlags.IsComponentsV2 });
+      const png = await buildChaosTeamLockImage({
+        username: safeName(interaction.user.username),
+        teamLabel: t?.label || choice.toUpperCase(),
+        teamCode: choice,
+        badge: t?.badge || "-",
+        flavor: t?.flavor || "",
+      });
+      const file = new AttachmentBuilder(png, { name: "chaos-team-lock.png" });
+      const c = new ContainerBuilder().addTextDisplayComponents(
+        new TextDisplayBuilder().setContent("## CHAOS TEAM CONFIRMED\nTeam lock applied permanently.")
+      );
+      return interaction.reply({ components: [c], files: [file], flags: MessageFlags.IsComponentsV2 });
     }
 
     if (sub === "profile") {
@@ -1369,21 +1356,28 @@ module.exports = async function handleSlash(interaction) {
       const usesLeft = getDailyUsesLeft(prof, CHAOS_DAILY_LIMIT);
       const resetAt = chaosResetUnix();
       const teamText = prof.team ? `${chaosTeamLabel(prof.team)} (${prof.team.toUpperCase()})` : "Unassigned";
-      const c = new ContainerBuilder()
-        .addTextDisplayComponents(
-          new TextDisplayBuilder().setContent(
-            `## CHAOS PROFILE\n` +
-            `User: <@${target.id}>\n` +
-            `Team: **${teamText}**\n` +
-            `Games: **${prof.games}** | Wins: **${prof.wins}** | Losses: **${prof.losses}**\n` +
-            `Win Rate: **${wr}%**\n` +
-            `Total Points: **${prof.totalPoints.toLocaleString("en-US")}**\n` +
-            `Highest Points: **${prof.highestPoints.toLocaleString("en-US")}**\n` +
-            `Streak: **${prof.streak}** | Best Streak: **${prof.bestStreak}**\n` +
-            `Daily Runs Left: **${usesLeft}/${CHAOS_DAILY_LIMIT}** (reset <t:${resetAt}:R>)`
-          )
-        );
-      return interaction.reply({ components: [c], flags: MessageFlags.IsComponentsV2 });
+      const png = await buildChaosProfileImage({
+        username: safeName(target.username),
+        teamLabel: prof.team ? chaosTeamLabel(prof.team) : "Unassigned",
+        teamCode: prof.team || "NONE",
+        games: prof.games,
+        wins: prof.wins,
+        losses: prof.losses,
+        winRate: wr,
+        totalPoints: prof.totalPoints.toLocaleString("en-US"),
+        highestPoints: prof.highestPoints.toLocaleString("en-US"),
+        bestStreak: prof.bestStreak,
+        dailyLeft: usesLeft,
+        dailyLimit: CHAOS_DAILY_LIMIT,
+        resetText: `<t:${resetAt}:R>`,
+      });
+      const file = new AttachmentBuilder(png, { name: "chaos-profile.png" });
+      const c = new ContainerBuilder().addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          `## CHAOS PROFILE SNAPSHOT\nUser: <@${target.id}> | Team: **${teamText}**`
+        )
+      );
+      return interaction.reply({ components: [c], files: [file], flags: MessageFlags.IsComponentsV2 });
     }
 
     if (sub === "leaderboard") {
@@ -1399,30 +1393,22 @@ module.exports = async function handleSlash(interaction) {
         } catch {}
         const tag = row.team ? ` | ${row.team.toUpperCase()}` : "";
         lines.push(
-          `**#${i + 1}** ${name}${tag} | Points **${row.totalPoints.toLocaleString("en-US")}** | Wins **${row.wins}** | Best Streak **${row.bestStreak}**`
+          `#${i + 1} ${name}${tag} | PTS ${row.totalPoints.toLocaleString("en-US")} | W ${row.wins} | BS ${row.bestStreak}`
         );
       }
       const teamLines = teamTop.map((r, i) =>
-        `**#${i + 1}** ${chaosTeamLabel(r.teamId)} | PTS **${r.totalPoints.toLocaleString("en-US")}** | Wins **${r.wins}** | Clears **${r.clears}** | Members **${r.members}**`
+        `#${i + 1} ${chaosTeamLabel(r.teamId)} | PTS ${r.totalPoints.toLocaleString("en-US")} | W ${r.wins} | C ${r.clears} | M ${r.members}`
       );
-      const c = new ContainerBuilder()
-        .addTextDisplayComponents(
-          new TextDisplayBuilder().setContent(
-            "## CHAOS RIFT LEADERBOARD\n" +
-            "Ranked by Total Points, then Wins, then Best Streak."
-          )
-        )
-        .addSeparatorComponents(new SeparatorBuilder())
-        .addTextDisplayComponents(
-          new TextDisplayBuilder().setContent(`### Top 10\n${lines.join("\n") || "_No data yet._"}`)
-        )
-        .addSeparatorComponents(new SeparatorBuilder())
-        .addTextDisplayComponents(
-          new TextDisplayBuilder().setContent(
-            `### Team War Ranking\n${teamLines.join("\n") || "_No teams yet._"}\n\n${getTeamWinnerLine(teamTop)}`
-          )
-        );
-      return interaction.reply({ components: [c], flags: MessageFlags.IsComponentsV2 });
+      const png = await buildChaosLeaderboardImage({
+        playerRows: lines.length ? lines : ["No player data yet."],
+        teamRows: teamLines.length ? teamLines : ["No teams yet."],
+        winnerLine: getTeamWinnerLine(teamTop),
+      });
+      const file = new AttachmentBuilder(png, { name: "chaos-leaderboard.png" });
+      const c = new ContainerBuilder().addTextDisplayComponents(
+        new TextDisplayBuilder().setContent("## CHAOS LEADERBOARD UPDATE\nPlayer + Team war rankings synced.")
+      );
+      return interaction.reply({ components: [c], files: [file], flags: MessageFlags.IsComponentsV2 });
     }
 
     if (sub === "play") {
@@ -1489,32 +1475,34 @@ module.exports = async function handleSlash(interaction) {
       const symbol = eventKey === "bleach" ? E_REIATSU : E_CE;
       const resultLine = run.survived ? "Status: **CLEARED**" : "Status: **FAILED**";
       const steps = run.steps.slice(0, 8).map((x) => `- ${x}`).join("\n");
-      const c = new ContainerBuilder()
-        .addTextDisplayComponents(
-          new TextDisplayBuilder().setContent(
-            `## CHAOS RIFT RUN\n` +
-            `Player: <@${interaction.user.id}>\n` +
-            `Team: **${chaosTeamLabel(prof.team)}** | Badge: **${chaosTeamBadge(prof.team)}**\n` +
-            `${resultLine} | HP Left: **${run.hp}/3**\n` +
-            `Points: **${points.toLocaleString("en-US")}** | Team Rank: **#${teamRank || "-"}**`
-          )
+      const rewards = [
+        `${symbol} +${eventReward.toLocaleString("en-US")}`,
+        `${E_DRAKO} +${drakoReward.toLocaleString("en-US")}`,
+        teamBonusPct > 0
+          ? `Team Bonus ${teamBonusPct}% => ${symbol} +${teamEventBonus.toLocaleString("en-US")} | ${E_DRAKO} +${teamDrakoBonus.toLocaleString("en-US")}`
+          : "Team Bonus: none",
+        `Daily Left: ${dailyLeft}/${CHAOS_DAILY_LIMIT}`,
+        `Balance: ${eventKey === "bleach" ? `${E_REIATSU} ${me.bleach.reiatsu.toLocaleString("en-US")}` : `${E_CE} ${me.jjk.cursedEnergy.toLocaleString("en-US")}`} | ${E_DRAKO} ${me.drako.toLocaleString("en-US")}`,
+      ];
+      const png = await buildChaosRunImage({
+        username: safeName(interaction.user.username),
+        teamLabel: chaosTeamLabel(prof.team),
+        badge: chaosTeamBadge(prof.team),
+        status: run.survived ? "CLEARED" : "FAILED",
+        hp: run.hp,
+        points: points.toLocaleString("en-US"),
+        teamRank: teamRank || "-",
+        steps: (steps ? steps.split("\n").map((x) => x.replace(/^- /, "")) : []).slice(0, 8),
+        rewards,
+        eventLabel: eventKey === "bleach" ? "BLEACH" : "JJK",
+      });
+      const file = new AttachmentBuilder(png, { name: "chaos-run.png" });
+      const c = new ContainerBuilder().addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          `## CHAOS RUN COMPLETE\n<@${interaction.user.id}> | ${resultLine} | Team Rank **#${teamRank || "-"}**`
         )
-        .addSeparatorComponents(new SeparatorBuilder())
-        .addTextDisplayComponents(
-          new TextDisplayBuilder().setContent(`### Run Log\n${steps || "_No steps_"}`)
-        )
-        .addSeparatorComponents(new SeparatorBuilder())
-        .addTextDisplayComponents(
-          new TextDisplayBuilder().setContent(
-            `### Rewards\n` +
-            `- ${symbol} **+${eventReward.toLocaleString("en-US")}**\n` +
-            `- ${E_DRAKO} **+${drakoReward.toLocaleString("en-US")}**\n` +
-            `${teamBonusPct > 0 ? `- Team Bonus (${teamBonusPct}%): ${symbol} **+${teamEventBonus.toLocaleString("en-US")}** | ${E_DRAKO} **+${teamDrakoBonus.toLocaleString("en-US")}**\n` : ""}` +
-            `- Daily Runs Left: **${dailyLeft}/${CHAOS_DAILY_LIMIT}**\n` +
-            `- New Balance: ${eventKey === "bleach" ? `${E_REIATSU} ${me.bleach.reiatsu.toLocaleString("en-US")}` : `${E_CE} ${me.jjk.cursedEnergy.toLocaleString("en-US")}`} | ${E_DRAKO} ${me.drako.toLocaleString("en-US")}`
-          )
-        );
-      return interaction.reply({ components: [c], flags: MessageFlags.IsComponentsV2 });
+      );
+      return interaction.reply({ components: [c], files: [file], flags: MessageFlags.IsComponentsV2 });
     }
   }
 
