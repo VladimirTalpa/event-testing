@@ -47,8 +47,16 @@ function setupButton(id, label, style = ButtonStyle.Secondary, disabled = false)
 function clanIconPrefix(icon) {
   const s = String(icon || "").trim();
   if (!s) return "";
-  if (/^https?:\/\//i.test(s)) return "🛡️ ";
+  if (/^https?:\/\//i.test(s)) return "[ICON] ";
   return `${s} `;
+}
+
+function clanThemeTag(clan) {
+  if (!clan) return "NEUTRAL";
+  const n = String(clan.name || "").toLowerCase();
+  if (n.includes("bleach")) return "EMBER";
+  if (n.includes("jjk")) return "CRIMSON";
+  return n.length % 2 === 0 ? "CYBER" : "AURORA";
 }
 
 async function resolveMember(guild, userId, member) {
@@ -70,33 +78,48 @@ async function buildClanSetupPayload({ guild, userId, member, notice = "" }) {
     ? clan.activeBoss
     : null;
 
+  const theme = clanThemeTag(clan);
+  const roleText = inClan ? (isOwner ? "OWNER" : canManage ? "OFFICER" : "MEMBER") : "NONE";
+
+  const headerBlock =
+    `## CLAN WAR CONSOLE\n` +
+    `Theme: **${theme}**\n` +
+    `User: <@${userId}>`;
+
   const statusBlock =
-    `### Status\n` +
-    `- Clan: ${inClan ? `**${clanIconPrefix(clan.icon)}${clan.name}**` : "_No clan_"}\n` +
-    `- Role: ${inClan ? (isOwner ? "**Owner**" : canManage ? "**Officer**" : "**Member**") : "_None_"}\n` +
-    `- Create Access: ${createAccess ? "**Yes**" : "**No**"}\n` +
-    `- Special Role: ${hasSpecialRole ? "**Owned**" : "**Not owned**"}\n` +
-    `- Price: **${CLAN_SPECIAL_ROLE_COST.toLocaleString("en-US")} Reiatsu** or **${CLAN_SPECIAL_ROLE_COST.toLocaleString("en-US")} CE**\n` +
-    `- Active Boss: ${activeBoss ? `**${activeBoss.name}** (${activeBoss.hpCurrent}/${activeBoss.hpMax})` : "_None_"}`;
+    `### Core Status\n` +
+    `- Clan: ${inClan ? `**${clanIconPrefix(clan.icon)}${clan.name}**` : "**NO CLAN**"}\n` +
+    `- Permission Tier: **${roleText}**\n` +
+    `- Create Access: **${createAccess ? "UNLOCKED" : "LOCKED"}**\n` +
+    `- Special Create Role: **${hasSpecialRole ? "OWNED" : "NOT OWNED"}**\n` +
+    `- Unlock Cost: **${CLAN_SPECIAL_ROLE_COST.toLocaleString("en-US")} Reiatsu** or **${CLAN_SPECIAL_ROLE_COST.toLocaleString("en-US")} CE**`;
 
   const queueBlock =
     inClan
-      ? `### Queue\n` +
-        `- Requests: **${(clan.joinRequests || []).length}**\n` +
-        `- Invites: **${(clan.invites || []).length}**\n` +
+      ? `### Queue + Weekly\n` +
+        `- Join Requests: **${(clan.joinRequests || []).length}**\n` +
+        `- Active Invites: **${(clan.invites || []).length}**\n` +
         `- Members: **${clan.members.length}/30**\n` +
-        `- Weekly: DMG **${clan.weekly.totalDamage}** | Clears **${clan.weekly.bossClears}** | Activity **${clan.weekly.activity}**`
-      : `### Queue\n- Join or create a clan to unlock all clan actions.`;
+        `- Weekly Damage: **${clan.weekly.totalDamage.toLocaleString("en-US")}**\n` +
+        `- Weekly Clears: **${clan.weekly.bossClears}**\n` +
+        `- Weekly Activity: **${clan.weekly.activity}**`
+      : `### Queue + Weekly\n- Join or create a clan to unlock raids, leaderboard and queue tools.`;
+
+  const bossBlock =
+    `### Clan Boss\n` +
+    `- Status: ${activeBoss ? "**ONLINE**" : "**OFFLINE**"}\n` +
+    `- Boss: ${activeBoss ? `**${activeBoss.name}**` : "_None_"}\n` +
+    `- HP: ${activeBoss ? `**${activeBoss.hpCurrent}/${activeBoss.hpMax}**` : "_-_"}`;
 
   const iconGuide =
     `### Icon Guide\n` +
     `- Upload image in Discord -> Right click -> **Copy Link**\n` +
-    `- Use format: \`ClanName|https://cdn.discordapp.com/.../icon.png\``;
+    `- Create clan input format: \`ClanName|https://cdn.discordapp.com/.../icon.png\``;
 
   const container = new ContainerBuilder()
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent(`## CLAN CONTROL CENTER\nUser: <@${userId}>`))
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent(headerBlock))
     .addSeparatorComponents(new SeparatorBuilder())
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent(`${statusBlock}\n\n${queueBlock}\n\n${iconGuide}`));
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent(`${statusBlock}\n\n${queueBlock}\n\n${bossBlock}\n\n${iconGuide}`));
 
   if (notice) {
     container
@@ -106,47 +129,47 @@ async function buildClanSetupPayload({ guild, userId, member, notice = "" }) {
 
   container
     .addSeparatorComponents(new SeparatorBuilder())
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent("### Actions"))
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent("### Panel Actions (Modern Layout)"))
     .addActionRowComponents(
       new ActionRowBuilder().addComponents(
-        setupButton("clanui:refresh", "Refresh", ButtonStyle.Secondary, false),
-        setupButton("clanui:create", "Create", ButtonStyle.Primary, inClan),
-        setupButton("clanui:request", "Request Join", ButtonStyle.Secondary, inClan),
-        setupButton("clanui:accept", "Accept Invite", ButtonStyle.Secondary, inClan),
-        setupButton("clanui:leave", "Leave", ButtonStyle.Danger, !inClan)
+        setupButton("clanui:refresh", "Refresh Panel", ButtonStyle.Secondary, false),
+        setupButton("clanui:help", "Guide", ButtonStyle.Secondary, false),
+        setupButton("clanui:create", "Create Clan", ButtonStyle.Primary, inClan),
+        setupButton("clanui:request", "Join Request", ButtonStyle.Secondary, inClan),
+        setupButton("clanui:accept", "Accept Invite", ButtonStyle.Success, inClan)
       )
     )
     .addActionRowComponents(
       new ActionRowBuilder().addComponents(
-        setupButton("clanui:buyrole:bleach", "Buy Access B", ButtonStyle.Secondary, hasSpecialRole),
-        setupButton("clanui:buyrole:jjk", "Buy Access J", ButtonStyle.Secondary, hasSpecialRole),
-        setupButton("clanui:help", "Help", ButtonStyle.Secondary, false),
-        setupButton("clanui:info", "Clan Info PNG", ButtonStyle.Secondary, !inClan),
-        setupButton("clanui:leaderboard", "Weekly LB", ButtonStyle.Secondary, false)
+        setupButton("clanui:buyrole:bleach", "Buy Access (Bleach)", ButtonStyle.Secondary, hasSpecialRole),
+        setupButton("clanui:buyrole:jjk", "Buy Access (JJK)", ButtonStyle.Secondary, hasSpecialRole),
+        setupButton("clanui:requests", "Queue Viewer", ButtonStyle.Secondary, !canManage),
+        setupButton("clanui:invite", "Invite User", ButtonStyle.Secondary, !canManage),
+        setupButton("clanui:leave", "Leave Clan", ButtonStyle.Danger, !inClan)
       )
     )
     .addActionRowComponents(
       new ActionRowBuilder().addComponents(
-        setupButton("clanui:requests", "View Queue", ButtonStyle.Secondary, !canManage),
-        setupButton("clanui:invite", "Invite", ButtonStyle.Secondary, !canManage),
-        setupButton("clanui:approve", "Approve", ButtonStyle.Success, !canManage),
-        setupButton("clanui:deny", "Deny", ButtonStyle.Danger, !canManage),
-        setupButton("clanui:kick", "Kick", ButtonStyle.Danger, !canManage)
-      )
-    )
-    .addActionRowComponents(
-      new ActionRowBuilder().addComponents(
+        setupButton("clanui:approve", "Approve Req", ButtonStyle.Success, !canManage),
+        setupButton("clanui:deny", "Deny Req", ButtonStyle.Danger, !canManage),
         setupButton("clanui:promote", "Promote", ButtonStyle.Secondary, !isOwner),
         setupButton("clanui:demote", "Demote", ButtonStyle.Secondary, !isOwner),
-        setupButton("clanui:transfer", "Transfer Owner", ButtonStyle.Primary, !isOwner),
-        setupButton("clanui:boss:status", "Boss Status", ButtonStyle.Secondary, !inClan),
-        setupButton("clanui:boss:hit", "Hit Active", ButtonStyle.Secondary, !(inClan && activeBoss))
+        setupButton("clanui:kick", "Kick Member", ButtonStyle.Danger, !canManage)
       )
     )
     .addActionRowComponents(
       new ActionRowBuilder().addComponents(
+        setupButton("clanui:transfer", "Transfer Owner", ButtonStyle.Primary, !isOwner),
         setupButton("clanui:boss:start:bleach", "Start Boss B", ButtonStyle.Primary, !canManage),
-        setupButton("clanui:boss:start:jjk", "Start Boss J", ButtonStyle.Primary, !canManage)
+        setupButton("clanui:boss:start:jjk", "Start Boss J", ButtonStyle.Primary, !canManage),
+        setupButton("clanui:boss:status", "Boss HUD", ButtonStyle.Secondary, !inClan),
+        setupButton("clanui:boss:hit", "Raid Hit", ButtonStyle.Secondary, !(inClan && activeBoss))
+      )
+    )
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        setupButton("clanui:info", "My Clan PNG", ButtonStyle.Secondary, !inClan),
+        setupButton("clanui:leaderboard", "Clan Weekly PNG", ButtonStyle.Secondary, false)
       )
     );
 
@@ -158,9 +181,9 @@ async function buildClanSetupPayload({ guild, userId, member, notice = "" }) {
 
 function buildClanHelpText() {
   return (
-    "## CLAN HELP\n" +
+    "## CLAN HELP | SETUP FLOW\n" +
     "### Core\n" +
-    "- `/clan setup` opens the full control panel.\n" +
+    "- `/clan setup` opens the modern control panel.\n" +
     "- `/clan help` shows this guide.\n\n" +
     "### Create Access Roles\n" +
     "- <@&1472494294173745223>\n" +
@@ -174,10 +197,14 @@ function buildClanHelpText() {
     "2. Right click -> Copy Link.\n" +
     "3. Create format: `Name|ImageURL`\n" +
     "4. Example: `Shadow Core|https://cdn.discordapp.com/attachments/.../icon.png`\n\n" +
-    "### Applications\n" +
-    "- Member clicks **Request Join** with clan name.\n" +
-    "- Owner/officer opens **View Queue**.\n" +
-    "- Use **Approve/Deny** with mention, user ID, or queue index (`1`, `2`, ...).\n"
+    "### Applications & Queue\n" +
+    "- Player uses **Join Request** and enters clan name.\n" +
+    "- Owner/Officer opens **Queue Viewer**.\n" +
+    "- Use **Approve Req / Deny Req** with mention, user ID, or queue index (`1`, `2`, ...).\n\n" +
+    "### Raid Ops\n" +
+    "- Start raid: **Start Boss B/J**\n" +
+    "- Hit raid: **Raid Hit**\n" +
+    "- Snapshot: **Boss HUD**, **My Clan PNG**, **Clan Weekly PNG**\n"
   );
 }
 

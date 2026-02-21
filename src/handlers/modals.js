@@ -27,6 +27,14 @@ function parseUserIdInput(v) {
   return m ? m[0] : "";
 }
 
+function normalizeClanNameInput(v) {
+  return String(v || "")
+    .replace(/^clan\s*:\s*/i, "")
+    .replace(/^name\s*:\s*/i, "")
+    .replace(/^join\s+/i, "")
+    .trim();
+}
+
 async function resolveRequestTargetId(action, userId, raw) {
   const uid = parseUserIdInput(raw);
   if (uid) return uid;
@@ -46,6 +54,7 @@ module.exports = async function handleModals(interaction) {
   if (!interaction.customId.startsWith("clanmodal:")) return;
   const action = interaction.customId.split(":")[1];
   const raw = String(interaction.fields.getTextInputValue("value") || "").trim();
+  const clanNameInput = normalizeClanNameInput(raw);
 
   let notice = "";
   let ok = false;
@@ -61,14 +70,14 @@ module.exports = async function handleModals(interaction) {
       const [nameRaw, iconRaw] = raw.split("|");
       const res = await createClan({
         ownerId: interaction.user.id,
-        name: String(nameRaw || "").trim(),
+        name: normalizeClanNameInput(String(nameRaw || "").trim()),
         icon: String(iconRaw || "").trim(),
       });
       ok = res.ok;
       notice = res.ok ? `Clan created: ${res.clan.name}` : res.error;
     }
   } else if (action === "request") {
-    const res = await requestJoinClan({ userId: interaction.user.id, clanName: raw });
+    const res = await requestJoinClan({ userId: interaction.user.id, clanName: clanNameInput });
     ok = res.ok;
     notice = res.ok ? `Join request sent to ${res.clan.name}.` : res.error;
     if (res.ok && res.clan?.ownerId) {
@@ -82,7 +91,7 @@ module.exports = async function handleModals(interaction) {
       }
     }
   } else if (action === "accept") {
-    const res = await acceptInvite({ userId: interaction.user.id, clanName: raw });
+    const res = await acceptInvite({ userId: interaction.user.id, clanName: clanNameInput });
     ok = res.ok;
     notice = res.ok ? `Invite accepted. Joined ${res.clan.name}.` : res.error;
   } else {

@@ -315,38 +315,39 @@ module.exports = async function handleButtons(interaction) {
 
   const cid = interaction.customId;
   if (cid.startsWith("clanui:")) {
-    if (cid === "clanui:create" || cid === "clanui:request" || cid === "clanui:accept" ||
-        cid === "clanui:invite" || cid === "clanui:approve" || cid === "clanui:deny" ||
-        cid === "clanui:promote" || cid === "clanui:demote" || cid === "clanui:transfer" || cid === "clanui:kick") {
-      const action = cid.split(":")[1];
-      const modal = new ModalBuilder().setCustomId(`clanmodal:${action}`).setTitle(`Clan ${action}`);
-      const input = new TextInputBuilder()
-        .setCustomId("value")
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true);
-      if (action === "create") {
-        input
-          .setLabel("Clan Name | optional icon URL (name|url)")
-          .setPlaceholder("Mohg Legends|https://cdn.discordapp.com/attachments/.../icon.png")
-          .setMaxLength(180);
-      } else if (action === "request" || action === "accept") {
-        input.setLabel("Clan Name").setPlaceholder("Exact clan name").setMaxLength(64);
-      } else if (action === "approve" || action === "deny") {
-        input.setLabel("User @mention / ID / queue index").setPlaceholder("@User OR 123456789012345678 OR 1").setMaxLength(64);
-      } else {
-        input.setLabel("Target User ID / @mention").setPlaceholder("123456789012345678").setMaxLength(40);
+    try {
+      if (cid === "clanui:create" || cid === "clanui:request" || cid === "clanui:accept" ||
+          cid === "clanui:invite" || cid === "clanui:approve" || cid === "clanui:deny" ||
+          cid === "clanui:promote" || cid === "clanui:demote" || cid === "clanui:transfer" || cid === "clanui:kick") {
+        const action = cid.split(":")[1];
+        const modal = new ModalBuilder().setCustomId(`clanmodal:${action}`).setTitle(`Clan ${action}`);
+        const input = new TextInputBuilder()
+          .setCustomId("value")
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true);
+        if (action === "create") {
+          input
+            .setLabel("Clan Name | optional icon URL (name|url)")
+            .setPlaceholder("Mohg Legends|https://cdn.discordapp.com/attachments/.../icon.png")
+            .setMaxLength(180);
+        } else if (action === "request" || action === "accept") {
+          input.setLabel("Clan Name").setPlaceholder("Exact or close clan name").setMaxLength(64);
+        } else if (action === "approve" || action === "deny") {
+          input.setLabel("User @mention / ID / queue index").setPlaceholder("@User OR 123456789012345678 OR 1").setMaxLength(64);
+        } else {
+          input.setLabel("Target User ID / @mention").setPlaceholder("123456789012345678").setMaxLength(40);
+        }
+        modal.addComponents(new ActionRowBuilder().addComponents(input));
+        try {
+          await interaction.showModal(modal);
+        } catch {
+          await interaction.reply({ content: "Modal could not be opened. Please click again.", ephemeral: true }).catch(() => {});
+        }
+        return;
       }
-      modal.addComponents(new ActionRowBuilder().addComponents(input));
-      try {
-        await interaction.showModal(modal);
-      } catch {
-        await interaction.reply({ content: "Modal could not be opened. Please click again.", ephemeral: true }).catch(() => {});
-      }
-      return;
-    }
 
-    // For non-modal clan UI actions, defer first to prevent "interaction failed".
-    try { await interaction.deferUpdate(); } catch {}
+      // For non-modal clan UI actions, defer first to prevent "interaction failed".
+      try { await interaction.deferUpdate(); } catch {}
 
     if (cid === "clanui:help") {
       const c = new ContainerBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(buildClanHelpText()));
@@ -552,13 +553,22 @@ module.exports = async function handleButtons(interaction) {
       return syncClanPanel(interaction, payload);
     }
 
-    const payload = await buildClanSetupPayload({
-      guild: interaction.guild,
-      userId: interaction.user.id,
-      member: interaction.member,
-      notice: "Unknown clan action.",
-    });
-    return syncClanPanel(interaction, payload);
+      const payload = await buildClanSetupPayload({
+        guild: interaction.guild,
+        userId: interaction.user.id,
+        member: interaction.member,
+        notice: "Unknown clan action.",
+      });
+      return syncClanPanel(interaction, payload);
+    } catch (e) {
+      const payload = await buildClanSetupPayload({
+        guild: interaction.guild,
+        userId: interaction.user.id,
+        member: interaction.member,
+        notice: `Clan action failed: ${e?.message || "unknown error"}`,
+      });
+      return syncClanPanel(interaction, payload, "Clan action crashed. Panel recovered.");
+    }
   }
 
   try { await interaction.deferUpdate(); } catch {}

@@ -134,11 +134,18 @@ async function setClan(clan) {
 }
 
 function normalizeClanName(name) {
-  return String(name || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim()
-    .replace(/\s+/g, " ");
+  const raw = String(name || "").toLowerCase().normalize("NFKC");
+  try {
+    return raw
+      .replace(/[^\p{L}\p{N}]+/gu, " ")
+      .trim()
+      .replace(/\s+/g, " ");
+  } catch {
+    return raw
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim()
+      .replace(/\s+/g, " ");
+  }
 }
 
 function normalizeClanSlug(name) {
