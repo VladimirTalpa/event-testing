@@ -2,14 +2,14 @@ const CARD_PACKS = {
   bleach: {
     key: "pack_bleach_core",
     name: "Bleach Card Pack",
-    price: 650,
+    price: 1500,
     currency: "reiatsu",
     desc: "Open and pull 1 Bleach card (weighted rarity).",
   },
   jjk: {
     key: "pack_jjk_core",
     name: "JJK Card Pack",
-    price: 520,
+    price: 1500,
     currency: "cursed_energy",
     desc: "Open and pull 1 JJK card (weighted rarity).",
   },

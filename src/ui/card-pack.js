@@ -446,8 +446,10 @@ async function buildPackOpeningImage({ eventKey = "bleach", username = "Player",
   registerCanvasFonts();
   const W = 1280;
   const H = 720;
-  const canvas = createCanvas(W, H);
+  const SCALE = 2; // Render at HiDPI for crisper output
+  const canvas = createCanvas(W * SCALE, H * SCALE);
   const ctx = canvas.getContext("2d");
+  ctx.scale(SCALE, SCALE);
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
   const theme = eventTheme(eventKey);
@@ -477,10 +479,6 @@ async function buildPackOpeningImage({ eventKey = "bleach", username = "Player",
   const sw = ctx.measureText(status).width;
   ctx.fillText(status, (W - sw) / 2, H - 30);
 
-  drawGlassPanel(ctx, 36, H - 78, 260, 42, 11, "rgba(8,10,16,0.58)", "rgba(255,255,255,0.16)");
-  ctx.font = '700 16px "Orbitron", "Inter", "Segoe UI", sans-serif';
-  ctx.fillStyle = theme.textMuted;
-  ctx.fillText("Framework: Canvas v2", 52, H - 51);
 
   return canvas.toBuffer("image/png");
 }
@@ -489,8 +487,10 @@ async function buildCardRevealImage({ eventKey = "bleach", username = "Player", 
   registerCanvasFonts();
   const W = 1280;
   const H = 720;
-  const canvas = createCanvas(W, H);
+  const SCALE = 2; // HiDPI render
+  const canvas = createCanvas(W * SCALE, H * SCALE);
   const ctx = canvas.getContext("2d");
+  ctx.scale(SCALE, SCALE);
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
   const theme = eventTheme(eventKey);
@@ -542,11 +542,26 @@ async function buildCardRevealImage({ eventKey = "bleach", username = "Player", 
   ctx.clip();
   if (art) {
     const isPixelArtCandidate = art.width <= 700 || art.height <= 700;
-    ctx.imageSmoothingEnabled = !isPixelArtCandidate;
-    ctx.imageSmoothingQuality = isPixelArtCandidate ? "low" : "high";
-    ctx.drawImage(art, cardX, cardY, cardW, cardH);
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = "high";
+    // For pixel-art: draw into a small offscreen canvas then scale up with nearest-neighbor
+    if (isPixelArtCandidate) {
+      try {
+        const tmp = createCanvas(art.width, art.height);
+        const tctx = tmp.getContext("2d");
+        tctx.imageSmoothingEnabled = false;
+        tctx.drawImage(art, 0, 0, art.width, art.height);
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(tmp, 0, 0, art.width, art.height, cardX, cardY, cardW, cardH);
+        ctx.imageSmoothingEnabled = true;
+      } catch (e) {
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(art, cardX, cardY, cardW, cardH);
+        ctx.imageSmoothingEnabled = true;
+      }
+    } else {
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(art, cardX, cardY, cardW, cardH);
+    }
   } else {
     const gg = ctx.createLinearGradient(cardX, cardY, cardX + cardW, cardY + cardH);
     gg.addColorStop(0, "rgba(20,22,36,0.98)");
