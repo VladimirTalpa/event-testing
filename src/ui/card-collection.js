@@ -1,4 +1,4 @@
-const fs = require("fs");
+﻿const fs = require("fs");
 const path = require("path");
 const { createCanvas, loadImage } = require("@napi-rs/canvas");
 const { CARD_POOL, RARITY_COLORS, cardStatsAtLevel, cardPower } = require("../data/cards");
@@ -97,11 +97,11 @@ async function buildCardCollectionImage({ eventKey = "bleach", username = "Playe
     ctx.fill();
   }
 
-  ctx.font = '900 48px "Orbitron", "Inter", "Segoe UI", sans-serif';
+  ctx.font = '900 44px "Orbitron", "Inter", "Segoe UI", sans-serif';
   ctx.fillStyle = "#f3e9d2";
   const title = `${eventKey.toUpperCase()} CARD COLLECTION`;
   ctx.fillText(title, pad, 64);
-  ctx.font = '700 24px "Inter", "Segoe UI", sans-serif';
+  ctx.font = '600 22px "Inter", "Segoe UI", sans-serif';
   ctx.fillStyle = "rgba(235,235,245,0.95)";
   ctx.fillText(`Player: ${username}`, pad, 96);
 
@@ -167,7 +167,7 @@ async function buildCardCollectionImage({ eventKey = "bleach", username = "Playe
 
     ctx.font = '700 16px "Inter", "Segoe UI", sans-serif';
     ctx.fillStyle = "rgba(235,235,245,0.95)";
-    ctx.fillText(`Lv ${row.level} • x${row.amount}`, x + 12, y + cardH - 13);
+    ctx.fillText(`Lv ${row.level} | x${row.amount}`, x + 12, y + cardH - 13);
     ctx.fillText(`PWR ${row.power}`, x + cardW - 98, y + cardH - 13);
   }
 
@@ -175,3 +175,4 @@ async function buildCardCollectionImage({ eventKey = "bleach", username = "Playe
 }
 
 module.exports = { buildCardCollectionImage };
+

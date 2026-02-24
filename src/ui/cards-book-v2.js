@@ -1,4 +1,4 @@
-const {
+ï»¿const {
   ContainerBuilder,
   TextDisplayBuilder,
   SeparatorBuilder,
@@ -46,21 +46,23 @@ async function buildCardsBookPayload({ eventKey, targetId, targetName, ownerId, 
   const { page: p, totalPages, slice } = toPage(rows, page);
   const totalCards = rows.reduce((sum, x) => sum + x.amount, 0);
   const top = rows[0];
+  const topLine = top
+    ? `> \`TOP CARD\` **${safeName(top.card.name)}**  |  \`LV\` **${top.level}**  |  \`PWR\` **${top.power}**`
+    : `> \`TOP CARD\` **None yet**`;
 
   const container = new ContainerBuilder()
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## ${ek.toUpperCase()} Collection\n` +
-        `Player: **${safeName(targetName)}**\n` +
-        `Unique: **${rows.length}** • Total Cards: **${totalCards}**`
+        `## \`${ek.toUpperCase()} // CARD ARCHIVE\`\n` +
+        `> \`PLAYER\` **${safeName(targetName)}**\n` +
+        `> \`UNIQUE\` **${rows.length}**  |  \`TOTAL\` **${totalCards}**`
       )
     )
     .addSeparatorComponents(new SeparatorBuilder())
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `Top Card: **${top.card.name}** (Lv.${top.level}, PWR ${top.power})\n` +
-        `Book Page: **${p + 1}/${totalPages}** • Cards on page: **${slice.length}**\n` +
-        `Stats are rendered on the card images.`
+        `${topLine}\n` +
+        `> \`PAGE\` **${p + 1}/${totalPages}**  |  \`SHOWING\` **${slice.length}**`
       )
     );
 
@@ -91,7 +93,7 @@ async function buildCardsBookPayload({ eventKey, targetId, targetName, ownerId, 
       } catch {}
     }
   } else {
-    const lines = slice.map((x, i) => `${i + 1}. **${x.card.name}** • Lv.${x.level} • x${x.amount} • PWR ${x.power}`);
+    const lines = slice.map((x, i) => `${i + 1}. **${x.card.name}** | Lv.${x.level} | x${x.amount} | PWR ${x.power}`);
     container
       .addSeparatorComponents(new SeparatorBuilder())
       .addTextDisplayComponents(new TextDisplayBuilder().setContent(lines.join("\n") || "No card images/stats found."));
@@ -101,12 +103,12 @@ async function buildCardsBookPayload({ eventKey, targetId, targetName, ownerId, 
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`cardsbook_nav:${ek}:${targetId}:${ownerId}:${p}:prev`)
-        .setLabel("Prev")
+        .setLabel("< Prev")
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(p <= 0),
       new ButtonBuilder()
         .setCustomId(`cardsbook_nav:${ek}:${targetId}:${ownerId}:${p}:next`)
-        .setLabel("Next")
+        .setLabel("Next >")
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(p >= totalPages - 1)
     )
