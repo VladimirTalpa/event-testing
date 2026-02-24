@@ -25,19 +25,27 @@ function rr(ctx, x, y, w, h, r) {
 function eventTheme(eventKey) {
   if (eventKey === "jjk") {
     return {
-      bgA: "#120204",
-      bgB: "#2a050c",
-      accentA: "#ff3f68",
-      accentB: "#ff8fb0",
-      glow: "rgba(255,80,120,0.72)",
+      bgA: "#0d101b",
+      bgB: "#181327",
+      accentA: "#ff4d7a",
+      accentB: "#ff9bc6",
+      surface: "rgba(14,18,30,0.74)",
+      panelStroke: "rgba(255,255,255,0.2)",
+      textMain: "rgba(245,247,255,0.97)",
+      textMuted: "rgba(200,210,230,0.9)",
+      glow: "rgba(255,94,148,0.62)",
     };
   }
   return {
-    bgA: "#130900",
-    bgB: "#2f1202",
-    accentA: "#ff9d33",
-    accentB: "#ffd39a",
-    glow: "rgba(255,160,70,0.72)",
+    bgA: "#0f0f14",
+    bgB: "#1b1620",
+    accentA: "#ffad3b",
+    accentB: "#ffe0a8",
+    surface: "rgba(18,18,24,0.74)",
+    panelStroke: "rgba(255,255,255,0.2)",
+    textMain: "rgba(247,247,252,0.97)",
+    textMuted: "rgba(220,222,235,0.9)",
+    glow: "rgba(255,180,95,0.62)",
   };
 }
 
@@ -49,6 +57,35 @@ function fitText(ctx, text, maxWidth) {
   return `${out}...`;
 }
 
+function drawSoftGrid(ctx, w, h) {
+  ctx.save();
+  ctx.strokeStyle = "rgba(255,255,255,0.045)";
+  ctx.lineWidth = 1;
+  const step = 48;
+  for (let x = 0; x <= w; x += step) {
+    ctx.beginPath();
+    ctx.moveTo(x + 0.5, 0);
+    ctx.lineTo(x + 0.5, h);
+    ctx.stroke();
+  }
+  for (let y = 0; y <= h; y += step) {
+    ctx.beginPath();
+    ctx.moveTo(0, y + 0.5);
+    ctx.lineTo(w, y + 0.5);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawGlassPanel(ctx, x, y, w, h, r, fill, stroke) {
+  rr(ctx, x, y, w, h, r);
+  ctx.fillStyle = fill;
+  ctx.fill();
+  ctx.strokeStyle = stroke;
+  ctx.lineWidth = 1.1;
+  ctx.stroke();
+}
+
 function drawBackground(ctx, w, h, theme) {
   const bg = ctx.createLinearGradient(0, 0, w, h);
   bg.addColorStop(0, theme.bgA);
@@ -56,11 +93,25 @@ function drawBackground(ctx, w, h, theme) {
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, w, h);
 
-  for (let i = 0; i < 160; i++) {
+  drawSoftGrid(ctx, w, h);
+
+  const glowA = ctx.createRadialGradient(w * 0.18, h * 0.18, 20, w * 0.18, h * 0.18, w * 0.5);
+  glowA.addColorStop(0, "rgba(255,255,255,0.14)");
+  glowA.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = glowA;
+  ctx.fillRect(0, 0, w, h);
+
+  const glowB = ctx.createRadialGradient(w * 0.82, h * 0.82, 20, w * 0.82, h * 0.82, w * 0.55);
+  glowB.addColorStop(0, "rgba(255,255,255,0.08)");
+  glowB.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = glowB;
+  ctx.fillRect(0, 0, w, h);
+
+  for (let i = 0; i < 140; i++) {
     const x = Math.random() * w;
     const y = Math.random() * h;
-    const r = 0.7 + Math.random() * 2.2;
-    ctx.fillStyle = i % 2 ? "rgba(255,255,255,0.14)" : "rgba(255,170,90,0.12)";
+    const r = 0.6 + Math.random() * 1.8;
+    ctx.fillStyle = i % 2 ? "rgba(255,255,255,0.12)" : "rgba(255,210,140,0.1)";
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fill();
@@ -68,7 +119,7 @@ function drawBackground(ctx, w, h, theme) {
 }
 
 function drawCenteredTitle(ctx, w, theme, title, subtitle) {
-  ctx.font = '900 64px "Orbitron", "Inter", "Segoe UI", sans-serif';
+  ctx.font = '900 60px "Orbitron", "Inter", "Segoe UI", sans-serif';
   const g = ctx.createLinearGradient(w * 0.25, 0, w * 0.75, 0);
   g.addColorStop(0, theme.accentA);
   g.addColorStop(1, theme.accentB);
@@ -80,20 +131,20 @@ function drawCenteredTitle(ctx, w, theme, title, subtitle) {
   ctx.strokeStyle = theme.accentA;
   ctx.shadowColor = theme.glow;
   ctx.shadowBlur = 18;
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 1.8;
   ctx.beginPath();
-  ctx.moveTo(88, 122);
-  ctx.lineTo(w - 88, 122);
+  ctx.moveTo(116, 120);
+  ctx.lineTo(w - 116, 120);
   ctx.stroke();
   ctx.shadowBlur = 0;
 
-  ctx.font = '700 30px "Inter", "Segoe UI", sans-serif';
-  ctx.fillStyle = "rgba(240,240,250,0.95)";
+  ctx.font = '700 26px "Inter", "Segoe UI", sans-serif';
+  ctx.fillStyle = theme.textMuted;
   const st = String(subtitle || "").trim();
   if (st) {
     const t = fitText(ctx, st, w - 140);
     const stw = ctx.measureText(t).width;
-    ctx.fillText(t, (w - stw) / 2, 162);
+    ctx.fillText(t, (w - stw) / 2, 158);
   }
 }
 
@@ -129,41 +180,57 @@ function drawOpeningAtmosphere(ctx, w, h, theme) {
 
 function drawCardBack(ctx, x, y, w, h, theme) {
   rr(ctx, x - 6, y - 6, w + 12, h + 12, 30);
-  ctx.fillStyle = "rgba(0,0,0,0.28)";
+  ctx.fillStyle = "rgba(0,0,0,0.34)";
   ctx.fill();
 
   rr(ctx, x, y, w, h, 26);
   const cg = ctx.createLinearGradient(x, y, x + w, y + h);
-  cg.addColorStop(0, "rgba(20,22,36,0.98)");
-  cg.addColorStop(1, "rgba(8,10,16,0.96)");
+  cg.addColorStop(0, "rgba(26,29,45,0.98)");
+  cg.addColorStop(1, "rgba(10,12,20,0.98)");
   ctx.fillStyle = cg;
   ctx.fill();
 
   ctx.strokeStyle = theme.accentA;
   ctx.shadowColor = theme.glow;
-  ctx.shadowBlur = 22;
-  ctx.lineWidth = 2.4;
+  ctx.shadowBlur = 20;
+  ctx.lineWidth = 2.1;
   ctx.stroke();
   ctx.shadowBlur = 0;
 
-  ctx.font = '900 44px "Orbitron", "Inter", "Segoe UI", sans-serif';
+  ctx.font = '900 38px "Orbitron", "Inter", "Segoe UI", sans-serif';
   const tg = ctx.createLinearGradient(x + 30, 0, x + w - 30, 0);
   tg.addColorStop(0, theme.accentB);
   tg.addColorStop(1, theme.accentA);
   ctx.fillStyle = tg;
-  const txt = "CARD PACK";
+  const txt = "PREMIUM PACK";
   const tw = ctx.measureText(txt).width;
-  ctx.fillText(txt, x + (w - tw) / 2, y + 98);
+  ctx.fillText(txt, x + (w - tw) / 2, y + 90);
 
-  rr(ctx, x + 34, y + 126, w - 68, h - 180, 16);
-  ctx.fillStyle = "rgba(255,255,255,0.06)";
+  rr(ctx, x + 26, y + 112, w - 52, h - 176, 20);
+  const ig = ctx.createLinearGradient(x, y + 112, x, y + h - 64);
+  ig.addColorStop(0, "rgba(255,255,255,0.09)");
+  ig.addColorStop(1, "rgba(255,255,255,0.03)");
+  ctx.fillStyle = ig;
   ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,0.16)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
 
-  ctx.font = '800 24px "Inter", "Segoe UI", sans-serif';
-  ctx.fillStyle = "rgba(235,235,248,0.92)";
-  const open = "OPENING";
+  rr(ctx, x + 80, y + 186, w - 160, w - 160, 20);
+  ctx.strokeStyle = "rgba(255,255,255,0.22)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.font = '900 46px "Orbitron", "Inter", "Segoe UI", sans-serif';
+  ctx.fillStyle = "rgba(255,255,255,0.18)";
+  const emblem = "CP";
+  const ew = ctx.measureText(emblem).width;
+  ctx.fillText(emblem, x + (w - ew) / 2, y + Math.floor(h / 2) + 28);
+
+  ctx.font = '800 22px "Inter", "Segoe UI", sans-serif';
+  ctx.fillStyle = "rgba(235,235,248,0.95)";
+  const open = "UNSEALING";
   const ow = ctx.measureText(open).width;
-  ctx.fillText(open, x + (w - ow) / 2, y + h - 54);
+  ctx.fillText(open, x + (w - ow) / 2, y + h - 44);
 }
 
 function drawOpeningPortal(ctx, x, y, w, h, theme) {
@@ -171,8 +238,8 @@ function drawOpeningPortal(ctx, x, y, w, h, theme) {
   const cy = y + h / 2;
 
   const aura = ctx.createRadialGradient(cx, cy, 10, cx, cy, Math.max(w, h) * 0.9);
-  aura.addColorStop(0, "rgba(255,245,210,0.16)");
-  aura.addColorStop(0.35, "rgba(255,180,90,0.14)");
+  aura.addColorStop(0, "rgba(255,245,210,0.2)");
+  aura.addColorStop(0.35, "rgba(255,180,90,0.16)");
   aura.addColorStop(1, "rgba(255,160,70,0)");
   ctx.fillStyle = aura;
   ctx.fillRect(x - 220, y - 210, w + 440, h + 420);
@@ -191,7 +258,7 @@ function drawOpeningPortal(ctx, x, y, w, h, theme) {
     ctx.restore();
   }
 
-  for (let i = 0; i < 42; i++) {
+  for (let i = 0; i < 24; i++) {
     const px = x - 30 + Math.random() * (w + 60);
     const py = y - 40 + Math.random() * (h + 80);
     const pr = 0.8 + Math.random() * 2;
@@ -206,11 +273,11 @@ function drawOpeningPortal(ctx, x, y, w, h, theme) {
     ctx.restore();
   }
 
-  const shine = ctx.createLinearGradient(0, y + 42, 0, y + 140);
-  shine.addColorStop(0, "rgba(255,255,255,0.24)");
+  const shine = ctx.createLinearGradient(0, y + 26, 0, y + 132);
+  shine.addColorStop(0, "rgba(255,255,255,0.19)");
   shine.addColorStop(1, "rgba(255,255,255,0)");
   ctx.fillStyle = shine;
-  rr(ctx, x + 20, y + 18, w - 40, 122, 16);
+  rr(ctx, x + 24, y + 18, w - 48, 116, 14);
   ctx.fill();
 }
 
@@ -289,12 +356,7 @@ async function loadCardArt(eventKey, cardId) {
 }
 
 function drawStatBadge(ctx, x, y, w, h, label, value, color) {
-  rr(ctx, x, y, w, h, 10);
-  ctx.fillStyle = "rgba(6,8,14,0.64)";
-  ctx.fill();
-  ctx.strokeStyle = "rgba(255,255,255,0.22)";
-  ctx.lineWidth = 1.1;
-  ctx.stroke();
+  drawGlassPanel(ctx, x, y, w, h, 10, "rgba(6,8,14,0.62)", "rgba(255,255,255,0.2)");
 
   ctx.font = '700 16px "Orbitron", "Inter", "Segoe UI", sans-serif';
   ctx.fillStyle = "rgba(225,225,238,0.92)";
@@ -306,12 +368,7 @@ function drawStatBadge(ctx, x, y, w, h, label, value, color) {
 }
 
 function drawInfoTile(ctx, x, y, w, h, title, value, valueColor = "rgba(245,245,255,0.96)") {
-  rr(ctx, x, y, w, h, 12);
-  ctx.fillStyle = "rgba(8,10,16,0.64)";
-  ctx.fill();
-  ctx.strokeStyle = "rgba(255,255,255,0.2)";
-  ctx.lineWidth = 1.1;
-  ctx.stroke();
+  drawGlassPanel(ctx, x, y, w, h, 12, "rgba(8,10,16,0.62)", "rgba(255,255,255,0.18)");
 
   ctx.font = '700 17px "Orbitron", "Inter", "Segoe UI", sans-serif';
   ctx.fillStyle = "rgba(220,225,238,0.9)";
@@ -391,11 +448,13 @@ async function buildPackOpeningImage({ eventKey = "bleach", username = "Player",
   const H = 720;
   const canvas = createCanvas(W, H);
   const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
   const theme = eventTheme(eventKey);
 
   drawBackground(ctx, W, H, theme);
   drawOpeningAtmosphere(ctx, W, H, theme);
-  drawCenteredTitle(ctx, W, theme, "CARD OPENING", `Player: ${username}`);
+  drawCenteredTitle(ctx, W, theme, "PACK OPENING", `Player: ${username}`);
 
   const cardH = 492;
   const cardW = 338;
@@ -404,24 +463,24 @@ async function buildPackOpeningImage({ eventKey = "bleach", username = "Player",
   drawOpeningPortal(ctx, cardX, cardY, cardW, cardH, theme);
   drawCardBack(ctx, cardX, cardY, cardW, cardH, theme);
 
-  rr(ctx, Math.floor(W / 2) - 252, cardY + cardH + 14, 504, 44, 12);
-  ctx.fillStyle = "rgba(10,10,14,0.58)";
-  ctx.fill();
-  ctx.strokeStyle = "rgba(255,255,255,0.26)";
-  ctx.lineWidth = 1.1;
-  ctx.stroke();
+  drawGlassPanel(ctx, Math.floor(W / 2) - 252, cardY + cardH + 14, 504, 44, 12, theme.surface, theme.panelStroke);
 
   const info = String(eventKey || "").toLowerCase() === "jjk" ? "JJK" : "BLEACH";
-  ctx.font = '900 18px "Orbitron", "Inter", "Segoe UI", sans-serif';
+  ctx.font = '900 17px "Orbitron", "Inter", "Segoe UI", sans-serif';
   ctx.fillStyle = theme.accentB;
   const infoTxt = `${info} PACK`;
   ctx.fillText(infoTxt, Math.floor(W / 2) - 236, cardY + cardH + 43);
 
-  ctx.font = '700 30px "Inter", "Segoe UI", sans-serif';
-  ctx.fillStyle = "rgba(245,245,255,0.97)";
+  ctx.font = '700 28px "Inter", "Segoe UI", sans-serif';
+  ctx.fillStyle = theme.textMain;
   const status = fitText(ctx, `Preparing ${packName}...`, W - 120);
   const sw = ctx.measureText(status).width;
-  ctx.fillText(status, (W - sw) / 2, H - 36);
+  ctx.fillText(status, (W - sw) / 2, H - 30);
+
+  drawGlassPanel(ctx, 36, H - 78, 260, 42, 11, "rgba(8,10,16,0.58)", "rgba(255,255,255,0.16)");
+  ctx.font = '700 16px "Orbitron", "Inter", "Segoe UI", sans-serif';
+  ctx.fillStyle = theme.textMuted;
+  ctx.fillText("Framework: Canvas v2", 52, H - 51);
 
   return canvas.toBuffer("image/png");
 }
@@ -432,6 +491,8 @@ async function buildCardRevealImage({ eventKey = "bleach", username = "Player", 
   const H = 720;
   const canvas = createCanvas(W, H);
   const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
   const theme = eventTheme(eventKey);
   const rarity = String(card?.rarity || "Common");
   const rarityColor = RARITY_COLORS[rarity] || "#c8d0e0";
@@ -441,7 +502,7 @@ async function buildCardRevealImage({ eventKey = "bleach", username = "Player", 
   const power = cardPower(stats);
 
   drawBackground(ctx, W, H, theme);
-  drawCenteredTitle(ctx, W, theme, "CARD REVEAL", "");
+  drawCenteredTitle(ctx, W, theme, "CARD REVEAL", "High Quality Render");
 
   const art = await loadCardArt(eventKey, card?.id);
 
@@ -470,6 +531,8 @@ async function buildCardRevealImage({ eventKey = "bleach", username = "Player", 
   ctx.fillStyle = glow;
   ctx.fillRect(W / 2 - 380, cardY - 40, 760, cardH + 120);
 
+  drawGlassPanel(ctx, cardX - 18, cardY - 18, cardW + 36, cardH + 36, 28, theme.surface, theme.panelStroke);
+
   rr(ctx, cardX - 8, cardY - 8, cardW + 16, cardH + 16, 26);
   ctx.fillStyle = "rgba(0,0,0,0.33)";
   ctx.fill();
@@ -478,7 +541,12 @@ async function buildCardRevealImage({ eventKey = "bleach", username = "Player", 
   ctx.save();
   ctx.clip();
   if (art) {
+    const isPixelArtCandidate = art.width <= 700 || art.height <= 700;
+    ctx.imageSmoothingEnabled = !isPixelArtCandidate;
+    ctx.imageSmoothingQuality = isPixelArtCandidate ? "low" : "high";
     ctx.drawImage(art, cardX, cardY, cardW, cardH);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
   } else {
     const gg = ctx.createLinearGradient(cardX, cardY, cardX + cardW, cardY + cardH);
     gg.addColorStop(0, "rgba(20,22,36,0.98)");
@@ -502,35 +570,38 @@ async function buildCardRevealImage({ eventKey = "bleach", username = "Player", 
   ctx.shadowBlur = 0;
 
   const ribbonH = 56;
-  rr(ctx, cardX + 16, cardY + 16, cardW - 32, ribbonH, 12);
-  ctx.fillStyle = "rgba(0,0,0,0.5)";
-  ctx.fill();
-  ctx.strokeStyle = "rgba(255,255,255,0.22)";
-  ctx.lineWidth = 1;
-  ctx.stroke();
+  drawGlassPanel(ctx, cardX + 16, cardY + 16, cardW - 32, ribbonH, 12, "rgba(0,0,0,0.5)", "rgba(255,255,255,0.22)");
 
   ctx.font = '900 30px "Orbitron", "Inter", "Segoe UI", sans-serif';
   ctx.fillStyle = premiumTier ? "#ffe6ab" : rarityColor;
   const name = fitText(ctx, String(card?.name || "Unknown Card"), cardW - 44 - 120);
   ctx.fillText(name, cardX + 28, cardY + 52);
 
-  rr(ctx, cardX + cardW - 104, cardY + 24, 72, 36, 10);
-  ctx.fillStyle = "rgba(10,10,16,0.72)";
-  ctx.fill();
-  ctx.strokeStyle = premiumTier ? "#ffd982" : rarityColor;
-  ctx.lineWidth = 1.2;
-  ctx.stroke();
+  drawGlassPanel(
+    ctx,
+    cardX + cardW - 104,
+    cardY + 24,
+    72,
+    36,
+    10,
+    "rgba(10,10,16,0.72)",
+    premiumTier ? "#ffd982" : rarityColor
+  );
   ctx.font = '900 21px "Orbitron", "Inter", "Segoe UI", sans-serif';
   ctx.fillStyle = "rgba(245,245,255,0.96)";
   ctx.fillText(`Lv ${lv}`, cardX + cardW - 90, cardY + 49);
 
   const statsPanelH = 88;
-  rr(ctx, cardX + 14, cardY + cardH - statsPanelH - 14, cardW - 28, statsPanelH, 14);
-  ctx.fillStyle = "rgba(0,0,0,0.56)";
-  ctx.fill();
-  ctx.strokeStyle = "rgba(255,255,255,0.24)";
-  ctx.lineWidth = 1;
-  ctx.stroke();
+  drawGlassPanel(
+    ctx,
+    cardX + 14,
+    cardY + cardH - statsPanelH - 14,
+    cardW - 28,
+    statsPanelH,
+    14,
+    "rgba(0,0,0,0.56)",
+    "rgba(255,255,255,0.24)"
+  );
 
   const panelX = cardX + 24;
   const panelY = cardY + cardH - statsPanelH - 6;
@@ -571,6 +642,11 @@ async function buildCardRevealImage({ eventKey = "bleach", username = "Player", 
   drawInfoTile(ctx, rightX, topY + 74 + gapY, tileW, 74, "DMG", stats.dmg, "#ff9360");
   drawInfoTile(ctx, rightX, topY + (74 + gapY) * 2, tileW, 74, "DEF", stats.def, "#6bd1ff");
   drawInfoTile(ctx, rightX, topY + (74 + gapY) * 3, tileW, 74, "HP", stats.hp, "#8fff9b");
+
+  drawGlassPanel(ctx, 36, H - 78, 280, 42, 11, "rgba(8,10,16,0.58)", "rgba(255,255,255,0.16)");
+  ctx.font = '700 16px "Orbitron", "Inter", "Segoe UI", sans-serif';
+  ctx.fillStyle = theme.textMuted;
+  ctx.fillText("Render: HQ Card Reveal", 52, H - 51);
 
   return canvas.toBuffer("image/png");
 }
