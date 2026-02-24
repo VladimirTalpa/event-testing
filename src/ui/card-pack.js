@@ -5,7 +5,12 @@ const { RARITY_COLORS, cardStatsAtLevel, cardPower } = require("../data/cards");
 const { registerCanvasFonts } = require("./fonts");
 
 const CARD_LIBRARY_ROOT = path.join(__dirname, "..", "..", "assets", "cards", "library");
+const TEMPLATE_DIR = path.join(__dirname, "..", "..", "assets", "templates");
 const artPathCache = new Map();
+const OPENING_TEMPLATE_MAP = {
+  bleach: "bl_opening.png",
+  jjk: "jjk_opening.png",
+};
 
 function rr(ctx, x, y, w, h, r) {
   const radius = Math.max(0, Math.min(r, Math.floor(Math.min(w, h) / 2)));
@@ -443,6 +448,19 @@ function drawLegendaryMythicFX(ctx, W, H, cardX, cardY, cardW, cardH) {
 }
 
 async function buildPackOpeningImage({ eventKey = "bleach", username = "Player", packName = "Card Pack" } = {}) {
+  const ek = eventKey === "jjk" ? "jjk" : "bleach";
+  const templateFile = OPENING_TEMPLATE_MAP[ek];
+  if (templateFile) {
+    const templatePath = path.join(TEMPLATE_DIR, templateFile);
+    if (fs.existsSync(templatePath)) {
+      try {
+        return fs.readFileSync(templatePath);
+      } catch (err) {
+        console.warn(`[cards] opening template read failed for ${ek}: ${err?.message || err}`);
+      }
+    }
+  }
+
   registerCanvasFonts();
   const W = 1280;
   const H = 720;
