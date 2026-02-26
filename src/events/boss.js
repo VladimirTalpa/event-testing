@@ -3,10 +3,11 @@ const {
   PermissionsBitField,
   AttachmentBuilder,
   MessageFlags,
-  EmbedBuilder,
   ContainerBuilder,
   TextDisplayBuilder,
   SeparatorBuilder,
+  MediaGalleryBuilder,
+  MediaGalleryItemBuilder,
 } = require("discord.js");
 
 const {
@@ -225,7 +226,7 @@ function getTopDamageRows(boss, limit = 8) {
 function hpBarText(pct, width = 20) {
   const p = Math.max(0, Math.min(100, pct));
   const fill = Math.round((p / 100) * width);
-  return `${"#".repeat(fill)}${"-".repeat(Math.max(0, width - fill))}`;
+  return `${"█".repeat(fill)}${"░".repeat(Math.max(0, width - fill))}`;
 }
 
 function currentRoundDef(boss) {
@@ -239,39 +240,57 @@ function mediaUrlFromRound(round, fallback = "") {
   return /^https?:\/\//i.test(v) ? v : "";
 }
 
-function fightEmbedColor(eventKey) {
-  return eventKey === "jjk" ? 0xdc5c8f : 0xf6a44d;
-}
-
-function buildFightEmbedPayload(boss, opts = {}) {
+function buildFightV2Payload(boss, opts = {}) {
   const alive = aliveIds(boss).length;
   const joined = boss?.participants?.size || 0;
   const roundCount = Array.isArray(boss?.def?.rounds) ? boss.def.rounds.length : 1;
   const hpLeft = Math.max(0, Math.floor(boss?.currentHp || 0));
   const hpTotal = Math.max(1, Math.floor(boss?.totalHp || 1));
   const hpPct = getHpPercent(boss);
+  const hpPct1 = Math.round((hpLeft / hpTotal) * 1000) / 10;
   const phase = String(opts.phase || "LIVE").trim();
   const rawLines = Array.isArray(opts.lines) ? opts.lines : [opts.noteA, opts.noteB, opts.noteC];
-  const lines = rawLines.map((x) => String(x || "").trim()).filter(Boolean).slice(0, 7);
+  const lines = rawLines.map((x) => String(x || "").trim()).filter(Boolean).slice(0, 2);
 
-  const embed = new EmbedBuilder()
-    .setColor(fightEmbedColor(boss?.def?.event))
-    .setTitle(`${boss?.def?.icon || ""} ${boss?.def?.name || "Raid"} — ${phase}`)
-    .addFields(
-      { name: "HP", value: `\`${hpBarText(hpPct, 24)}\` **${hpLeft}/${hpTotal}** (${hpPct}%)`, inline: false },
-      { name: "Round", value: `**${Math.max(1, Number(boss?.roundNo || 1))}/${Math.max(1, roundCount)}**`, inline: true },
-      { name: "Alive", value: `**${alive}/${joined}**`, inline: true }
+  const container = new ContainerBuilder()
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(`## ${boss?.def?.icon || ""} ${boss?.def?.name || "Raid"} — ${phase}`)
     )
-    .setTimestamp();
-
-  if (lines.length) embed.setDescription(lines.map((x) => `• ${x}`).join("\n"));
+    .addSeparatorComponents(new SeparatorBuilder())
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `> \`ROUND\` **${Math.max(1, Number(boss?.roundNo || 1))}/${Math.max(1, roundCount)}**  |  \`ALIVE\` **${alive}/${joined}**\n` +
+        `> \`HP\` **${hpLeft.toLocaleString("en-US")}/${hpTotal.toLocaleString("en-US")} (${hpPct1}%)**\n` +
+        `> \`BAR\` \`${hpBarText(hpPct, 20)}\`` +
+        (lines.length ? `\n\n${lines.map((x) => `> ${x}`).join("\n")}` : "")
+      )
+    );
 
   const mediaUrl = String(opts.mediaUrl || "").trim();
-  if (mediaUrl) embed.setImage(mediaUrl);
+  if (mediaUrl && opts.showMedia !== false && typeof MediaGalleryBuilder === "function" && typeof MediaGalleryItemBuilder === "function") {
+    try {
+      container.addMediaGalleryComponents(
+        new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(mediaUrl))
+      );
+    } catch {}
+  }
 
-  const payload = { embeds: [embed] };
-  if (opts.components) payload.components = opts.components;
+  const payload = { flags: MessageFlags.IsComponentsV2, components: [container, ...(opts.components || [])] };
   return payload;
+}
+
+function getActionWindowMs(r, fallbackMs = 5000) {
+  const base = Math.max(1000, Math.floor(Number(r?.windowMs || fallbackMs)));
+  const t = String(r?.type || "");
+  if (t === "choice_qte") return Math.max(base, 4500);
+  if (t === "quick_block") return Math.max(base, 3500);
+  if (t === "finisher") return Math.max(base, 5000);
+  if (t === "final_quiz") return Math.max(base, 9000);
+  if (t === "coop_block") return Math.max(base, 6000);
+  if (t === "multi_press") return Math.max(base, 8000);
+  if (t === "tri_press") return Math.max(base, 10000);
+  if (t === "combo_defense") return Math.max(base, 10000);
+  return base;
 }
 
 async function announceElimination(channel, boss, uid, reasonText = "") {
@@ -279,10 +298,24 @@ async function announceElimination(channel, boss, uid, reasonText = "") {
     if (!boss?.eliminationAnnounced) boss.eliminationAnnounced = new Set();
     if (boss.eliminationAnnounced.has(uid)) return;
     boss.eliminationAnnounced.add(uid);
-    const maxHits = getMaxHits(boss?.def || {});
-    const reason = String(reasonText || "").trim();
-    const line = reason ? `Reason: ${reason}` : "You were defeated.";
-    await channel.send(`☠️ <@${uid}> is **eliminated** (${maxHits}/${maxHits} hits). ${line}`).catch(() => {});
+    if (!boss.elimNoticeQueue) boss.elimNoticeQueue = new Map();
+    boss.elimNoticeQueue.set(uid, String(reasonText || "").trim());
+
+    if (boss.elimDigestTimer) return;
+    boss.elimDigestTimer = setTimeout(async () => {
+      try {
+        const queued = [...(boss.elimNoticeQueue?.entries() || [])];
+        boss.elimNoticeQueue = new Map();
+        boss.elimDigestTimer = null;
+        if (!queued.length) return;
+        const maxHits = getMaxHits(boss?.def || {});
+        const names = queued.slice(0, 8).map(([id]) => `<@${id}>`).join(", ");
+        const firstReason = String(queued[0]?.[1] || "").trim();
+        const reasonLine = firstReason ? ` Reason: ${firstReason}` : "";
+        await channel.send(`☠️ Eliminated (${queued.length}) at ${maxHits}/${maxHits} hits: ${names}.${reasonLine}`).catch(() => {});
+      } catch {}
+    }, 1200);
+    if (typeof boss.elimDigestTimer?.unref === "function") boss.elimDigestTimer.unref();
   } catch {}
 }
 
@@ -327,16 +360,34 @@ function trackRaidMessage(boss, msg) {
 
 async function sendRoundSummaryV2(channel, boss, title, lines, opts = {}) {
   const round = currentRoundDef(boss);
-  const payload = buildFightEmbedPayload(boss, {
+  const payload = buildFightV2Payload(boss, {
     phase: title,
     lines,
     mediaUrl: String(opts.mediaUrl || "").trim() || mediaUrlFromRound(round),
+    showMedia: opts.showMedia === true,
   });
-  const msg = await channel.send(payload).catch(() => null);
-  if (msg?.id) {
-    if (!Array.isArray(boss.raidMessageIds)) boss.raidMessageIds = [];
-    boss.raidMessageIds.push(msg.id);
+
+  if (!boss.summaryMessageId) {
+    const msg = await channel.send(payload).catch(() => null);
+    if (msg?.id) {
+      boss.summaryMessageId = msg.id;
+      if (!Array.isArray(boss.raidMessageIds)) boss.raidMessageIds = [];
+      boss.raidMessageIds.push(msg.id);
+    }
+    return;
   }
+
+  const msg = await channel.messages.fetch(boss.summaryMessageId).catch(() => null);
+  if (!msg) {
+    const resend = await channel.send(payload).catch(() => null);
+    if (resend?.id) {
+      boss.summaryMessageId = resend.id;
+      if (!Array.isArray(boss.raidMessageIds)) boss.raidMessageIds = [];
+      boss.raidMessageIds.push(resend.id);
+    }
+    return;
+  }
+  await msg.edit(payload).catch(() => {});
 }
 
 async function buildLivePngPayload(boss, opts = {}) {
@@ -360,7 +411,7 @@ async function buildLivePngPayload(boss, opts = {}) {
 async function upsertRaidHudMessage(channel, boss, phaseLabel, nextRoundSeconds = 0) {
   const round = currentRoundDef(boss);
   const maxHits = getMaxHits(boss.def);
-  const payload = buildFightEmbedPayload(boss, {
+  const payload = buildFightV2Payload(boss, {
     phase: phaseLabel,
     lines: [
       `Round ${Math.min((boss.def.rounds || []).length, Math.max(1, Number(boss.roundNo || 1)))}/${(boss.def.rounds || []).length}`,
@@ -368,6 +419,7 @@ async function upsertRaidHudMessage(channel, boss, phaseLabel, nextRoundSeconds 
       nextRoundSeconds > 0 ? `Next in ${nextRoundSeconds}s` : "",
     ],
     mediaUrl: mediaUrlFromRound(round),
+    showMedia: false,
   });
   if (!boss.hudMessageId) {
     const msg = await channel.send(payload).catch(() => null);
@@ -498,10 +550,11 @@ async function sendActionWindowPng(channel, boss, opts = {}) {
   const timerLine = Number.isFinite(opts.windowSec) && opts.windowSec > 0
     ? `Window ends in ${opts.windowSec}s`
     : String(opts.noteC || "").trim();
-  const payload = buildFightEmbedPayload(boss, {
+  const payload = buildFightV2Payload(boss, {
     phase: opts.phase || "ACTION WINDOW",
     lines: [`Status: ${status}`, objective, timerLine],
     mediaUrl: String(opts.mediaUrl || "").trim() || mediaUrlFromRound(currentRoundDef(boss)),
+    showMedia: true,
     components: opts.actionRows || [],
   });
   const msg = await channel.send(payload).catch(() => null);
@@ -516,10 +569,11 @@ async function editActionWindowPng(msg, boss, opts = {}) {
   const timerLine = Number.isFinite(opts.windowSec) && opts.windowSec > 0
     ? `Window ends in ${opts.windowSec}s`
     : String(opts.noteC || "").trim();
-  const payload = buildFightEmbedPayload(boss, {
+  const payload = buildFightV2Payload(boss, {
     phase: opts.phase || "ACTION WINDOW",
     lines: [`Status: ${status}`, objective, timerLine],
     mediaUrl: String(opts.mediaUrl || "").trim() || mediaUrlFromRound(currentRoundDef(boss)),
+    showMedia: true,
     components: opts.actionRows || [],
   });
   await msg.edit(payload).catch(() => {});
@@ -606,6 +660,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
     
       if (r.type === "coop_block") {
         const token = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+        const windowMs = getActionWindowMs(r, 5000);
         boss.activeAction = {
           token,
           roundIndex: i,
@@ -616,17 +671,17 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
 
         const customId = `boss_action:${boss.def.id}:${i}:${token}:press:block`;
         const msg = await sendActionWindowPng(channel, boss, {
-          phase: `COOP BLOCK WINDOW ${Math.round((r.windowMs || 5000) / 1000)}s`,
+          phase: `COOP BLOCK WINDOW ${Math.round(windowMs / 1000)}s`,
           status: "BEGIN",
           objective: `Need ${boss.activeAction.requiredPresses} different players to press Block`,
-          windowSec: Math.round((r.windowMs || 5000) / 1000),
+          windowSec: Math.round(windowMs / 1000),
           actionRows: singleActionRow(customId, r.buttonLabel || "Block", r.buttonEmoji || "🛡️", false),
         });
 
-        await sleep(r.windowMs || 5000);
+        await sleep(windowMs);
 
         await editActionWindowPng(msg, boss, {
-          phase: `COOP BLOCK WINDOW ${Math.round((r.windowMs || 5000) / 1000)}s`,
+          phase: `COOP BLOCK WINDOW ${Math.round(windowMs / 1000)}s`,
           status: "ENDED",
           objective: `Need ${boss.activeAction.requiredPresses} different players to press Block`,
           noteC: "Window closed. Resolving results...",
@@ -682,6 +737,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
    
       if (r.type === "quick_block" || r.type === "finisher") {
         const token = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+        const windowMs = getActionWindowMs(r, 5000);
         boss.activeAction = { token, roundIndex: i, mode: "press", pressed: new Set() };
 
         const label = r.buttonLabel || (r.type === "finisher" ? "Finisher" : "Block");
@@ -689,17 +745,17 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         const customId = `boss_action:${boss.def.id}:${i}:${token}:press:${r.type}`;
 
         const msg = await sendActionWindowPng(channel, boss, {
-          phase: `${label.toUpperCase()} WINDOW ${Math.round((r.windowMs || 5000) / 1000)}s`,
+          phase: `${label.toUpperCase()} WINDOW ${Math.round(windowMs / 1000)}s`,
           status: "BEGIN",
           objective: `Press ${label} before timer ends`,
-          windowSec: Math.round((r.windowMs || 5000) / 1000),
+          windowSec: Math.round(windowMs / 1000),
           actionRows: singleActionRow(customId, label, emoji, false),
         });
 
-        await sleep(r.windowMs || 5000);
+        await sleep(windowMs);
 
         await editActionWindowPng(msg, boss, {
-          phase: `${label.toUpperCase()} WINDOW ${Math.round((r.windowMs || 5000) / 1000)}s`,
+          phase: `${label.toUpperCase()} WINDOW ${Math.round(windowMs / 1000)}s`,
           status: "ENDED",
           objective: `Press ${label} before timer ends`,
           noteC: "Window closed. Resolving results...",
@@ -758,6 +814,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
       
       if (r.type === "combo_defense") {
         const token = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+        const windowMs = getActionWindowMs(r, 5000);
         const seq = randomComboSeq();
 
         boss.activeAction = {
@@ -772,21 +829,21 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         const seqText = seq.map(comboToEmoji).join(" ");
 
         const msg = await sendActionWindowPng(channel, boss, {
-          phase: `COMBO DEFENSE ${Math.round((r.windowMs || 5000) / 1000)}s`,
+          phase: `COMBO DEFENSE ${Math.round(windowMs / 1000)}s`,
           status: "BEGIN",
           objective: `Press order: ${seqText}`,
-          windowSec: Math.round((r.windowMs || 5000) / 1000),
+          windowSec: Math.round(windowMs / 1000),
           actionRows: comboDefenseRows(token, boss.def.id, i),
         });
 
-        await sleep(r.windowMs || 5000);
+        await sleep(windowMs);
 
         const disabledRows = comboDefenseRows(token, boss.def.id, i).map((row) => {
           row.components.forEach((b) => b.setDisabled(true));
           return row;
         });
         await editActionWindowPng(msg, boss, {
-          phase: `COMBO DEFENSE ${Math.round((r.windowMs || 5000) / 1000)}s`,
+          phase: `COMBO DEFENSE ${Math.round(windowMs / 1000)}s`,
           status: "ENDED",
           objective: `Press order: ${seqText}`,
           noteC: "Window closed. Mistake/timeout = hit.",
@@ -907,6 +964,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
 
       if (r.type === "multi_press") {
         const token = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+        const windowMs = getActionWindowMs(r, 10000);
         boss.activeAction = {
           token,
           roundIndex: i,
@@ -918,17 +976,17 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         const customId = `boss_action:${boss.def.id}:${i}:${token}:multi:${r.type}`;
 
         const msg = await sendActionWindowPng(channel, boss, {
-          phase: `BLOCK x${boss.activeAction.requiredPresses} (${Math.round((r.windowMs || 10000) / 1000)}s)`,
+          phase: `BLOCK x${boss.activeAction.requiredPresses} (${Math.round(windowMs / 1000)}s)`,
           status: "BEGIN",
           objective: `Press Block ${boss.activeAction.requiredPresses} times`,
-          windowSec: Math.round((r.windowMs || 10000) / 1000),
+          windowSec: Math.round(windowMs / 1000),
           actionRows: singleActionRow(customId, r.buttonLabel || "Block", r.buttonEmoji || "🛡️", false),
         });
 
-        await sleep(r.windowMs || 10000);
+        await sleep(windowMs);
 
         await editActionWindowPng(msg, boss, {
-          phase: `BLOCK x${boss.activeAction.requiredPresses} (${Math.round((r.windowMs || 10000) / 1000)}s)`,
+          phase: `BLOCK x${boss.activeAction.requiredPresses} (${Math.round(windowMs / 1000)}s)`,
           status: "ENDED",
           objective: `Press Block ${boss.activeAction.requiredPresses} times`,
           noteC: "Window closed. Resolving results...",
@@ -977,6 +1035,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
    
       if (r.type === "choice_qte") {
         const token = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+        const windowMs = getActionWindowMs(r, 3000);
         boss.activeAction = {
           token,
           roundIndex: i,
@@ -990,17 +1049,17 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         const idB = `boss_action:${boss.def.id}:${i}:${token}:choice:${cB.key}`;
 
         const msg = await sendActionWindowPng(channel, boss, {
-          phase: `CHOICE WINDOW ${Math.round((r.windowMs || 3000) / 1000)}s`,
+          phase: `CHOICE WINDOW ${Math.round(windowMs / 1000)}s`,
           status: "BEGIN",
           objective: "Pick the correct action quickly",
-          windowSec: Math.round((r.windowMs || 3000) / 1000),
+          windowSec: Math.round(windowMs / 1000),
           actionRows: dualChoiceRow(idA, cA.label, cA.emoji, idB, cB.label, cB.emoji, false),
         });
 
-        await sleep(r.windowMs || 3000);
+        await sleep(windowMs);
 
         await editActionWindowPng(msg, boss, {
-          phase: `CHOICE WINDOW ${Math.round((r.windowMs || 3000) / 1000)}s`,
+          phase: `CHOICE WINDOW ${Math.round(windowMs / 1000)}s`,
           status: "ENDED",
           objective: "Pick the correct action quickly",
           noteC: "Window closed. Resolving results...",
@@ -1099,6 +1158,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
      
       if (r.type === "tri_press") {
         const token = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+        const windowMs = getActionWindowMs(r, 12000);
         boss.activeAction = {
           token,
           roundIndex: i,
@@ -1114,17 +1174,17 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         }));
 
         const msg = await sendActionWindowPng(channel, boss, {
-          phase: `FOCUS WINDOW ${Math.round((r.windowMs || 12000) / 1000)}s`,
+          phase: `FOCUS WINDOW ${Math.round(windowMs / 1000)}s`,
           status: "BEGIN",
           objective: "Press all 3 buttons before timer ends",
-          windowSec: Math.round((r.windowMs || 12000) / 1000),
+          windowSec: Math.round(windowMs / 1000),
           actionRows: triChoiceRow(btns, false),
         });
 
-        await sleep(r.windowMs || 12000);
+        await sleep(windowMs);
 
         await editActionWindowPng(msg, boss, {
-          phase: `FOCUS WINDOW ${Math.round((r.windowMs || 12000) / 1000)}s`,
+          phase: `FOCUS WINDOW ${Math.round(windowMs / 1000)}s`,
           status: "ENDED",
           objective: "Press all 3 buttons before timer ends",
           noteC: "Window closed. Resolving results...",
@@ -1172,6 +1232,7 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
     
       if (r.type === "final_quiz") {
         const token = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+        const windowMs = getActionWindowMs(r, 8000);
         boss.activeAction = {
           token,
           roundIndex: i,
@@ -1186,17 +1247,17 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         }));
 
         const msg = await sendActionWindowPng(channel, boss, {
-          phase: `FINAL QUIZ ${Math.round((r.windowMs || 8000) / 1000)}s`,
+          phase: `FINAL QUIZ ${Math.round(windowMs / 1000)}s`,
           status: "BEGIN",
           objective: "Choose the correct finisher before timer ends",
-          windowSec: Math.round((r.windowMs || 8000) / 1000),
+          windowSec: Math.round(windowMs / 1000),
           actionRows: triChoiceRow(btns, false),
         });
 
-        await sleep(r.windowMs || 8000);
+        await sleep(windowMs);
 
         await editActionWindowPng(msg, boss, {
-          phase: `FINAL QUIZ ${Math.round((r.windowMs || 8000) / 1000)}s`,
+          phase: `FINAL QUIZ ${Math.round(windowMs / 1000)}s`,
           status: "ENDED",
           objective: "Choose the correct finisher before timer ends",
           noteC: "Window closed. Resolving results...",
@@ -1325,6 +1386,10 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
       clearTimeout(boss.joinTimer);
       boss.joinTimer = null;
     }
+    if (boss?.elimDigestTimer) {
+      clearTimeout(boss.elimDigestTimer);
+      boss.elimDigestTimer = null;
+    }
     bossByChannel.delete(channel.id);
   }
 }
@@ -1366,9 +1431,13 @@ async function spawnBoss(channel, bossId, withPing = true) {
     roundNo: 0,
     activeAction: null,
     hudMessageId: null,
+    summaryMessageId: null,
     raidMessageIds: [],
     reverseUsed: new Set(),
     personalDefeatedSent: new Set(),
+    eliminationAnnounced: new Set(),
+    elimNoticeQueue: new Map(),
+    elimDigestTimer: null,
     started: false,
     starting: false,
     joinEndsAt: Date.now() + Number(def.joinMs || 0),
