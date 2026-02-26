@@ -3,6 +3,7 @@ const {
   PermissionsBitField,
   AttachmentBuilder,
   MessageFlags,
+  EmbedBuilder,
   ContainerBuilder,
   TextDisplayBuilder,
   SeparatorBuilder,
@@ -140,6 +141,7 @@ async function applyHit(uid, boss, channel, reasonText) {
   st.hits++;
   const eliminated = st.hits >= maxHits;
   if (eliminated) {
+    await announceElimination(channel, boss, uid, reasonText);
     await sendImmediateDefeatedCard(uid, boss, channel, reasonText);
   }
   return {
@@ -226,6 +228,64 @@ function hpBarText(pct, width = 20) {
   return `${"#".repeat(fill)}${"-".repeat(Math.max(0, width - fill))}`;
 }
 
+function currentRoundDef(boss) {
+  const rounds = Array.isArray(boss?.def?.rounds) ? boss.def.rounds : [];
+  const idx = Math.max(0, Math.min(rounds.length - 1, Number(boss?.roundNo || 1) - 1));
+  return rounds[idx] || null;
+}
+
+function mediaUrlFromRound(round, fallback = "") {
+  const v = String(round?.media || fallback || "").trim();
+  return /^https?:\/\//i.test(v) ? v : "";
+}
+
+function fightEmbedColor(eventKey) {
+  return eventKey === "jjk" ? 0xdc5c8f : 0xf6a44d;
+}
+
+function buildFightEmbedPayload(boss, opts = {}) {
+  const alive = aliveIds(boss).length;
+  const joined = boss?.participants?.size || 0;
+  const roundCount = Array.isArray(boss?.def?.rounds) ? boss.def.rounds.length : 1;
+  const hpLeft = Math.max(0, Math.floor(boss?.currentHp || 0));
+  const hpTotal = Math.max(1, Math.floor(boss?.totalHp || 1));
+  const hpPct = getHpPercent(boss);
+  const phase = String(opts.phase || "LIVE").trim();
+  const rawLines = Array.isArray(opts.lines) ? opts.lines : [opts.noteA, opts.noteB, opts.noteC];
+  const lines = rawLines.map((x) => String(x || "").trim()).filter(Boolean).slice(0, 7);
+
+  const embed = new EmbedBuilder()
+    .setColor(fightEmbedColor(boss?.def?.event))
+    .setTitle(`${boss?.def?.icon || ""} ${boss?.def?.name || "Raid"} — ${phase}`)
+    .addFields(
+      { name: "HP", value: `\`${hpBarText(hpPct, 24)}\` **${hpLeft}/${hpTotal}** (${hpPct}%)`, inline: false },
+      { name: "Round", value: `**${Math.max(1, Number(boss?.roundNo || 1))}/${Math.max(1, roundCount)}**`, inline: true },
+      { name: "Alive", value: `**${alive}/${joined}**`, inline: true }
+    )
+    .setTimestamp();
+
+  if (lines.length) embed.setDescription(lines.map((x) => `• ${x}`).join("\n"));
+
+  const mediaUrl = String(opts.mediaUrl || "").trim();
+  if (mediaUrl) embed.setImage(mediaUrl);
+
+  const payload = { embeds: [embed] };
+  if (opts.components) payload.components = opts.components;
+  return payload;
+}
+
+async function announceElimination(channel, boss, uid, reasonText = "") {
+  try {
+    if (!boss?.eliminationAnnounced) boss.eliminationAnnounced = new Set();
+    if (boss.eliminationAnnounced.has(uid)) return;
+    boss.eliminationAnnounced.add(uid);
+    const maxHits = getMaxHits(boss?.def || {});
+    const reason = String(reasonText || "").trim();
+    const line = reason ? `Reason: ${reason}` : "You were defeated.";
+    await channel.send(`☠️ <@${uid}> is **eliminated** (${maxHits}/${maxHits} hits). ${line}`).catch(() => {});
+  } catch {}
+}
+
 function buildBossSpawnV2Payload(boss, channelId) {
   const fighters = [...boss.participants.values()];
   const joined = fighters.length;
@@ -265,14 +325,13 @@ function trackRaidMessage(boss, msg) {
   boss.raidMessageIds.push(msg.id);
 }
 
-async function sendRoundSummaryV2(channel, boss, title, lines) {
-  const payload = await buildLivePngPayload(boss, {
+async function sendRoundSummaryV2(channel, boss, title, lines, opts = {}) {
+  const round = currentRoundDef(boss);
+  const payload = buildFightEmbedPayload(boss, {
     phase: title,
-    noteA: lines[0] || "",
-    noteB: lines[1] || "",
-    noteC: lines[2] || "",
+    lines,
+    mediaUrl: String(opts.mediaUrl || "").trim() || mediaUrlFromRound(round),
   });
-  if (!payload) return;
   const msg = await channel.send(payload).catch(() => null);
   if (msg?.id) {
     if (!Array.isArray(boss.raidMessageIds)) boss.raidMessageIds = [];
@@ -299,13 +358,17 @@ async function buildLivePngPayload(boss, opts = {}) {
 }
 
 async function upsertRaidHudMessage(channel, boss, phaseLabel, nextRoundSeconds = 0) {
-  const payload = await buildLivePngPayload(boss, {
+  const round = currentRoundDef(boss);
+  const maxHits = getMaxHits(boss.def);
+  const payload = buildFightEmbedPayload(boss, {
     phase: phaseLabel,
-    noteA: `Round ${Math.min((boss.def.rounds || []).length, Math.max(1, Number(boss.roundNo || 1)))}/${(boss.def.rounds || []).length}`,
-    noteB: `Alive ${aliveIds(boss).length} • Joined ${boss.participants.size}`,
-    noteC: nextRoundSeconds > 0 ? `Next in ${nextRoundSeconds}s` : "",
+    lines: [
+      `Round ${Math.min((boss.def.rounds || []).length, Math.max(1, Number(boss.roundNo || 1)))}/${(boss.def.rounds || []).length}`,
+      `Eliminated at ${maxHits}/${maxHits} hits`,
+      nextRoundSeconds > 0 ? `Next in ${nextRoundSeconds}s` : "",
+    ],
+    mediaUrl: mediaUrlFromRound(round),
   });
-  if (!payload) return;
   if (!boss.hudMessageId) {
     const msg = await channel.send(payload).catch(() => null);
     if (msg?.id) {
@@ -435,14 +498,12 @@ async function sendActionWindowPng(channel, boss, opts = {}) {
   const timerLine = Number.isFinite(opts.windowSec) && opts.windowSec > 0
     ? `Window ends in ${opts.windowSec}s`
     : String(opts.noteC || "").trim();
-  const payload = await buildLivePngPayload(boss, {
+  const payload = buildFightEmbedPayload(boss, {
     phase: opts.phase || "ACTION WINDOW",
-    noteA: `Status: ${status}`,
-    noteB: objective,
-    noteC: timerLine,
+    lines: [`Status: ${status}`, objective, timerLine],
+    mediaUrl: String(opts.mediaUrl || "").trim() || mediaUrlFromRound(currentRoundDef(boss)),
     components: opts.actionRows || [],
   });
-  if (!payload) return null;
   const msg = await channel.send(payload).catch(() => null);
   trackRaidMessage(boss, msg);
   return msg;
@@ -455,14 +516,12 @@ async function editActionWindowPng(msg, boss, opts = {}) {
   const timerLine = Number.isFinite(opts.windowSec) && opts.windowSec > 0
     ? `Window ends in ${opts.windowSec}s`
     : String(opts.noteC || "").trim();
-  const payload = await buildLivePngPayload(boss, {
+  const payload = buildFightEmbedPayload(boss, {
     phase: opts.phase || "ACTION WINDOW",
-    noteA: `Status: ${status}`,
-    noteB: objective,
-    noteC: timerLine,
+    lines: [`Status: ${status}`, objective, timerLine],
+    mediaUrl: String(opts.mediaUrl || "").trim() || mediaUrlFromRound(currentRoundDef(boss)),
     components: opts.actionRows || [],
   });
-  if (!payload) return;
   await msg.edit(payload).catch(() => {});
 }
 
@@ -952,20 +1011,34 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         boss.activeAction = null;
 
         const nowAlive = aliveIds(boss);
+        let successCount = 0;
+        let failCount = 0;
+        const eliminated = [];
         for (const uid of nowAlive) {
           const picked = action?.choice?.get(uid);
           if (picked === r.correct) {
             const player = await getPlayer(uid);
             const add = computeRaidDamageGain(boss.def, player);
             bankSuccess(uid, boss, add);
+            successCount += 1;
           } else {
-            await applyHit(uid, boss, channel, `chose wrong!`);
+            const hit = await applyHit(uid, boss, channel, `chose wrong!`);
+            failCount += 1;
+            if (hit?.eliminated) eliminated.push(hit.name);
           }
           await sleep(140);
         }
 
+        await sendRoundSummaryV2(channel, boss, `${r.title || ("Round " + (i + 1))} - Result`, [
+          `Correct choices: **${successCount}**`,
+          `Wrong/timeout: **${failCount}**`,
+          eliminated.length ? `Eliminated: ${eliminated.join(", ")}` : "",
+        ]);
+
         if (r.afterText) {
-          await sendRoundSummaryV2(channel, boss, "Phase Outcome", [r.afterText]);
+          await sendRoundSummaryV2(channel, boss, "Phase Outcome", [r.afterText], {
+            mediaUrl: String(r.afterMedia || "").trim() || mediaUrlFromRound(r),
+          });
         }
 
         await upsertRaidHudMessage(channel, boss, r.title || ("Round " + (i + 1)));
@@ -979,6 +1052,17 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
 
     
       if (r.type === "scripted_hit_all") {
+        if (Array.isArray(r.spamLines) && r.spamLines.length) {
+          const txt = r.spamLines
+            .map((x) => String(x || "").trim())
+            .filter(Boolean)
+            .slice(0, 6);
+          if (txt.length) {
+            await sendRoundSummaryV2(channel, boss, "System Alert", txt, {
+              mediaUrl: mediaUrlFromRound(r),
+            });
+          }
+        }
         await sleep(r.delayMs || 5000);
         await sendRoundSummaryV2(channel, boss, `${r.title || ("Round " + (i + 1))} - Alert`, [
           "Adaptation surge detected.",
@@ -994,7 +1078,9 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         }
 
         if (r.endText) {
-          await sendRoundSummaryV2(channel, boss, "Adaptation Surge", [r.endText]);
+          await sendRoundSummaryV2(channel, boss, "Adaptation Surge", [r.endText], {
+            mediaUrl: String(r.endMedia || "").trim() || mediaUrlFromRound(r),
+          });
         }
 
         await sendRoundSummaryV2(channel, boss, `${r.title || ("Round " + (i + 1))} - Result`, [
@@ -1049,6 +1135,9 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         boss.activeAction = null;
 
         const nowAlive = aliveIds(boss);
+        let successCount = 0;
+        let failCount = 0;
+        const eliminated = [];
         for (const uid of nowAlive) {
           const set = action?.pressed?.get(uid) || new Set();
           const ok = (action?.requiredKeys || []).every((k) => set.has(k));
@@ -1057,11 +1146,20 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
             const player = await getPlayer(uid);
             const add = computeRaidDamageGain(boss.def, player);
             bankSuccess(uid, boss, add);
+            successCount += 1;
           } else {
-            await applyHit(uid, boss, channel, `couldn't regain focus in time!`);
+            const hit = await applyHit(uid, boss, channel, `couldn't regain focus in time!`);
+            failCount += 1;
+            if (hit?.eliminated) eliminated.push(hit.name);
           }
           await sleep(140);
         }
+
+        await sendRoundSummaryV2(channel, boss, `${r.title || ("Round " + (i + 1))} - Result`, [
+          `Completed all buttons: **${successCount}**`,
+          `Failed focus check: **${failCount}**`,
+          eliminated.length ? `Eliminated: ${eliminated.join(", ")}` : "",
+        ]);
 
         await upsertRaidHudMessage(channel, boss, r.title || ("Round " + (i + 1)));
 
@@ -1109,19 +1207,33 @@ async function runBoss(channel, boss, bonusMaxBleach = 30, bonusMaxJjk = 30) {
         boss.activeAction = null;
 
         const nowAlive = aliveIds(boss);
+        let correctCount = 0;
+        let wrongCount = 0;
+        const eliminated = [];
         for (const uid of nowAlive) {
           const picked = action?.choice?.get(uid);
           if (picked !== r.correct) {
             if (eliminate(uid, boss)) {
+              wrongCount += 1;
+              const st = boss.participants.get(uid);
+              if (st?.displayName) eliminated.push(safeName(st.displayName));
+              await announceElimination(channel, boss, uid, "picked the wrong final answer.");
               await sendImmediateDefeatedCard(uid, boss, channel, "picked the wrong final answer.");
             }
           } else {
             const player = await getPlayer(uid);
             const add = computeRaidDamageGain(boss.def, player);
             bankSuccess(uid, boss, add);
+            correctCount += 1;
           }
           await sleep(120);
         }
+
+        await sendRoundSummaryV2(channel, boss, `${r.title || ("Round " + (i + 1))} - Result`, [
+          `Correct finisher: **${correctCount}**`,
+          `Wrong answer: **${wrongCount}**`,
+          eliminated.length ? `Eliminated: ${eliminated.join(", ")}` : "",
+        ]);
 
         await upsertRaidHudMessage(channel, boss, r.title || ("Round " + (i + 1)));
 

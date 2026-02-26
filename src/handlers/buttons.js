@@ -813,8 +813,15 @@ module.exports = async function handleButtons(interaction) {
     const uid = interaction.user.id;
     const st = boss.participants.get(uid);
     const maxHits = boss.def.maxHits ?? 2;
-    if (!st || st.hits >= maxHits) {
-      await interaction.followUp({ content: "❌ You are not in the fight.", ephemeral: true }).catch(() => {});
+    if (!st) {
+      await interaction.followUp({ content: "❌ You are not in this raid.", ephemeral: true }).catch(() => {});
+      return;
+    }
+    if (st.hits >= maxHits) {
+      await interaction.followUp({
+        content: `☠️ You are eliminated (${maxHits}/${maxHits} hits). You can no longer act in this fight.`,
+        ephemeral: true,
+      }).catch(() => {});
       return;
     }
 
