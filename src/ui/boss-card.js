@@ -164,7 +164,7 @@ function sanitizeDisplayText(input) {
     .replace(/\*\*/g, "")
     .replace(/__/g, "")
     .replace(/`/g, "")
-    .replace(/[|¦Â]+/g, " ")
+    .replace(/[|Â¦Ã‚]+/g, " ")
     .replace(/[\r\n\t]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -295,7 +295,7 @@ function drawDeadOverlay(ctx, w, h) {
   ctx.lineWidth = 1.6;
   ctx.stroke();
 
-  glowText(ctx, "DEAFETED", 500, 432, {
+  glowText(ctx, "DEFEATED", 500, 432, {
     size: 74,
     gradA: "#ffb3b3",
     gradB: "#ff2d2d",
