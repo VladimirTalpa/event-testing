@@ -1,16 +1,10 @@
-// Existing content above... 
+// All slash commands
+const slashCommands = [
+  { name: 'dungeon_spawn', description: 'Spawn a dungeon' },
+  // Include other slash commands here
+];
 
-  new SlashCommandBuilder()
-    .setName("dungeon_spawn")
-    .setDescription("Spawn a new dungeon (staff only)")
-    .addStringOption((opt) =>
-      opt
-        .setName("event")
-        .setDescription("Which event?")
-        .setRequired(true)
-        .addChoices(
-          { name: "Bleach", value: "bleach" },
-          { name: "Jujutsu Kaisen", value: "jjk" }
-        )
-    ),
-// Existing content below...
+// Processing the commands
+const processedCommands = slashCommands.map(command => {
+  return command.name;
+});
