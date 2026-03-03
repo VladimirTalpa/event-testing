@@ -9,7 +9,6 @@ const handleSlash = require("./handlers/slash");
 const handleButtons = require("./handlers/buttons");
 const handleSelects = require("./handlers/selects");
 const handleModals = require("./handlers/modals");
-const handleDungeon = require("./handlers/dungeon");
 
 registerCanvasFonts();
 
@@ -25,12 +24,6 @@ client.once(Events.ClientReady, async () => {
 
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
-    // Handle dungeon interactions first
-    if (interaction.customId?.startsWith("dungeon_")) {
-      return await handleDungeon(interaction);
-    }
-
-    // Then handle other interactions
     if (interaction.isChatInputCommand()) return await handleSlash(interaction);
     if (interaction.isButton()) return await handleButtons(interaction);
     if (interaction.isStringSelectMenu()) return await handleSelects(interaction);
