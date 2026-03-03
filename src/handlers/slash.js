@@ -1874,5 +1874,53 @@ module.exports = async function handleSlash(interaction) {
   }
 };
 
+// ===== DUNGEON SPAWN =====
+if (interaction.commandName === "dungeon_spawn") {
+  const event = interaction.options.getString("event");
+  const { spawnDungeon } = require("../core/dungeon");
+  const { EmbedBuilder, ButtonBuilder, ActionRowBuilder, ButtonStyle } = require("discord.js");
 
+  await interaction.deferReply();
+
+  try {
+    const dungeon = await spawnDungeon(event, interaction.channelId);
+
+    const embed = new EmbedBuilder()
+      .setColor(0x7b2cff)
+      .setTitle(`🏰 ${event.toUpperCase()} Dungeon Spawned!`)
+      .setDescription(
+        `A new dungeon has appeared! Join and select your best cards to battle against other players.\n\n` +
+        `⏱️ **Registration:** 5 minutes\n` +
+        `🎴 **Card Selection:** 3 minutes\n` +
+        `⚔️ **Battle:** Automatic 5 rounds`
+      )
+      .addFields(
+        { name: "Event", value: event.toUpperCase(), inline: true },
+        { name: "Participants", value: `0`, inline: true },
+        { name: "Status", value: dungeon.status, inline: false },
+        { name: "Dungeon ID", value: dungeon.id, inline: false }
+      );
+
+    const joinButton = new ButtonBuilder()
+      .setCustomId(`dungeon_join:${dungeon.id}`)
+      .setLabel("Join")
+      .setStyle(ButtonStyle.Success)
+      .setEmoji("⚔️");
+
+    const infoButton = new ButtonBuilder()
+      .setCustomId(`dungeon_info:${dungeon.id}`)
+      .setLabel("Info")
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji("ℹ️");
+
+    const row = new ActionRowBuilder().addComponents(joinButton, infoButton);
+
+    await interaction.editReply({ embeds: [embed], components: [row] });
+  } catch (error) {
+    console.error("Dungeon spawn error:", error);
+    await interaction.editReply({ content: "❌ Failed to spawn dungeon!", ephemeral: true });
+  }
+
+  return;
+}
 
