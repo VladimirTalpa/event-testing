@@ -1,71 +1,67 @@
-const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require("discord.js");
+const {
+  EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder
+} = require("discord.js");
 const { getDungeon, addParticipant, activeDungeons } = require("../core/dungeon");
+const { getPlayer } = require("../core/players");
+const { getCardById, cardStatsAtLevel } = require("../data/cards");
 
 module.exports = async function handleDungeon(interaction) {
-  // === JOIN RAID ===
+  // JOIN RAID — сразу предлагаем выбрать карту
   if (interaction.customId?.startsWith("dungeon_join:")) {
     const dungeonId = interaction.customId.slice("dungeon_join:".length);
     const dungeon = getDungeon(dungeonId);
+    if (!dungeon) return interaction.reply({ content: "Dungeon expired.", ephemeral: true });
 
-    if (!dungeon) {
-      return interaction.reply({ content: "❌ Этот данж уже неактивен или не найден.", ephemeral: true });
-    }
-
-    // П��остой уникальный идентификатор игрока (discord user id)
     const userId = interaction.user.id;
-    if (dungeon.participants.includes(userId)) {
-      return interaction.reply({ content: "❗ Вы уже присоединились к этому рейду.", ephemeral: true });
-    }
+    if (dungeon.participants.includes(userId)) return interaction.reply({ content: "Already joined.", ephemeral: true });
     addParticipant(dungeonId, userId);
 
-    await interaction.reply({ content: `✅ Вы присоединились к рейду! Ваш id: \`${userId}\``, ephemeral: true });
+    // теперь создаём select menu из всех карт игрока
+    const player = await getPlayer(userId);
+    const eventKey = dungeon.event;
+    const cards = Object.entries((player.cards?.[eventKey] || {}))
+      .filter(([_, amt]) => amt > 0)
+      .map(([cardId]) => getCardById(eventKey, cardId))
+      .filter(Boolean);
+
+    if (!cards.length) {
+      return interaction.reply({ content: "You have no cards for this event!", ephemeral: true });
+    }
+
+    // Строим select menu
+    const options = cards.slice(0, 25).map(card => ({
+      label: card.name,
+      value: card.id,
+    }));
+    const select = new StringSelectMenuBuilder()
+      .setCustomId(`dungeon_select_card:${dungeonId}`)
+      .setPlaceholder("Select a card for battle")
+      .addOptions(options);
+
+    const row = new ActionRowBuilder().addComponents(select);
+
+    await interaction.reply({
+      content: "Select a card to join the dungeon raid.",
+      components: [row],
+      ephemeral: true,
+    });
   }
 
-  // === INFO ===
-  else if (interaction.customId?.startsWith("dungeon_info:")) {
-    const dungeonId = interaction.customId.slice("dungeon_info:".length);
+  // SELECT CARD — обработка выбора
+  else if (interaction.customId?.startsWith("dungeon_select_card:")) {
+    const dungeonId = interaction.customId.slice("dungeon_select_card:".length);
     const dungeon = getDungeon(dungeonId);
 
-    if (!dungeon) {
-      return interaction.reply({ content: "❌ Информация: этот рейд завершен или не найден!", ephemeral: true });
-    }
+    if (!dungeon) return interaction.reply({ content: "Dungeon expired.", ephemeral: true });
 
-    const embed = new EmbedBuilder()
-      .setColor(0x7b2cff)
-      .setTitle(`🏰 ${dungeon.event.toUpperCase()} Dungeon Info`)
-      .setDescription(
-        `**Цель:**  Нанести 1000 урона\n` +
-        `**Участников:** ${dungeon.participants.length}\n` +
-        `**Статус:** ${dungeon.status}\n` +
-        `Данж будет доступен ~${Math.round((dungeon.endsAt - Date.now()) / 1000)} сек.`
-      );
+    const userId = interaction.user.id;
+    const selected = interaction.values[0];
+    // Можно хранить выбор: dungeon.selectedCards = {userId: cardId, ...}
+    if (!dungeon.selectedCards) dungeon.selectedCards = {};
+    dungeon.selectedCards[userId] = selected;
 
-    return interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply({ content: `You selected card: ${selected}.`, ephemeral: true });
   }
 
-  // === START BATTLE ===
-  else if (interaction.customId?.startsWith("dungeon_battle_start:")) {
-    const dungeonId = interaction.customId.slice("dungeon_battle_start:".length);
-    const dungeon = getDungeon(dungeonId);
-
-    if (!dungeon) {
-      return interaction.reply({ content: "❌ Данж не найден или время истекло.", ephemeral: true });
-    }
-
-    // Можно добавить тут свою логику старта боя
-    if (dungeon.status !== "Registration") {
-      return interaction.reply({ content: "Бой уже начат!", ephemeral: true });
-    }
-    dungeon.status = "Battle";
-
-    const embed = new EmbedBuilder()
-      .setColor(0xED4245)
-      .setTitle("⚡ Битва с рейдовым данжем началась!")
-      .setDescription(
-        `Участников: **${dungeon.participants.length}**\n` +
-        `Бой будет длиться несколько раундов... (логика боя — твоя следующая задача)\n`
-      );
-
-    return interaction.reply({ embeds: [embed] });
-  }
+  // ... остальные действия ...
 };
