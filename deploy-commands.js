@@ -56,6 +56,7 @@ const commands = [
     .setDescription("Leaderboard (choose event currency)")
     .addStringOption((opt) => opt.setName("event").setDescription("Which event leaderboard?").setRequired(true).addChoices(...EVENT_CHOICES)),
 
+  //  new give
   new SlashCommandBuilder()
     .setName("give")
     .setDescription("Transfer currency to another player")
@@ -129,6 +130,7 @@ const commands = [
     .setName("testcardpull")
     .setDescription("Test pull: always gives bl_ichigo (staff only)"),
 
+  //  pvpclash
   new SlashCommandBuilder()
     .setName("pvpclash")
     .setDescription("Challenge a player to a PvP clash (stake currency)")
@@ -231,21 +233,6 @@ const commands = [
         .addStringOption((opt) => opt.setName("event").setDescription("Bleach or JJK").setRequired(true).addChoices(...EVENT_CHOICES))
         .addStringOption((opt) => opt.setName("card_a").setDescription("First parent card id/name").setRequired(true))
         .addStringOption((opt) => opt.setName("card_b").setDescription("Second parent card id/name").setRequired(true))
-    ),
-
-  // ===== DUNGEON SPAWN =====
-  new SlashCommandBuilder()
-    .setName("dungeon_spawn")
-    .setDescription("Spawn a new dungeon raid (staff only)")
-    .addStringOption((opt) =>
-      opt
-        .setName("event")
-        .setDescription("Which event?")
-        .setRequired(true)
-        .addChoices(
-          { name: "Bleach", value: "bleach" },
-          { name: "Jujutsu Kaisen", value: "jjk" }
-        )
     ),
 ].map((c) => c.toJSON());
 
