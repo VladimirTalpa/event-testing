@@ -233,9 +233,10 @@ const commands = [
         .addStringOption((opt) => opt.setName("card_b").setDescription("Second parent card id/name").setRequired(true))
     ),
 
+  // ===== DUNGEON SPAWN =====
   new SlashCommandBuilder()
     .setName("dungeon_spawn")
-    .setDescription("Spawn a new dungeon (staff only)")
+    .setDescription("Spawn a new dungeon raid (staff only)")
     .addStringOption((opt) =>
       opt
         .setName("event")
