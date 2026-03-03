@@ -41,6 +41,27 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
     } catch {}
   }
+
+  const handleDungeon = require("./handlers/dungeon");
+
+client.on(Events.InteractionCreate, async (interaction) => {
+  try {
+    // ✅ ДОБАВИТЬ ЭТУ СТРОКУ ПЕРВОЙ:
+    if (interaction.customId?.startsWith("dungeon_")) {
+      return await handleDungeon(interaction);
+    }
+
+    // Остальной код:
+    if (interaction.isChatInputCommand()) return await handleSlash(interaction);
+    if (interaction.isButton()) return await handleButtons(interaction);
+    if (interaction.isStringSelectMenu()) return await handleSelects(interaction);
+    if (interaction.isModalSubmit()) return await handleModals(interaction);
+  } catch (e) {
+    // ... error handling
+  }
+});
 });
 
 client.login(process.env.DISCORD_TOKEN);
+
+
