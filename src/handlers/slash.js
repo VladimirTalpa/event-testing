@@ -99,7 +99,49 @@ const CARDSLASH_LIMIT_BYPASS_ROLE_IDS = new Set([
   "1287879457025163325",
 ]);
 
-// ... [Все остальные функции как было в оригинале] ...
+function hasCardslashLimitBypass(member) {
+  if (!member) return false;
+  if (member?.roles?.cache) {
+    for (const rid of CARDSLASH_LIMIT_BYPASS_ROLE_IDS) {
+      if (member.roles.cache.has(rid)) return true;
+    }
+    return false;
+  }
+  if (Array.isArray(member?.roles)) {
+    const set = new Set(member.roles.map((x) => String(x)));
+    for (const rid of CARDSLASH_LIMIT_BYPASS_ROLE_IDS) {
+      if (set.has(rid)) return true;
+    }
+  }
+  if (Array.isArray(member?._roles)) {
+    const set = new Set(member._roles.map((x) => String(x)));
+    for (const rid of CARDSLASH_LIMIT_BYPASS_ROLE_IDS) {
+      if (set.has(rid)) return true;
+    }
+  }
+  return false;
+}
+
+async function canBypassCardslashLimit(interaction) {
+  if (hasCardslashLimitBypass(interaction?.member)) return true;
+  const guild = interaction?.guild;
+  const userId = String(interaction?.user?.id || "");
+  if (!guild || !userId) return false;
+  const fetched = await guild.members.fetch(userId).catch(() => null);
+  return hasCardslashLimitBypass(fetched);
+}
+
+function normalizeEventKey(v) {
+  return v === "jjk" ? "jjk" : "bleach";
+}
+
+function utcDayKey(ts = Date.now()) {
+  const d = new Date(ts);
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 
 module.exports = async function handleSlash(interaction) {
   const channel = interaction.channel;
@@ -107,15 +149,54 @@ module.exports = async function handleSlash(interaction) {
     return interaction.reply({ content: "❌ Use commands in a text channel.", ephemeral: true });
   }
 
-  // ... [Все команды от balance до adminadd] ...
+  // ===== BALANCE COMMAND =====
+  if (interaction.commandName === "balance") {
+    const target = interaction.options.getUser("user") || interaction.user;
+    const p = await getPlayer(target.id);
+    return interaction.reply({
+      content:
+        `**${safeName(target.username)}**\n` +
+        `${E_REIATSU} Reiatsu: **${p.bleach.reiatsu}**\n` +
+        `${E_CE} Cursed Energy: **${p.jjk.cursedEnergy}**\n` +
+        `${E_DRAKO} Drako: **${p.drako}**`,
+      ephemeral: false,
+    });
+  }
 
+  // ===== INVENTORY COMMAND =====
+  if (interaction.commandName === "inventory") {
+    const eventKey = interaction.options.getString("event", true);
+    const p = await getPlayer(interaction.user.id);
+    const png = await buildInventoryImage(eventKey, p, interaction.user, BLEACH_BONUS_MAX, JJK_BONUS_MAX);
+    const file = new AttachmentBuilder(png, { name: `inventory-${eventKey}.png` });
+    return interaction.reply({
+      files: [file],
+      ephemeral: true,
+    });
+  }
+
+  // ===== SHOP COMMAND =====
+  if (interaction.commandName === "shop") {
+    const eventKey = interaction.options.getString("event", true);
+    const p = await getPlayer(interaction.user.id);
+    return interaction.reply(buildShopV2Payload({
+      eventKey,
+      player: p,
+      page: 0,
+      selectedKey: null,
+      withFlags: true,
+      ephemeral: false,
+    }));
+  }
+
+  // ===== DUNGEON SPAWN COMMAND =====
   if (interaction.commandName === "dungeon_spawn") {
     if (!hasEventRole(interaction.member)) {
       return interaction.reply({ content: "⛔ No permission.", ephemeral: true });
     }
     
     const { spawnDungeon } = require("../core/dungeon");
-    const event = interaction.options.getString("event");
+    const event = interaction.options.getString("event", true);
     
     await interaction.deferReply();
     
