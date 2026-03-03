@@ -24,20 +24,10 @@ client.once(Events.ClientReady, async () => {
 
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
-    // Сначала специальные интеракции (кастомные ID)
-    if (interaction.customId?.startsWith("dungeon_")) {
-      return await require("./handlers/dungeon")(interaction);
-    }
-
-    // Slash-команды
     if (interaction.isChatInputCommand()) return await handleSlash(interaction);
-    // Кнопки
     if (interaction.isButton()) return await handleButtons(interaction);
-    // Select-меню
     if (interaction.isStringSelectMenu()) return await handleSelects(interaction);
-    // Модалки
     if (interaction.isModalSubmit()) return await handleModals(interaction);
-
   } catch (e) {
     console.error("Interaction error:", e);
     try {
