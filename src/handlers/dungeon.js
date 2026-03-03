@@ -1,35 +1,16 @@
-// Dungeon Interaction Handler
-
-class Dungeon {
-    constructor(name, description) {
-        this.name = name;
-        this.description = description;
-        this.rooms = [];
+module.exports = async function handleDungeon(interaction) {
+  try {
+    if (interaction.customId?.startsWith("dungeon_join:")) {
+      await interaction.deferReply({ ephemeral: true });
+      await interaction.editReply({ content: "✅ You joined the dungeon!" });
+      return;
     }
-
-    addRoom(room) {
-        this.rooms.push(room);
+    if (interaction.customId?.startsWith("dungeon_info:")) {
+      await interaction.deferReply({ ephemeral: true });
+      await interaction.editReply({ content: "🏰 Dungeon Info" });
+      return;
     }
-
-    describe() {
-        return `${this.name}: ${this.description}`;
-    }
-
-    listRooms() {
-        return this.rooms.map(room => room.describe()).join('\n');
-    }
-}
-
-class Room {
-    constructor(name, description) {
-        this.name = name;
-        this.description = description;
-    }
-
-    describe() {
-        return `${this.name}: ${this.description}`;
-    }
-}
-
-// Export the Dungeon class for use in other parts of the application
-module.exports = Dungeon;
+  } catch (error) {
+    console.error("Dungeon handler error:", error);
+  }
+};
