@@ -1,45 +1,71 @@
-// Import necessary modules
-const { generateRandomEncounter } = require('../utils/encounterGenerator');
-const { DUNGEON_SIZE, DUNGEON_LAYOUT } = require('../constants');
+const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require("discord.js");
+const { getDungeon, addParticipant, activeDungeons } = require("../core/dungeon");
 
-// Function to create a new dungeon
-function createDungeon() {
-    const dungeon = {
-        layout: DUNGEON_LAYOUT,
-        size: DUNGEON_SIZE,
-        rooms: [],
-    };
-    // Initialize rooms based on layout
-    initializeRooms(dungeon);
-    return dungeon;
-}
+module.exports = async function handleDungeon(interaction) {
+  // === JOIN RAID ===
+  if (interaction.customId?.startsWith("dungeon_join:")) {
+    const dungeonId = interaction.customId.slice("dungeon_join:".length);
+    const dungeon = getDungeon(dungeonId);
 
-// Function to initialize rooms in the dungeon
-function initializeRooms(dungeon) {
-    for (let i = 0; i < dungeon.size; i++) {
-        dungeon.rooms.push({
-            id: i,
-            enemies: [],
-            items: [],
-        });
+    if (!dungeon) {
+      return interaction.reply({ content: "❌ Этот данж уже неактивен или не найден.", ephemeral: true });
     }
-}
 
-// Function to enter the dungeon
-function enterDungeon(dungeon) {
-    console.log('Entering dungeon...');
-    return dungeon;
-}
+    // П��остой уникальный идентификатор игрока (discord user id)
+    const userId = interaction.user.id;
+    if (dungeon.participants.includes(userId)) {
+      return interaction.reply({ content: "❗ Вы уже присоединились к этому рейду.", ephemeral: true });
+    }
+    addParticipant(dungeonId, userId);
 
-// Function to exit the dungeon
-function exitDungeon() {
-    console.log('Exiting dungeon...');
-    return null;
-}
+    await interaction.reply({ content: `✅ Вы присоединились к рейду! Ваш id: \`${userId}\``, ephemeral: true });
+  }
 
-// Export the functions
-module.exports = {
-    createDungeon,
-    enterDungeon,
-    exitDungeon,
+  // === INFO ===
+  else if (interaction.customId?.startsWith("dungeon_info:")) {
+    const dungeonId = interaction.customId.slice("dungeon_info:".length);
+    const dungeon = getDungeon(dungeonId);
+
+    if (!dungeon) {
+      return interaction.reply({ content: "❌ Информация: этот рейд завершен или не найден!", ephemeral: true });
+    }
+
+    const embed = new EmbedBuilder()
+      .setColor(0x7b2cff)
+      .setTitle(`🏰 ${dungeon.event.toUpperCase()} Dungeon Info`)
+      .setDescription(
+        `**Цель:**  Нанести 1000 урона\n` +
+        `**Участников:** ${dungeon.participants.length}\n` +
+        `**Статус:** ${dungeon.status}\n` +
+        `Данж будет доступен ~${Math.round((dungeon.endsAt - Date.now()) / 1000)} сек.`
+      );
+
+    return interaction.reply({ embeds: [embed], ephemeral: true });
+  }
+
+  // === START BATTLE ===
+  else if (interaction.customId?.startsWith("dungeon_battle_start:")) {
+    const dungeonId = interaction.customId.slice("dungeon_battle_start:".length);
+    const dungeon = getDungeon(dungeonId);
+
+    if (!dungeon) {
+      return interaction.reply({ content: "❌ Данж не найден или время истекло.", ephemeral: true });
+    }
+
+    // Можно добавить тут свою логику старта боя
+    if (dungeon.status !== "Registration") {
+      return interaction.reply({ content: "Бой уже начат!", ephemeral: true });
+    }
+    dungeon.status = "Battle";
+
+    const embed = new EmbedBuilder()
+      .setColor(0xED4245)
+      .setTitle("⚡ Битва с рейдовым данжем началась!")
+      .setDescription(
+        `Участников: **${dungeon.participants.length}**\n` +
+        `Бой будет длиться несколько раундов... (логика боя — твоя следующая задача)\n`
+      );
+
+    return interaction.reply({ embeds: [embed] });
+  }
 };
