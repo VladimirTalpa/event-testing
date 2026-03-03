@@ -23,6 +23,18 @@ client.once(Events.ClientReady, async () => {
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
+
+
+client.on(Events.InteractionCreate, async (interaction) => {
+  try {
+    if (interaction.customId?.startsWith("dungeon_")) {
+      return await require("./handlers/dungeon")(interaction);
+    }
+
+    if (interaction.isChatInputCommand()) return await handleSlash(interaction);
+  } catch (e) {
+  }
+});
   try {
     if (interaction.isChatInputCommand()) return await handleSlash(interaction);
     if (interaction.isButton()) return await handleButtons(interaction);
