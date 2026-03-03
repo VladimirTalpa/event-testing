@@ -1872,6 +1872,61 @@ module.exports = async function handleSlash(interaction) {
       ephemeral: false,
     });
   }
+
+  if (interaction.commandName === "dungeon_spawn") {
+  if (!hasEventRole(interaction.member)) {
+    return interaction.reply({ content: "⛔ No permission.", ephemeral: true });
+  }
+  
+  const { spawnDungeon } = require("../core/dungeon");
+  const event = interaction.options.getString("event");
+  
+  await interaction.deferReply();
+  
+  try {
+    const dungeon = await spawnDungeon(event, interaction.channelId);
+    
+    const embed = new EmbedBuilder()
+      .setColor(0x7b2cff)
+      .setTitle(`🏰 ${event.toUpperCase()} Dungeon Spawned!`)
+      .setDescription(
+        `A new raid has appeared!\n\n` +
+        `**Objective:** Deal 1000 damage\n` +
+        `**Rounds:** Up to 5 rounds\n` +
+        `**Time Limit:** 10 minutes`
+      )
+      .addFields(
+        { name: "Dungeon ID", value: `\`${dungeon.id}\``, inline: true },
+        { name: "Event", value: event.toUpperCase(), inline: true }
+      )
+      .setFooter({ text: "Click JOIN to participate!" });
+    
+    const joinBtn = new ButtonBuilder()
+      .setCustomId(`dungeon_join:${dungeon.id}`)
+      .setLabel("Join Raid")
+      .setStyle(ButtonStyle.Success)
+      .setEmoji("⚔️");
+    
+    const infoBtn = new ButtonBuilder()
+      .setCustomId(`dungeon_info:${dungeon.id}`)
+      .setLabel("Info")
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji("ℹ️");
+    
+    const startBtn = new ButtonBuilder()
+      .setCustomId(`dungeon_battle_start:${dungeon.id}`)
+      .setLabel("Start Battle")
+      .setStyle(ButtonStyle.Danger)
+      .setEmoji("⚡");
+    
+    const row = new ActionRowBuilder().addComponents(joinBtn, infoBtn, startBtn);
+    
+    await interaction.editReply({ embeds: [embed], components: [row] });
+  } catch (error) {
+    console.error("Dungeon spawn error:", error);
+    await interaction.editReply({ content: "❌ Failed to spawn dungeon!", ephemeral: true });
+  }
+}
 };
 
 
